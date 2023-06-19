@@ -106,16 +106,6 @@ class TrainerTeacherStudent:
         self.t_test_loss = self.__gen_teacher_test__()
         self.s_test_loss = self.__gen_student_test__()
 
-        self.log = {'t': {'lr': [],
-                          'epochs': [[0, 0]],
-                          'current': 0
-                          },
-                    's': {'lr': [],
-                          'epochs': [[0, 0]],
-                          'current': 0
-                          }
-                    }
-
         self.div_loss = div_loss
         self.temperature = temperature
         self.alpha = alpha
@@ -181,7 +171,7 @@ class TrainerTeacherStudent:
         return test_loss
 
     def current_title(self):
-        return 'Te' + str(self.log['t']['current']) + '_Se' + str(self.log['s']['current'])
+        return 'Te' + str(self.t_train_loss['epoch'][-1][-1]) + '_Se' + str(self.strain_loss['epoch'][-1][-1])
 
     def logger(self, mode='t'):
         def wrapper(func):
@@ -206,6 +196,8 @@ class TrainerTeacherStudent:
         return wrapper
 
     def train_teacher(self, autosave=False, notion=''):
+        if self.args['t'].learning_rate != self.t_train_loss['lr'][-1] or not self.t_train_loss['t']['lr']:
+            self.log['t']['epochs'][-1][-1] = self.log['t']['current'] + self.args['t'].epochs
 
         for epoch in range(self.args['t'].epochs):
             self.img_encoder.train()
