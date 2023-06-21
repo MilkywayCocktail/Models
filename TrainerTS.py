@@ -10,6 +10,20 @@ import os
 # Trainer of Teacher-student network
 
 
+def timer(func):
+    from functools import wraps
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        start = time.time()
+        result = func(*args, **kwargs)
+        end = time.time()
+        print("\nTotal training time:", end - start, "sec")
+        return result
+
+    return wrapper
+
+
 def bn(channels, batchnorm):
     if batchnorm:
         return nn.BatchNorm2d(channels)
@@ -125,8 +139,8 @@ class TrainerTeacherStudent:
 
     @staticmethod
     def __gen_teacher_train__():
-        t_train_loss = {'lr': [],
-                        'epoch': [],
+        t_train_loss = {'learning_rate': [],
+                        'epochs': [],
                         'train': [],
                         'valid': [],
                         'train_epochs': [],
@@ -137,8 +151,8 @@ class TrainerTeacherStudent:
 
     @staticmethod
     def __gen_student_train__():
-        train_loss = {'lr': [],
-                      'epoch': [],
+        train_loss = {'learning_rate': [],
+                      'epochs': [],
                       'train': [],
                       'valid': [],
                       'train_epochs': [],
@@ -171,33 +185,26 @@ class TrainerTeacherStudent:
         return test_loss
 
     def current_title(self):
-        return 'Te' + str(self.t_train_loss['epoch'][-1][-1]) + '_Se' + str(self.strain_loss['epoch'][-1][-1])
+        return 'Te' + str(self.t_train_loss['epochs'][-1][-1]) + '_Se' + str(self.s_train_loss['epochs'][-1][-1])
 
-    def logger(self, mode='t'):
-        def wrapper(func):
-            from functools import wraps
-
-            @wraps(func)
-            def wrapper_core(*args, **kwargs):
-                start = time.time()
-                func1 = func(*args, **kwargs)
-                end = time.time()
-                print("\nTotal training time:", end - start, "sec")
-
-                if self.args[mode].learning_rate != self.log[mode]['lr'][-1] or not self.log[mode]['lr']:
-                    self.log[mode]['epochs'][-1][-1] = self.log[mode]['current'] + self.args[mode].epochs
-                else:
-                    self.log[mode]['lr'].append(self.args[mode].learning_rate)
-                    self.log[mode]['epochs'].append(
-                        [self.log[mode]['current'], self.log[mode]['current'] + self.args[mode].epochs])
-                self.log[mode]['current'] += self.args[mode].epochs
-                return func1
-            return wrapper_core
-        return wrapper
-
+    @timer
     def train_teacher(self, autosave=False, notion=''):
-        if self.args['t'].learning_rate != self.t_train_loss['lr'][-1] or not self.t_train_loss['t']['lr']:
-            self.log['t']['epochs'][-1][-1] = self.log['t']['current'] + self.args['t'].epochs
+        # First round
+        if not self.t_train_loss['t']['learning_rate']:
+            self.t_train_loss['t']['epochs'].append([0, self.args['t'].epochs])
+            self.t_train_loss['learning_rate'].append(self.args['t'].learning_rate)
+
+        else:
+            last_end = self.t_train_loss['t']['epochs'][-1][1]
+
+            # Not changing learning rate
+            if self.args['t'].learning_rate == self.t_train_loss['lr'][-1]:
+                self.t_train_loss['t']['epochs'][-1][1] = last_end + self.args['t'].epochs
+
+            # Changing learning rate
+            if self.args['t'].learning_rate != self.t_train_loss['lr'][-1]:
+                self.t_train_loss['t']['epochs'].append([last_end, last_end + self.args['t'].epochs])
+                self.t_train_loss['learning_rate'].append(self.args['t'].learning_rate)
 
         for epoch in range(self.args['t'].epochs):
             self.img_encoder.train()
@@ -238,6 +245,7 @@ class TrainerTeacherStudent:
             self.t_train_loss['valid'].append(loss.item())
         self.t_train_loss['valid_epochs'].append(np.average(valid_epoch_loss))
 
+    @timer
     def train_student(self, autosave=False, notion=''):
 
         for epoch in range(self.args['s'].epochs):
@@ -400,8 +408,8 @@ class TrainerTeacherStudent:
         fig.suptitle('Teacher Train Loss')
         axes = fig.subplots(2, 1)
 
-        for i, learning_rate in enumerate(self.log['t']['lr']):
-            [start, end] = self.log['t']['epochs'][i]
+        for i, learning_rate in enumerate(self.t_train_loss['lr']):
+            [start, end] = self.t_train_loss['epochs'][i]
             axes[0].plot(list(range(start, end)),
                          self.t_train_loss['train_epochs'][start: end],
                          label=learning_rate)

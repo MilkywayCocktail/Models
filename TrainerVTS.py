@@ -3,10 +3,8 @@ import torch.nn as nn
 import torch.utils.data as Data
 import numpy as np
 import matplotlib.pyplot as plt
-import time
-import os
 from scipy.stats import norm
-from TrainerTS import MyDataset, split_loader, MyArgs, TrainerTeacherStudent
+from TrainerTS import timer, MyDataset, split_loader, MyArgs, TrainerTeacherStudent
 
 # ------------------------------------- #
 # Trainer of VAE Teacher-student network
@@ -24,13 +22,13 @@ class TrainerVariationalTS(TrainerTeacherStudent):
                  latent_dim=8
                  ):
         super(TrainerVariationalTS, self).__init__(img_encoder=img_encoder, img_decoder=img_decoder, csi_encoder=csi_encoder,
-                                                    teacher_args=teacher_args, student_args=student_args,
-                                                    train_loader=train_loader, valid_loader=valid_loader, test_loader=test_loader,
-                                                    optimizer=optimizer,
-                                                    div_loss=div_loss,
-                                                    img_loss=img_loss,
-                                                    temperature=temperature,
-                                                    alpha=alpha)
+                                                   teacher_args=teacher_args, student_args=student_args,
+                                                   train_loader=train_loader, valid_loader=valid_loader, test_loader=test_loader,
+                                                   optimizer=optimizer,
+                                                   div_loss=div_loss,
+                                                   img_loss=img_loss,
+                                                   temperature=temperature,
+                                                   alpha=alpha)
         self.latent_dim = latent_dim
 
     @staticmethod
@@ -65,22 +63,25 @@ class TrainerVariationalTS(TrainerTeacherStudent):
     def kl_loss(mu, logvar):
         return -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
 
-    def train_teacher(self, autosave=False, notion=''):
-        start = time.time()
+    def current_title(self):
+        return 'Te' + str(self.t_train_loss['epochs'][-1][-1]) + '_Se' + str(self.s_train_loss['epochs'][-1][-1])
 
-        for epoch in range(self.teacher_args.epochs):
+    @timer
+    def train_teacher(self, autosave=False, notion=''):
+
+        for epoch in range(self.args['t'].epochs):
             self.img_encoder.train()
             self.img_decoder.train()
             train_epoch_loss = []
             kl_epoch_loss = []
             recon_epoch_loss = []
             for idx, (data_x, data_y) in enumerate(self.train_loader, 0):
-                data_y = data_y.to(torch.float32).to(self.teacher_args.device)
+                data_y = data_y.to(torch.float32).to(self.args['t'].device)
                 self.teacher_optimizer.zero_grad()
                 latent, mu, logvar = self.img_encoder(data_y)
                 output = self.img_decoder(latent)
 
-                recon_loss = self.teacher_args.criterion(output, data_y)
+                recon_loss = self.args['t'].criterion(output, data_y)
                 kl_loss = self.kl_loss(mu, logvar)
                 loss = recon_loss + kl_loss
 
@@ -92,20 +93,16 @@ class TrainerVariationalTS(TrainerTeacherStudent):
 
                 if idx % (len(self.train_loader) // 2) == 0:
                     print("\rTeacher: epoch={}/{},{}/{}of train, loss={}".format(
-                        epoch, self.teacher_args.epochs, idx, len(self.train_loader), loss.item()), end='')
-            self.train_loss['t_train_epochs'].append(np.average(train_epoch_loss))
-            self.train_loss['t_train_kl_epochs'].append(np.average(kl_epoch_loss))
-            self.train_loss['t_train_recon_epochs'].append(np.average(recon_epoch_loss))
-            self.teacher_epochs += 1
-
-        end = time.time()
-        print("\nTotal training time:", end - start, "sec")
+                        epoch, self.args['t'].epochs, idx, len(self.train_loader), loss.item()), end='')
+            self.t_train_loss['train_epochs'].append(np.average(train_epoch_loss))
+            self.t_train_loss['train_kl_epochs'].append(np.average(kl_epoch_loss))
+            self.t_train_loss['train_recon_epochs'].append(np.average(recon_epoch_loss))
 
         if autosave is True:
             torch.save(self.img_encoder.state_dict(),
-                       '../Models/ImgEn_' + str(self.img_encoder) + notion + '_tep' + str(self.teacher_epochs) + '.pth')
+                       '../Models/' + str(self.img_encoder) + self.current_title() + notion + '.pth')
             torch.save(self.img_decoder.state_dict(),
-                       '../Models/ImgDe_' + str(self.img_decoder) + notion + '_tep' + str(self.teacher_epochs) + '.pth')
+                       '../Models/' + str(self.img_decoder) + self.current_title() + notion + '.pth')
 
         # =====================valid============================
         self.img_encoder.eval()
@@ -115,20 +112,20 @@ class TrainerVariationalTS(TrainerTeacherStudent):
         valid_recon_epoch_loss = []
 
         for idx, (data_x, data_y) in enumerate(self.valid_loader, 0):
-            data_y = data_y.to(torch.float32).to(self.teacher_args.device)
+            data_y = data_y.to(torch.float32).to(self.args['t'].device)
             latent, mu, logvar = self.img_encoder(data_y)
             output = self.img_decoder(latent)
 
-            recon_loss = self.teacher_args.criterion(output, data_y)
+            recon_loss = self.args['t'].criterion(output, data_y)
             kl_loss = self.kl_loss(mu, logvar)
             loss = recon_loss + kl_loss
 
             valid_epoch_loss.append(loss.item())
             valid_kl_epoch_loss.append(kl_loss.item())
             valid_recon_epoch_loss.append(recon_loss.item())
-        self.train_loss['t_valid_epochs'].append(np.average(valid_epoch_loss))
-        self.train_loss['t_valid_kl_epochs'].append(np.average(valid_kl_epoch_loss))
-        self.train_loss['t_valid_recon_epochs'].append(np.average(valid_recon_epoch_loss))
+        self.t_train_loss['valid_epochs'].append(np.average(valid_epoch_loss))
+        self.t_train_loss['valid_kl_epochs'].append(np.average(valid_kl_epoch_loss))
+        self.t_train_loss['valid_recon_epochs'].append(np.average(valid_recon_epoch_loss))
 
     def test_teacher(self, mode='test'):
         self.t_test_loss = self.__gen_teacher_test__()
@@ -141,14 +138,14 @@ class TrainerVariationalTS(TrainerTeacherStudent):
             loader = self.train_loader
 
         for idx, (data_x, data_y) in enumerate(loader, 0):
-            data_y = data_y.to(torch.float32).to(self.teacher_args.device)
+            data_y = data_y.to(torch.float32).to(self.args['t'].device)
             if loader.batch_size != 1:
                 data_y = data_y[0][np.newaxis, ...]
 
             latent, mu, logvar = self.img_encoder(data_y)
             output = self.img_decoder(latent)
 
-            recon_loss = self.teacher_args.criterion(output, data_y)
+            recon_loss = self.args['t'].criterion(output, data_y)
             kl_loss = self.kl_loss(mu, logvar)
             loss = recon_loss + kl_loss
 
@@ -169,13 +166,13 @@ class TrainerVariationalTS(TrainerTeacherStudent):
         fig.suptitle('Teacher Train Loss')
         axes = fig.subplots(2, 3)
         axes = axes.flatten()
-        axes[0].plot(self.train_loss['t_train_epochs'], 'b')
-        axes[1].plot(self.train_loss['t_train_kl_epochs'], 'b')
-        axes[2].plot(self.train_loss['t_train_recon_epochs'], 'b')
+        axes[0].plot(self.t_train_loss['train_epochs'], 'b')
+        axes[1].plot(self.t_train_loss['train_kl_epochs'], 'b')
+        axes[2].plot(self.t_train_loss['train_recon_epochs'], 'b')
 
-        axes[3].plot(self.train_loss['t_valid_epochs'], 'orange')
-        axes[4].plot(self.train_loss['t_valid_kl_epochs'], 'orange')
-        axes[5].plot(self.train_loss['t_valid_recon_epochs'], 'orange')
+        axes[3].plot(self.t_train_loss['valid_epochs'], 'orange')
+        axes[4].plot(self.t_train_loss['valid_kl_epochs'], 'orange')
+        axes[5].plot(self.t_train_loss['valid_recon_epochs'], 'orange')
 
         axes[0].set_title('Train')
         axes[1].set_title('Train KL Loss')
@@ -191,9 +188,7 @@ class TrainerVariationalTS(TrainerTeacherStudent):
             ax.grid()
 
         if autosave is True:
-            plt.savefig('t_ep' + str(self.teacher_epochs) +
-                        '_s_ep' + str(self.student_epochs) +
-                        "_t_train" + notion + '_' + '.jpg')
+            plt.savefig(self.current_title() + "_T_train" + notion + '.jpg')
         plt.show()
 
     def plot_teacher_test(self, select_num=8, autosave=False, notion=''):
@@ -225,9 +220,7 @@ class TrainerVariationalTS(TrainerTeacherStudent):
         subfigs[1].colorbar(imb, ax=ax, shrink=0.8)
 
         if autosave is True:
-            plt.savefig('t_ep' + str(self.teacher_epochs) +
-                        '_s_ep' + str(self.student_epochs) +
-                        "_t_predict" + notion + '_' + '.jpg')
+            plt.savefig(self.current_title() + "_T_predict" + notion + '.jpg')
         plt.show()
 
         # Test Loss
@@ -250,15 +243,12 @@ class TrainerVariationalTS(TrainerTeacherStudent):
             ax.grid()
 
         if autosave is True:
-            plt.savefig('t_ep' + str(self.teacher_epochs) +
-                        '_s_ep' + str(self.student_epochs) +
-                        "_t_test" + notion + '_' + '.jpg')
+            plt.savefig(self.current_title() + "_T_test" + notion + '.jpg')
         plt.show()
 
     def train_student(self, autosave=False, notion=''):
-        start = time.time()
 
-        for epoch in range(self.student_args.epochs):
+        for epoch in range(self.args['s'].epochs):
             self.img_encoder.eval()
             self.img_decoder.eval()
             self.csi_encoder.train()
@@ -268,8 +258,8 @@ class TrainerVariationalTS(TrainerTeacherStudent):
             image_epoch_loss = []
 
             for idx, (data_x, data_y) in enumerate(self.train_loader, 0):
-                data_x = data_x.to(torch.float32).to(self.teacher_args.device)
-                data_y = data_y.to(torch.float32).to(self.teacher_args.device)
+                data_x = data_x.to(torch.float32).to(self.args['s'].device)
+                data_y = data_y.to(torch.float32).to(self.args['s'].device)
 
                 student_preds, mu, logvar = self.csi_encoder(data_x)
                 with torch.no_grad():
@@ -277,7 +267,7 @@ class TrainerVariationalTS(TrainerTeacherStudent):
                     image_preds = self.img_decoder(student_preds)
 
                 image_loss = self.img_loss(image_preds, data_y)
-                student_loss = self.student_args.criterion(student_preds, teacher_preds)
+                student_loss = self.args['s'].criterion(student_preds, teacher_preds)
 
                 distil_loss = self.div_loss(nn.functional.softmax(student_preds / self.temperature, -1),
                                             nn.functional.softmax(teacher_preds / self.temperature, -1))
@@ -295,22 +285,17 @@ class TrainerVariationalTS(TrainerTeacherStudent):
 
                 if idx % (len(self.train_loader) // 2) == 0:
                     print("\rStudent: epoch={}/{},{}/{}of train, student loss={}, distill loss={}".format(
-                        epoch, self.student_args.epochs, idx, len(self.train_loader),
+                        epoch, self.args['s'].epochs, idx, len(self.train_loader),
                         loss.item(), distil_loss.item()), end='')
 
-            self.train_loss['s_train_epochs'].append(np.average(train_epoch_loss))
-            self.train_loss['s_train_straight_epochs'].append(np.average(straight_epoch_loss))
-            self.train_loss['s_train_distil_epochs'].append(np.average(distil_epoch_loss))
-            self.train_loss['s_train_image_epochs'].append(np.average(image_epoch_loss))
-            self.student_epochs += 1
-
-        end = time.time()
-        print("\nTotal training time:", end - start, "sec")
+            self.s_train_loss['train_epochs'].append(np.average(train_epoch_loss))
+            self.s_train_loss['train_straight_epochs'].append(np.average(straight_epoch_loss))
+            self.s_train_loss['train_distil_epochs'].append(np.average(distil_epoch_loss))
+            self.s_train_loss['train_image_epochs'].append(np.average(image_epoch_loss))
 
         if autosave is True:
             torch.save(self.csi_encoder.state_dict(),
-                       '../Models/CsiEn_' + str(self.csi_encoder) + notion + '_tep' + str(self.teacher_epochs) +
-                       '_sep' + str(self.student_epochs) + '.pth')
+                       '../Models/' + str(self.csi_encoder) + self.current_title() + notion + '.pth')
 
         # =====================valid============================
         self.csi_encoder.eval()
@@ -322,15 +307,15 @@ class TrainerVariationalTS(TrainerTeacherStudent):
         image_epoch_loss = []
 
         for idx, (data_x, data_y) in enumerate(self.valid_loader, 0):
-            data_x = data_x.to(torch.float32).to(self.student_args.device)
-            data_y = data_y.to(torch.float32).to(self.student_args.device)
+            data_x = data_x.to(torch.float32).to(self.args['s'].device)
+            data_y = data_y.to(torch.float32).to(self.args['s'].device)
 
             teacher_preds = self.img_encoder(data_y)
             student_preds = self.csi_encoder(data_x)
             image_preds = self.img_decoder(student_preds)
             image_loss = self.img_loss(image_preds, data_y)
 
-            student_loss = self.student_args.criterion(student_preds, teacher_preds)
+            student_loss = self.args['s'].criterion(student_preds, teacher_preds)
 
             distil_loss = self.div_loss(nn.functional.softmax(student_preds / self.temperature, -1),
                                         nn.functional.softmax(teacher_preds / self.temperature, -1))
@@ -342,42 +327,9 @@ class TrainerVariationalTS(TrainerTeacherStudent):
             distil_epoch_loss.append(distil_loss.item())
             image_epoch_loss.append(image_loss.item())
 
-        self.train_loss['s_valid_epochs'].append(np.average(valid_epoch_loss))
-        self.train_loss['s_valid_straight_epochs'].append(np.average(straight_epoch_loss))
-        self.train_loss['s_valid_distil_epochs'].append(np.average(distil_epoch_loss))
-        self.train_loss['s_valid_image_epochs'].append(np.average(image_epoch_loss))
-
-    def traverse_latent(self, input_img, dim1=0, dim2=1, granularity=11, autosave=False):
-        self.img_encoder.eval()
-        self.img_decoder.eval()
-        trvs = []
-
-        img = input_img.to(torch.float32).to(self.teacher_args.device)
-        img = img[0][np.newaxis, ...]
-
-        latent, mu, logvar = self.img_encoder(img).data
-        z = self.img_decoder.reparameterize(mu, logvar)
-        z = z.squeeze()
-        grid_x = norm.ppf(np.linspace(0.05, 0.95, granularity))
-        grid_y = norm.ppf(np.linspace(0.05, 0.95, granularity))
-
-        for i, yi in enumerate(grid_y):
-            for j, xi in enumerate(grid_x):
-                z[dim1], z[dim2] = xi, yi
-                output = self.img_decoder(z)
-                trvs.append(output.cpu().detach().numpy().squeeze().tolist())
-
-        fig = plt.figure(constrained_layout=True)
-        fig.suptitle('Teacher Traverse with dims ' + str(dim1) + str(dim2))
-        subfigs, ax = fig.subfigures(nrows=granularity, ncols=granularity)
-        for i in range(len(trvs)):
-            ax[i].imshow(trvs[i])
-            ax[i].axis('off')
-
-        if autosave is True:
-            plt.savefig('t_ep' + str(self.teacher_epochs) +
-                        "_t_traverse_" + str(dim1) + str(dim2) + '_gran' + str(granularity) + '.jpg')
-        plt.show()
-
+        self.s_train_loss['valid_epochs'].append(np.average(valid_epoch_loss))
+        self.s_train_loss['valid_straight_epochs'].append(np.average(straight_epoch_loss))
+        self.s_train_loss['valid_distil_epochs'].append(np.average(distil_epoch_loss))
+        self.s_train_loss['valid_image_epochs'].append(np.average(image_epoch_loss))
 
 

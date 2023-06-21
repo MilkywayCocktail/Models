@@ -4,7 +4,7 @@ from torchinfo import summary
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import norm
-from TrainerTS import MyDataset, split_loader, MyArgs, TrainerTeacherStudent, bn, Interpolate
+from TrainerTS import timer, MyDataset, split_loader, MyArgs, TrainerTeacherStudent, bn, Interpolate
 
 
 # ------------------------------------- #
@@ -366,9 +366,7 @@ class TrainerTS(TrainerTeacherStudent):
                                         alpha=alpha)
         self.latent_dim = latent_dim
 
-    def mylogger(self, *args, **kwargs):
-        return self.logger(*args, **kwargs)
-
+    @timer
     def train_teacher(self, autosave=False, notion=''):
 
         for epoch in range(self.args['t'].epochs):
@@ -435,7 +433,7 @@ class TrainerTS(TrainerTeacherStudent):
             if idx % (len(self.test_loader)//5) == 0:
                 print("\rTeacher: {}/{}of test, loss={}".format(idx, len(loader), loss.item()), end='')
 
-    def traverse_latent(self, img_ind, dataset, dim1=0, dim2=1, granularity=11, autosave=False):
+    def traverse_latent(self, img_ind, dataset, dim1=0, dim2=1, granularity=11, autosave=False, notion=''):
         self.__plot_settings__()
 
         self.img_encoder.eval()
@@ -478,7 +476,7 @@ class TrainerTS(TrainerTeacherStudent):
 
         if autosave is True:
             plt.savefig(self.current_title() +
-                        "_T_traverse_" + str(dim1) + str(dim2) + '_gran' + str(granularity) + '.jpg')
+                        "_T_traverse_" + str(dim1) + str(dim2) + notion + '.jpg')
         plt.show()
 
 

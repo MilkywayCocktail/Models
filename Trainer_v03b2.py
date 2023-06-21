@@ -4,7 +4,7 @@ from torchinfo import summary
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import norm
-from TrainerTS import MyDataset, split_loader, MyArgs, TrainerTeacherStudent, bn, Interpolate
+from TrainerTS import timer, MyDataset, split_loader, MyArgs, TrainerTeacherStudent, bn, Interpolate
 
 
 # ------------------------------------- #
@@ -418,10 +418,7 @@ class TrainerVariationalTS(TrainerTeacherStudent):
         loss = recon_loss + kl_loss * self.kl_weight
         return loss, kl_loss, recon_loss
     
-    def mylogger(self, *args, **kwargs):
-        return self.logger(*args, **kwargs)
-
-    @mylogger(mode='t')
+    @timer
     def train_teacher(self, autosave=False, notion=''):
 
         for epoch in range(self.args['t'].epochs):
@@ -595,7 +592,7 @@ class TrainerVariationalTS(TrainerTeacherStudent):
             plt.savefig(self.current_title() + "_T_test" + notion + '.jpg')
         plt.show()
 
-    def traverse_latent(self, img_ind, dataset, dim1=0, dim2=1, granularity=11, autosave=False):
+    def traverse_latent(self, img_ind, dataset, dim1=0, dim2=1, granularity=11, autosave=False, notion=''):
         self.__plot_settings__()
 
         self.img_encoder.eval()
@@ -609,7 +606,7 @@ class TrainerVariationalTS(TrainerTeacherStudent):
 
         latent, z, mu, logvar = self.img_encoder(data_y)
         z = z.squeeze()
-        e = z.cpu().detach().numpy().squeeze().tolist()
+        e = z.cpu().detach().numpy().squeeze()
 
         grid_x = norm.ppf(np.linspace(0.05, 0.95, granularity))
         grid_y = norm.ppf(np.linspace(0.05, 0.95, granularity))
@@ -623,7 +620,7 @@ class TrainerVariationalTS(TrainerTeacherStudent):
         for i, yi in enumerate(grid_y):
             for j, xi in enumerate(grid_x):
                 z[dim1], z[dim2] = xi, yi
-                output = self.img_decoder(z)
+                output = self.img_decoder(torch.from_numpy(e).to(self.args['t'].device))
                 figure[i * 128: (i + 1) * 128,
                 j * 128: (j + 1) * 128] = output.cpu().detach().numpy().squeeze().tolist()
 
@@ -639,7 +636,7 @@ class TrainerVariationalTS(TrainerTeacherStudent):
 
         if autosave is True:
             plt.savefig(self.current_title() +
-                        "_T_traverse_" + str(dim1) + str(dim2) + '_gran' + str(granularity) + '.jpg')
+                        "_T_traverse_" + str(dim1) + str(dim2) + notion + '.jpg')
         plt.show()
 
 
