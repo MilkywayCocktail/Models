@@ -9,7 +9,7 @@ from TrainerTS import timer, MyDataset, split_loader, MyArgs, TrainerTeacherStud
 
 # ------------------------------------- #
 # Model v03b2
-# VAE version; Adaptive to normalized depth images
+# VAE version; Adaptive to MNIST
 # Added interpolating decoder
 # Adjusted for MNIST
 
@@ -355,7 +355,7 @@ class CsiEncoder(nn.Module):
         return out, mu, logvar
 
 
-class TrainerVariationalTS(TrainerTeacherStudent):
+class TrainerVTS(TrainerTeacherStudent):
     def __init__(self, img_encoder, img_decoder, csi_encoder,
                  teacher_args, student_args,
                  train_loader, valid_loader, test_loader,
@@ -367,37 +367,32 @@ class TrainerVariationalTS(TrainerTeacherStudent):
                  latent_dim=8,
                  kl_weight=0.0025
                  ):
-        super(TrainerVariationalTS, self).__init__(img_encoder=img_encoder, img_decoder=img_decoder,
-                                                   csi_encoder=csi_encoder,
-                                                   teacher_args=teacher_args, student_args=student_args,
-                                                   train_loader=train_loader, valid_loader=valid_loader,
-                                                   test_loader=test_loader,
-                                                   optimizer=optimizer,
-                                                   div_loss=div_loss,
-                                                   img_loss=img_loss,
-                                                   temperature=temperature,
-                                                   alpha=alpha)
+        super(TrainerVTS, self).__init__(img_encoder=img_encoder, img_decoder=img_decoder,
+                                         csi_encoder=csi_encoder,
+                                         teacher_args=teacher_args, student_args=student_args,
+                                         train_loader=train_loader, valid_loader=valid_loader,
+                                         test_loader=test_loader,
+                                         optimizer=optimizer,
+                                         div_loss=div_loss,
+                                         img_loss=img_loss,
+                                         temperature=temperature,
+                                         alpha=alpha)
         self.latent_dim = latent_dim
         self.kl_weight = kl_weight
 
     @staticmethod
-    def __gen_train_loss__():
-        train_loss = {'t_train_epochs': [],
-                      't_valid_epochs': [],
-                      't_train_kl_epochs': [],
-                      't_valid_kl_epochs': [],
-                      't_train_recon_epochs': [],
-                      't_valid_recon_epochs': [],
+    def __gen_teacher_train__():
+        t_train_loss = {'learning_rate': [],
+                        'epochs': [],
+                        'train_epochs': [],
+                        'valid_epochs': [],
+                        'train_kl_epochs': [],
+                        'valid_kl_epochs': [],
+                        'train_recon_epochs': [],
+                        'valid_recon_epochs': [],
+                        }
 
-                      's_train_epochs': [],
-                      's_valid_epochs': [],
-                      's_train_straight_epochs': [],
-                      's_valid_straight_epochs': [],
-                      's_train_distil_epochs': [],
-                      's_valid_distil_epochs': [],
-                      's_train_image_epochs': [],
-                      's_valid_image_epochs': []}
-        return train_loss
+        return t_train_loss
 
     @staticmethod
     def __gen_teacher_test__():
@@ -420,6 +415,7 @@ class TrainerVariationalTS(TrainerTeacherStudent):
     
     @timer
     def train_teacher(self, autosave=False, notion=''):
+        self.logger(mode='t')
 
         for epoch in range(self.args['t'].epochs):
             self.img_encoder.train()
@@ -444,9 +440,9 @@ class TrainerVariationalTS(TrainerTeacherStudent):
                 if idx % (len(self.train_loader) // 2) == 0:
                     print("\rTeacher: epoch={}/{},{}/{}of train, loss={}".format(
                         epoch, self.args['t'].epochs, idx, len(self.train_loader), loss.item()), end='')
-            self.t_train_loss['train_epochs'].append(np.average(train_epoch_loss))
-            self.t_train_loss['train_kl_epochs'].append(np.average(kl_epoch_loss))
-            self.t_train_loss['train_recon_epochs'].append(np.average(recon_epoch_loss))
+            self.train_loss['t']['train_epochs'].append(np.average(train_epoch_loss))
+            self.train_loss['t']['train_kl_epochs'].append(np.average(kl_epoch_loss))
+            self.train_loss['t']['train_recon_epochs'].append(np.average(recon_epoch_loss))
 
         if autosave is True:
             torch.save(self.img_encoder.state_dict(),
@@ -471,9 +467,9 @@ class TrainerVariationalTS(TrainerTeacherStudent):
             valid_epoch_loss.append(loss.item())
             valid_kl_epoch_loss.append(kl_loss.item())
             valid_recon_epoch_loss.append(recon_loss.item())
-        self.t_train_loss['valid_epochs'].append(np.average(valid_epoch_loss))
-        self.t_train_loss['valid_kl_epochs'].append(np.average(valid_kl_epoch_loss))
-        self.t_train_loss['valid_recon_epochs'].append(np.average(valid_recon_epoch_loss))
+        self.train_loss['t']['valid_epochs'].append(np.average(valid_epoch_loss))
+        self.train_loss['t']['valid_kl_epochs'].append(np.average(valid_kl_epoch_loss))
+        self.train_loss['t']['valid_recon_epochs'].append(np.average(valid_recon_epoch_loss))
 
     def test_teacher(self, mode='test'):
         self.t_test_loss = self.__gen_teacher_test__()
@@ -512,13 +508,16 @@ class TrainerVariationalTS(TrainerTeacherStudent):
         fig.suptitle('Teacher Train Loss')
         axes = fig.subplots(2, 3)
         axes = axes.flatten()
-        axes[0].plot(self.t_train_loss['train_epochs'], 'b')
-        axes[1].plot(self.t_train_loss['train_kl_epochs'], 'b')
-        axes[2].plot(self.t_train_loss['train_recon_epochs'], 'b')
 
-        axes[3].plot(self.t_train_loss['valid_epochs'], 'orange')
-        axes[4].plot(self.t_train_loss['valid_kl_epochs'], 'orange')
-        axes[5].plot(self.t_train_loss['valid_recon_epochs'], 'orange')
+        for i, learning_rate in enumerate(self.train_loss['t']['learning_rate']):
+            [start, end] = self.train_loss['t']['epochs'][i]
+            axes[0].plot(list(range(start, end)), self.train_loss['t']['train_epochs'][start: end], label=learning_rate)
+            axes[1].plot(list(range(start, end)), self.train_loss['t']['train_kl_epochs'][start: end], label=learning_rate)
+            axes[2].plot(list(range(start, end)), self.train_loss['t']['train_recon_epochs'][start: end], label=learning_rate)
+
+        axes[3].plot(self.train_loss['t']['valid_epochs'], 'orange')
+        axes[4].plot(self.train_loss['t']['valid_kl_epochs'], 'orange')
+        axes[5].plot(self.train_loss['t']['valid_recon_epochs'], 'orange')
 
         axes[0].set_title('Train')
         axes[1].set_title('Train KL Loss')

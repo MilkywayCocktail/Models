@@ -115,8 +115,9 @@ class TrainerTeacherStudent:
                                            lr=self.args['t'].learning_rate)
         self.student_optimizer = optimizer(self.csi_encoder.parameters(), lr=self.args['s'].learning_rate)
 
-        self.t_train_loss = self.__gen_teacher_train__()
-        self.s_train_loss = self.__gen_student_train__()
+        self.train_loss = {'t': self.__gen_teacher_train__(),
+                           's': self.__gen_student_train__()}
+
         self.t_test_loss = self.__gen_teacher_test__()
         self.s_test_loss = self.__gen_student_test__()
 
@@ -151,19 +152,19 @@ class TrainerTeacherStudent:
 
     @staticmethod
     def __gen_student_train__():
-        train_loss = {'learning_rate': [],
-                      'epochs': [],
-                      'train': [],
-                      'valid': [],
-                      'train_epochs': [],
-                      'valid_epochs': [],
-                      'train_straight_epochs': [],
-                      'valid_straight_epochs': [],
-                      'train_distil_epochs': [],
-                      'valid_distil_epochs': [],
-                      'train_image_epochs': [],
-                      'valid_image_epochs': []}
-        return train_loss
+        s_train_loss = {'learning_rate': [],
+                        'epochs': [],
+                        'train': [],
+                        'valid': [],
+                        'train_epochs': [],
+                        'valid_epochs': [],
+                        'train_straight_epochs': [],
+                        'valid_straight_epochs': [],
+                        'train_distil_epochs': [],
+                        'valid_distil_epochs': [],
+                        'train_image_epochs': [],
+                        'valid_image_epochs': []}
+        return s_train_loss
 
     @staticmethod
     def __gen_teacher_test__():
@@ -185,26 +186,29 @@ class TrainerTeacherStudent:
         return test_loss
 
     def current_title(self):
-        return 'Te' + str(self.t_train_loss['epochs'][-1][-1]) + '_Se' + str(self.s_train_loss['epochs'][-1][-1])
+        return 'Te' + str(self.train_loss['t']['epochs'][-1][-1]) + '_Se' + str(self.train_loss['s']['epochs'][-1][-1])
+
+    def logger(self, mode='t'):
+        # First round
+        if not self.train_loss[mode]['learning_rate']:
+            self.train_loss[mode]['epochs'].append([0, self.args[mode].epochs])
+            self.train_loss[mode]['learning_rate'].append(self.args[mode].learning_rate)
+
+        else:
+            last_end = self.train_loss['t']['epochs'][-1][1]
+
+            # Not changing learning rate
+            if self.args[mode].learning_rate == self.train_loss[mode]['learning_rate'][-1]:
+                self.train_loss[mode]['epochs'][-1][1] = last_end + self.args[mode].epochs
+
+            # Changing learning rate
+            if self.args[mode].learning_rate != self.train_loss[mode]['learning_rate'][-1]:
+                self.train_loss[mode]['epochs'].append([last_end, last_end + self.args[mode].epochs])
+                self.train_loss[mode]['learning_rate'].append(self.args[mode].learning_rate)
 
     @timer
     def train_teacher(self, autosave=False, notion=''):
-        # First round
-        if not self.t_train_loss['t']['learning_rate']:
-            self.t_train_loss['t']['epochs'].append([0, self.args['t'].epochs])
-            self.t_train_loss['learning_rate'].append(self.args['t'].learning_rate)
-
-        else:
-            last_end = self.t_train_loss['t']['epochs'][-1][1]
-
-            # Not changing learning rate
-            if self.args['t'].learning_rate == self.t_train_loss['lr'][-1]:
-                self.t_train_loss['t']['epochs'][-1][1] = last_end + self.args['t'].epochs
-
-            # Changing learning rate
-            if self.args['t'].learning_rate != self.t_train_loss['lr'][-1]:
-                self.t_train_loss['t']['epochs'].append([last_end, last_end + self.args['t'].epochs])
-                self.t_train_loss['learning_rate'].append(self.args['t'].learning_rate)
+        self.logger(mode='t')
 
         for epoch in range(self.args['t'].epochs):
             self.img_encoder.train()
@@ -219,11 +223,11 @@ class TrainerTeacherStudent:
                 loss.backward()
                 self.teacher_optimizer.step()
                 train_epoch_loss.append(loss.item())
-                self.t_train_loss['t_train'].append(loss.item())
+                self.train_loss['t']['t_train'].append(loss.item())
                 if idx % (len(self.train_loader) // 2) == 0:
                     print("\rTeacher: epoch={}/{},{}/{}of train, loss={}".format(
                         epoch, self.args['t'].epochs, idx, len(self.train_loader), loss.item()), end='')
-            self.t_train_loss['train_epochs'].append(np.average(train_epoch_loss))
+            self.train_loss['t']['train_epochs'].append(np.average(train_epoch_loss))
 
         if autosave is True:
             torch.save(self.img_encoder.state_dict(),
@@ -242,11 +246,12 @@ class TrainerTeacherStudent:
             output = self.img_decoder(latent)
             loss = self.args['t'].criterion(output, data_y)
             valid_epoch_loss.append(loss.item())
-            self.t_train_loss['valid'].append(loss.item())
-        self.t_train_loss['valid_epochs'].append(np.average(valid_epoch_loss))
+            self.train_loss['t']['valid'].append(loss.item())
+        self.train_loss['t']['valid_epochs'].append(np.average(valid_epoch_loss))
 
     @timer
     def train_student(self, autosave=False, notion=''):
+        self.logger(mode='s')
 
         for epoch in range(self.args['s'].epochs):
             self.img_encoder.eval()
@@ -274,7 +279,7 @@ class TrainerTeacherStudent:
 
                 loss = self.alpha * student_loss + (1 - self.alpha) * distil_loss
 
-                self.s_train_loss['train'].append(loss.item())
+                self.train_loss['s']['train'].append(loss.item())
 
                 self.student_optimizer.zero_grad()
                 loss.backward()
@@ -290,10 +295,10 @@ class TrainerTeacherStudent:
                         epoch, self.args['s'].epochs, idx, len(self.train_loader),
                         loss.item(), distil_loss.item()), end='')
 
-            self.s_train_loss['train_epochs'].append(np.average(train_epoch_loss))
-            self.s_train_loss['train_straight_epochs'].append(np.average(straight_epoch_loss))
-            self.s_train_loss['train_distil_epochs'].append(np.average(distil_epoch_loss))
-            self.s_train_loss['train_image_epochs'].append(np.average(image_epoch_loss))
+            self.train_loss['s']['train_epochs'].append(np.average(train_epoch_loss))
+            self.train_loss['s']['train_straight_epochs'].append(np.average(straight_epoch_loss))
+            self.train_loss['s']['train_distil_epochs'].append(np.average(distil_epoch_loss))
+            self.train_loss['s']['train_image_epochs'].append(np.average(image_epoch_loss))
 
         if autosave is True:
             torch.save(self.csi_encoder.state_dict(),
@@ -323,17 +328,17 @@ class TrainerTeacherStudent:
                                         nn.functional.softmax(teacher_preds / self.temperature, -1))
 
             loss = self.alpha * student_loss + (1 - self.alpha) * distil_loss
-            self.s_train_loss['valid'].append(loss.item())
+            self.train_loss['s']['valid'].append(loss.item())
 
             valid_epoch_loss.append(loss.item())
             straight_epoch_loss.append(student_loss.item())
             distil_epoch_loss.append(distil_loss.item())
             image_epoch_loss.append(image_loss.item())
 
-        self.s_train_loss['valid_epochs'].append(np.average(valid_epoch_loss))
-        self.s_train_loss['valid_straight_epochs'].append(np.average(straight_epoch_loss))
-        self.s_train_loss['valid_distil_epochs'].append(np.average(distil_epoch_loss))
-        self.s_train_loss['valid_image_epochs'].append(np.average(image_epoch_loss))
+        self.train_loss['s']['valid_epochs'].append(np.average(valid_epoch_loss))
+        self.train_loss['s']['valid_straight_epochs'].append(np.average(straight_epoch_loss))
+        self.train_loss['s']['valid_distil_epochs'].append(np.average(distil_epoch_loss))
+        self.train_loss['s']['valid_image_epochs'].append(np.average(image_epoch_loss))
 
     def test_teacher(self, mode='test'):
         self.t_test_loss = self.__gen_teacher_test__()
@@ -408,10 +413,10 @@ class TrainerTeacherStudent:
         fig.suptitle('Teacher Train Loss')
         axes = fig.subplots(2, 1)
 
-        for i, learning_rate in enumerate(self.t_train_loss['lr']):
-            [start, end] = self.t_train_loss['epochs'][i]
+        for i, learning_rate in enumerate(self.train_loss['t']['learning_rate']):
+            [start, end] = self.train_loss['t']['epochs'][i]
             axes[0].plot(list(range(start, end)),
-                         self.t_train_loss['train_epochs'][start: end],
+                         self.train_loss['t']['train_epochs'][start: end],
                          label=learning_rate)
 
         axes[0].set_title('Train')
@@ -420,7 +425,7 @@ class TrainerTeacherStudent:
         axes[0].grid()
         axes[0].legend()
 
-        axes[1].plot(self.t_train_loss['valid_epochs'], 'orange')
+        axes[1].plot(self.train_loss['t']['valid_epochs'], 'orange')
         axes[1].set_title('Validation')
         axes[1].set_xlabel('#epoch')
         axes[1].set_ylabel('loss')
@@ -446,7 +451,7 @@ class TrainerTeacherStudent:
         loss_items = ('train_epochs', 'train_straight_epochs', 'train_distil_epochs', 'train_image_epochs')
 
         for i, lo in enumerate(loss_items):
-            axes[i].plot(self.s_train_loss[lo], 'b')
+            axes[i].plot(self.train_loss['s'][lo], 'b')
             axes[i].set_ylabel('loss')
             axes[i].set_xlabel('#epoch')
             axes[i].grid(True)
@@ -468,7 +473,7 @@ class TrainerTeacherStudent:
         loss_items = ('valid_epochs', 'valid_straight_epochs', 'valid_distil_epochs', 'valid_image_epochs')
 
         for i, lo in enumerate(loss_items):
-            axes[i].plot(self.s_train_loss[lo], 'orange')
+            axes[i].plot(self.train_loss['s'][lo], 'orange')
             axes[i].set_ylabel('loss')
             axes[i].set_xlabel('#epoch')
             axes[i].grid(True)

@@ -368,6 +368,7 @@ class TrainerTS(TrainerTeacherStudent):
 
     @timer
     def train_teacher(self, autosave=False, notion=''):
+        self.logger(mode='t')
 
         for epoch in range(self.args['t'].epochs):
             self.img_encoder.train()
@@ -382,7 +383,7 @@ class TrainerTS(TrainerTeacherStudent):
                 loss.backward()
                 self.teacher_optimizer.step()
                 train_epoch_loss.append(loss.item())
-                self.t_train_loss['train'].append(loss.item())
+                self.train_loss['t']['train'].append(loss.item())
                 if idx % (len(self.train_loader) // 2) == 0:
                     print("\rTeacher: epoch={}/{},{}/{}of train, loss={}".format(
                         epoch, self.args['t'].epochs, idx, len(self.train_loader), loss.item()), end='')
@@ -404,8 +405,8 @@ class TrainerTS(TrainerTeacherStudent):
             output = self.img_decoder(latent)
             loss = self.args['t'].criterion(output, data_y)
             valid_epoch_loss.append(loss.item())
-            self.t_train_loss['valid'].append(loss.item())
-        self.t_train_loss['valid_epochs'].append(np.average(valid_epoch_loss))
+            self.train_loss['t']['valid'].append(loss.item())
+        self.train_loss['t']['valid_epochs'].append(np.average(valid_epoch_loss))
 
     def test_teacher(self, mode='test'):
         self.t_test_loss = self.__gen_teacher_test__()
