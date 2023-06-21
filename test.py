@@ -1,8 +1,9 @@
-class foo:
-    def __init__(self):
-        self.mypre = [5, 8]
+import matplotlib.pyplot as plt
 
-f = foo()
-end = f.mypre[1]
-end = end + 5
-print(f.mypre)
+y = [1,2,3,4,5,6]
+x = 6
+
+plt.plot(y)
+plt.axvline(3, color='r', linestyle='--', label=f'lr={x}')
+plt.legend()
+plt.show()

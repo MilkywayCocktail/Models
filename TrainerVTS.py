@@ -94,11 +94,11 @@ class TrainerVTS(TrainerTeacherStudent):
             self.train_loss['t']['train_kl_epochs'].append(np.average(kl_epoch_loss))
             self.train_loss['t']['train_recon_epochs'].append(np.average(recon_epoch_loss))
 
-        if autosave is True:
+        if autosave:
             torch.save(self.img_encoder.state_dict(),
-                       '../Models/' + str(self.img_encoder) + self.current_title() + notion + '.pth')
+                       f"../Models/{self.img_encoder}{self.current_title()}_{notion}.pth")
             torch.save(self.img_decoder.state_dict(),
-                       '../Models/' + str(self.img_decoder) + self.current_title() + notion + '.pth')
+                       f"../Models/{self.img_decoder}{self.current_title()}_{notion}.pth")
 
         # =====================valid============================
         self.img_encoder.eval()
@@ -163,10 +163,13 @@ class TrainerVTS(TrainerTeacherStudent):
         axes = fig.subplots(2, 3)
         axes = axes.flatten()
         for i, learning_rate in enumerate(self.train_loss['t']['learning_rate']):
-            [start, end] = self.train_loss['t']['epochs'][i]
-            axes[0].plot(list(range(start, end)), self.train_loss['t']['train_epochs'][start: end], label=learning_rate)
-            axes[1].plot(list(range(start, end)), self.train_loss['t']['train_kl_epochs'][start: end], label=learning_rate)
-            axes[2].plot(list(range(start, end)), self.train_loss['t']['train_recon_epochs'][start: end], label=learning_rate)
+            axes[0].axvline(self.train_loss['t']['epochs'][i], linestyle='--', label=f'lr={learning_rate}')
+            axes[1].axvline(self.train_loss['t']['epochs'][i], linestyle='--', label=f'lr={learning_rate}')
+            axes[2].axvline(self.train_loss['t']['epochs'][i], linestyle='--', label=f'lr={learning_rate}')
+            
+        axes[0].plot(self.train_loss['t']['train_epochs'], 'b')
+        axes[1].plot(self.train_loss['t']['train_kl_epochs'], 'b')
+        axes[2].plot(self.train_loss['t']['train_recon_epochs'], 'b')
 
         axes[3].plot(self.train_loss['t']['valid_epochs'], 'orange')
         axes[4].plot(self.train_loss['t']['valid_kl_epochs'], 'orange')
@@ -175,6 +178,9 @@ class TrainerVTS(TrainerTeacherStudent):
         axes[0].set_title('Train')
         axes[1].set_title('Train KL Loss')
         axes[2].set_title('Train Recon Loss')
+        axes[0].legend()
+        axes[1].legend()
+        axes[2].legend()
 
         axes[3].set_title('Valid')
         axes[4].set_title('Valid KL Loss')
@@ -185,8 +191,8 @@ class TrainerVTS(TrainerTeacherStudent):
             ax.set_ylabel('loss')
             ax.grid()
 
-        if autosave is True:
-            plt.savefig(self.current_title() + "_T_train" + notion + '.jpg')
+        if autosave:
+            plt.savefig(f"{self.current_title()}_T_train_{notion}.jpg")
         plt.show()
 
     def plot_teacher_test(self, select_num=8, autosave=False, notion=''):
@@ -217,8 +223,8 @@ class TrainerVTS(TrainerTeacherStudent):
             ax[a].set_xlabel(str(imgs[a]))
         subfigs[1].colorbar(imb, ax=ax, shrink=0.8)
 
-        if autosave is True:
-            plt.savefig(self.current_title() + "_T_predict" + notion + '.jpg')
+        if autosave:
+            plt.savefig(f"{self.current_title()}_T_predict_{notion}.jpg")
         plt.show()
 
         # Test Loss
@@ -240,8 +246,8 @@ class TrainerVTS(TrainerTeacherStudent):
             ax.set_ylabel('Loss')
             ax.grid()
 
-        if autosave is True:
-            plt.savefig(self.current_title() + "_T_test" + notion + '.jpg')
+        if autosave:
+            plt.savefig(f"{self.current_title()}_T_test_{notion}.jpg")
         plt.show()
 
     def train_student(self, autosave=False, notion=''):
@@ -291,9 +297,9 @@ class TrainerVTS(TrainerTeacherStudent):
             self.train_loss['s']['train_distil_epochs'].append(np.average(distil_epoch_loss))
             self.train_loss['s']['train_image_epochs'].append(np.average(image_epoch_loss))
 
-        if autosave is True:
+        if autosave:
             torch.save(self.csi_encoder.state_dict(),
-                       '../Models/' + str(self.csi_encoder) + self.current_title() + notion + '.pth')
+                       f"../Models/{self.csi_encoder}{self.current_title()}_{notion}.pth")
 
         # =====================valid============================
         self.csi_encoder.eval()

@@ -388,11 +388,11 @@ class TrainerTS(TrainerTeacherStudent):
                     print("\rTeacher: epoch={}/{},{}/{}of train, loss={}".format(
                         epoch, self.args['t'].epochs, idx, len(self.train_loader), loss.item()), end='')
 
-        if autosave is True:
+        if autosave:
             torch.save(self.img_encoder.state_dict(),
-                       '../Models/' + str(self.img_encoder) + self.current_title() + notion + '.pth')
+                       f"../Models/{self.img_encoder}{self.current_title()}_{notion}.pth")
             torch.save(self.img_decoder.state_dict(),
-                       '../Models/' + str(self.img_decoder) + self.current_title() + notion + '.pth')
+                       f"../Models/{self.img_decoder}{self.current_title()}_{notion}.pth")
 
         # =====================valid============================
         self.img_encoder.eval()
@@ -466,7 +466,7 @@ class TrainerTS(TrainerTeacherStudent):
                 j * 128: (j + 1) * 128] = output.cpu().detach().numpy().squeeze().tolist()
 
         fig = plt.figure(constrained_layout=True)
-        fig.suptitle('Teacher Traverse with dims ' + str(dim1) + '_' + str(dim2))
+        fig.suptitle(f"Teacher Traverse in dims {dim1}_{dim2}")
         plt.imshow(figure)
         rect = plt.Rectangle((anchor1, anchor2), 128, 128, fill=False, edgecolor='orange')
         ax = plt.gca()
@@ -475,9 +475,8 @@ class TrainerTS(TrainerTeacherStudent):
         plt.xlabel(str(dim1))
         plt.ylabel(str(dim2))
 
-        if autosave is True:
-            plt.savefig(self.current_title() +
-                        "_T_traverse_" + str(dim1) + str(dim2) + notion + '.jpg')
+        if autosave:
+            plt.savefig(f"{self.current_title()}_T_traverse_{dim1}{dim2}_{notion}.jpg")
         plt.show()
 
 

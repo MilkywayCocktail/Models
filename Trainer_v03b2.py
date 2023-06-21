@@ -444,11 +444,11 @@ class TrainerVTS(TrainerTeacherStudent):
             self.train_loss['t']['train_kl_epochs'].append(np.average(kl_epoch_loss))
             self.train_loss['t']['train_recon_epochs'].append(np.average(recon_epoch_loss))
 
-        if autosave is True:
+        if autosave:
             torch.save(self.img_encoder.state_dict(),
-                       '../Models/' + str(self.img_encoder) + self.current_title() + notion + '.pth')
+                       f"../Models/{self.img_encoder}{self.current_title()}_{notion}.pth")
             torch.save(self.img_decoder.state_dict(),
-                       '../Models/' + str(self.img_decoder) + self.current_title() + notion + '.pth')
+                       f"../Models/{self.img_decoder}{self.current_title()}_{notion}.pth")
 
         # =====================valid============================
         self.img_encoder.eval()
@@ -510,11 +510,13 @@ class TrainerVTS(TrainerTeacherStudent):
         axes = axes.flatten()
 
         for i, learning_rate in enumerate(self.train_loss['t']['learning_rate']):
-            [start, end] = self.train_loss['t']['epochs'][i]
-            axes[0].plot(list(range(start, end)), self.train_loss['t']['train_epochs'][start: end], label=learning_rate)
-            axes[1].plot(list(range(start, end)), self.train_loss['t']['train_kl_epochs'][start: end], label=learning_rate)
-            axes[2].plot(list(range(start, end)), self.train_loss['t']['train_recon_epochs'][start: end], label=learning_rate)
+            axes[0].axvline(self.train_loss['t']['epochs'][i], linestyle='--', label=f'lr={learning_rate}')
+            axes[1].axvline(self.train_loss['t']['epochs'][i], linestyle='--', label=f'lr={learning_rate}')
+            axes[2].axvline(self.train_loss['t']['epochs'][i], linestyle='--', label=f'lr={learning_rate}')
 
+        axes[0].plot(self.train_loss['t']['train_epochs'], 'b')
+        axes[1].plot(self.train_loss['t']['train_kl_epochs'], 'b')
+        axes[2].plot(self.train_loss['t']['train_recon_epochs'], 'b')
         axes[3].plot(self.train_loss['t']['valid_epochs'], 'orange')
         axes[4].plot(self.train_loss['t']['valid_kl_epochs'], 'orange')
         axes[5].plot(self.train_loss['t']['valid_recon_epochs'], 'orange')
@@ -522,6 +524,9 @@ class TrainerVTS(TrainerTeacherStudent):
         axes[0].set_title('Train')
         axes[1].set_title('Train KL Loss')
         axes[2].set_title('Train Recon Loss')
+        axes[0].legend()
+        axes[1].legend()
+        axes[2].legend()
 
         axes[3].set_title('Valid')
         axes[4].set_title('Valid KL Loss')
@@ -532,8 +537,8 @@ class TrainerVTS(TrainerTeacherStudent):
             ax.set_ylabel('loss')
             ax.grid()
 
-        if autosave is True:
-            plt.savefig(self.current_title() + "_T_train" + notion + '.jpg')
+        if autosave:
+            plt.savefig(f"{self.current_title()}_T_train_{notion}.jpg")
         plt.show()
 
     def plot_teacher_test(self, select_num=8, autosave=False, notion=''):
@@ -564,8 +569,8 @@ class TrainerVTS(TrainerTeacherStudent):
             ax[a].set_xlabel(str(imgs[a]))
         subfigs[1].colorbar(imb, ax=ax, shrink=0.8)
 
-        if autosave is True:
-            plt.savefig(self.current_title() + "_T_predict" + notion + '.jpg')
+        if autosave:
+            plt.savefig(f"{self.current_title()}_T_predict_{notion}.jpg")
         plt.show()
 
         # Test Loss
@@ -587,8 +592,8 @@ class TrainerVTS(TrainerTeacherStudent):
             ax.set_ylabel('Loss')
             ax.grid()
 
-        if autosave is True:
-            plt.savefig(self.current_title() + "_T_test" + notion + '.jpg')
+        if autosave:
+            plt.savefig(f"{self.current_title()}_T_test_{notion}.jpg")
         plt.show()
 
     def traverse_latent(self, img_ind, dataset, dim1=0, dim2=1, granularity=11, autosave=False, notion=''):
@@ -624,7 +629,7 @@ class TrainerVTS(TrainerTeacherStudent):
                 j * 128: (j + 1) * 128] = output.cpu().detach().numpy().squeeze().tolist()
 
         fig = plt.figure(constrained_layout=True)
-        fig.suptitle('Teacher Traverse with dims ' + str(dim1) + '_' + str(dim2))
+        fig.suptitle(f"Teacher Traverse in dims {dim1}_{dim2}")
         plt.imshow(figure)
         rect = plt.Rectangle((anchor1, anchor2), 128, 128, fill=False, edgecolor='orange')
         ax = plt.gca()
@@ -633,9 +638,8 @@ class TrainerVTS(TrainerTeacherStudent):
         plt.xlabel(str(dim1))
         plt.ylabel(str(dim2))
 
-        if autosave is True:
-            plt.savefig(self.current_title() +
-                        "_T_traverse_" + str(dim1) + str(dim2) + notion + '.jpg')
+        if autosave:
+            plt.savefig(f"{self.current_title()}_T_traverse_{dim1}{dim2}_{notion}.jpg")
         plt.show()
 
 

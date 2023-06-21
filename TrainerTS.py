@@ -186,24 +186,24 @@ class TrainerTeacherStudent:
         return test_loss
 
     def current_title(self):
-        return 'Te' + str(self.train_loss['t']['epochs'][-1][-1]) + '_Se' + str(self.train_loss['s']['epochs'][-1][-1])
+        return f"Te{self.train_loss['t']['epochs'][-1]}_Se{self.train_loss['s']['epochs'][-1]}"
 
     def logger(self, mode='t'):
         # First round
+        self.train_loss[mode]['epochs'].append(self.args[mode].epochs)
         if not self.train_loss[mode]['learning_rate']:
-            self.train_loss[mode]['epochs'].append([0, self.args[mode].epochs])
             self.train_loss[mode]['learning_rate'].append(self.args[mode].learning_rate)
 
         else:
-            last_end = self.train_loss['t']['epochs'][-1][1]
+            last_end = self.train_loss['t']['epochs'][-1]
 
             # Not changing learning rate
             if self.args[mode].learning_rate == self.train_loss[mode]['learning_rate'][-1]:
-                self.train_loss[mode]['epochs'][-1][1] = last_end + self.args[mode].epochs
+                self.train_loss[mode]['epochs'][-1] = last_end + self.args[mode].epochs
 
             # Changing learning rate
             if self.args[mode].learning_rate != self.train_loss[mode]['learning_rate'][-1]:
-                self.train_loss[mode]['epochs'].append([last_end, last_end + self.args[mode].epochs])
+                self.train_loss[mode]['epochs'].append(last_end + self.args[mode].epochs)
                 self.train_loss[mode]['learning_rate'].append(self.args[mode].learning_rate)
 
     @timer
@@ -229,11 +229,11 @@ class TrainerTeacherStudent:
                         epoch, self.args['t'].epochs, idx, len(self.train_loader), loss.item()), end='')
             self.train_loss['t']['train_epochs'].append(np.average(train_epoch_loss))
 
-        if autosave is True:
+        if autosave:
             torch.save(self.img_encoder.state_dict(),
-                       '../Models/' + str(self.img_encoder) + self.current_title() + notion + '.pth')
+                       f"../Models/{self.img_encoder}{self.current_title()}_{notion}.pth")
             torch.save(self.img_decoder.state_dict(),
-                       '../Models/' + str(self.img_decoder) + self.current_title() + notion + '.pth')
+                       f"../Models/{self.img_decoder}{self.current_title()}_{notion}.pth")
 
         # =====================valid============================
         self.img_encoder.eval()
@@ -300,9 +300,9 @@ class TrainerTeacherStudent:
             self.train_loss['s']['train_distil_epochs'].append(np.average(distil_epoch_loss))
             self.train_loss['s']['train_image_epochs'].append(np.average(image_epoch_loss))
 
-        if autosave is True:
+        if autosave:
             torch.save(self.csi_encoder.state_dict(),
-                       '../Models/' + str(self.csi_encoder) + self.current_title() + notion + '.pth')
+                       f"../Models/{self.csi_encoder}{self.current_title()}_{notion}.pth")
 
         # =====================valid============================
         self.csi_encoder.eval()
@@ -414,10 +414,9 @@ class TrainerTeacherStudent:
         axes = fig.subplots(2, 1)
 
         for i, learning_rate in enumerate(self.train_loss['t']['learning_rate']):
-            [start, end] = self.train_loss['t']['epochs'][i]
-            axes[0].plot(list(range(start, end)),
-                         self.train_loss['t']['train_epochs'][start: end],
-                         label=learning_rate)
+            axes[0].axvline(self.train_loss['t']['epochs'][i], linestyle='--', label=f'lr={learning_rate}')
+
+        axes[0].plot(self.train_loss['t']['train_epochs'])
 
         axes[0].set_title('Train')
         axes[0].set_xlabel('#epoch')
@@ -431,8 +430,8 @@ class TrainerTeacherStudent:
         axes[1].set_ylabel('loss')
         axes[1].grid()
 
-        if autosave is True:
-            plt.savefig(self.current_title() + "_T_train" + notion + '.jpg')
+        if autosave:
+            plt.savefig(f"{self.current_title()}_T_train_{notion}.jpg")
         plt.show()
 
     def plot_student_loss(self, autosave=False, notion=''):
@@ -456,8 +455,8 @@ class TrainerTeacherStudent:
             axes[i].set_xlabel('#epoch')
             axes[i].grid(True)
 
-        if autosave is True:
-            plt.savefig(self.current_title() + "_S_train" + notion + '.jpg')
+        if autosave:
+            plt.savefig(f"{self.current_title()}_S_train_{notion}.jpg")
         plt.show()
 
         # Validation Loss
@@ -478,8 +477,8 @@ class TrainerTeacherStudent:
             axes[i].set_xlabel('#epoch')
             axes[i].grid(True)
 
-        if autosave is True:
-            plt.savefig(self.current_title() + "_S_valid" + notion + '.jpg')
+        if autosave:
+            plt.savefig(f"{self.current_title()}_S_valid_{notion}.jpg")
         plt.show()
 
     def plot_teacher_test(self, select_num=8, autosave=False, notion=''):
@@ -510,8 +509,8 @@ class TrainerTeacherStudent:
             ax[a].set_xlabel(str(imgs[a]))
         subfigs[1].colorbar(imb, ax=ax, shrink=0.8)
 
-        if autosave is True:
-            plt.savefig(self.current_title() + "_T_predict" + notion + '.jpg')
+        if autosave:
+            plt.savefig(f"{self.current_title()}_T_predict_{notion}.jpg")
         plt.show()
 
         # Test Loss
@@ -524,8 +523,8 @@ class TrainerTeacherStudent:
         plt.ylabel('Loss')
         plt.grid()
 
-        if autosave is True:
-            plt.savefig(self.current_title() + "_T_test" + notion + '.jpg')
+        if autosave:
+            plt.savefig(f"{self.current_title()}_T_test_{notion}.jpg")
         plt.show()
 
     def plot_student_test(self, autosave=False, notion=''):
@@ -556,8 +555,8 @@ class TrainerTeacherStudent:
             ax[a].set_xlabel(str(imgs[a]))
         subfigs[1].colorbar(imb, ax=ax, shrink=0.8)
 
-        if autosave is True:
-            plt.savefig(self.current_title() + "_S_predict" + notion + '.jpg')
+        if autosave:
+            plt.savefig(f"{self.current_title()}_S_predict_{notion}.jpg")
         plt.show()
 
         # Latent Vectors
@@ -575,8 +574,8 @@ class TrainerTeacherStudent:
 
         axes[0].legend()
 
-        if autosave is True:
-            plt.savefig(self.current_title() + "_S_latent" + notion + '.jpg')
+        if autosave:
+            plt.savefig(f"{self.current_title()}_S_latent_{notion}.jpg")
         plt.show()
 
         # Test Loss
@@ -599,8 +598,8 @@ class TrainerTeacherStudent:
             axes[i].set_xlabel('#epoch')
             axes[i].grid(True)
 
-        if autosave is True:
-            plt.savefig(self.current_title() + "_S_latent" + notion + '.jpg')
+        if autosave:
+            plt.savefig(f"{self.current_title()}_S_test_{notion}.jpg")
         plt.show()
 
     def save_all_params(self, notion=''):
@@ -610,8 +609,8 @@ class TrainerTeacherStudent:
             os.makedirs(save_path)
 
         torch.save(self.img_encoder.state_dict(),
-                   '../Models/' + str(self.img_encoder) + self.current_title() + notion + '.pth')
+                   f"../Models/{self.img_encoder}{self.current_title()}_{notion}.pth")
         torch.save(self.img_decoder.state_dict(),
-                   '../Models/' + str(self.img_decoder) + self.current_title() + notion + '.pth')
+                   f"../Models/{self.img_decoder}{self.current_title()}_{notion}.pth")
         torch.save(self.csi_encoder.state_dict(),
-                   '../Models/' + str(self.csi_encoder) + self.current_title() + notion + '.pth')
+                   f"../Models/{self.csi_encoder}{self.current_title()}_{notion}.pth")
