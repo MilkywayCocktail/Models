@@ -190,9 +190,10 @@ class TrainerTeacherStudent:
 
     def logger(self, mode='t'):
         # First round
-        self.train_loss[mode]['epochs'].append(self.args[mode].epochs)
         if not self.train_loss[mode]['learning_rate']:
             self.train_loss[mode]['learning_rate'].append(self.args[mode].learning_rate)
+            self.train_loss[mode]['epochs'].append(0)
+            self.train_loss[mode]['epochs'].append(self.args[mode].epochs)
 
         else:
             last_end = self.train_loss['t']['epochs'][-1]
@@ -410,7 +411,7 @@ class TrainerTeacherStudent:
 
         # Training Loss
         fig = plt.figure(constrained_layout=True)
-        fig.suptitle('Teacher Train Loss')
+        fig.suptitle(f"Teacher Train Loss @ep{self.train_loss['t']['epochs'][-1]}")
         axes = fig.subplots(2, 1)
 
         for i, learning_rate in enumerate(self.train_loss['t']['learning_rate']):
@@ -439,7 +440,7 @@ class TrainerTeacherStudent:
 
         # Training Loss
         fig = plt.figure(constrained_layout=True)
-        fig.suptitle('Student Train Loss')
+        fig.suptitle(f"Student Train Loss @ep{self.train_loss['s']['epochs'][-1]}")
         axes = fig.subplots(nrows=2, ncols=2)
         axes = axes.flatten()
         axes[0].set_title('Student Loss')
@@ -488,7 +489,7 @@ class TrainerTeacherStudent:
         imgs = np.random.choice(list(range(len(self.t_test_loss['groundtruth']))), select_num, replace=False)
         imgs = np.sort(imgs)
         fig = plt.figure(constrained_layout=True)
-        fig.suptitle('Teacher Test Results')
+        fig.suptitle(f"Teacher Test Predicts @ep{self.train_loss['t']['epochs'][-1]}")
         subfigs = fig.subfigures(nrows=2, ncols=1)
 
         subfigs[0].suptitle('Ground Truth')
@@ -515,7 +516,7 @@ class TrainerTeacherStudent:
 
         # Test Loss
         plt.figure(constrained_layout=True)
-        plt.title('Teacher Test Loss')
+        plt.title(f"Teacher Test Loss @ep{self.train_loss['t']['epochs'][-1]}")
         plt.scatter(list(range(len(self.t_test_loss['groundtruth']))), self.t_test_loss['loss'], alpha=0.6)
         for i in imgs:
             plt.scatter(i, self.t_test_loss['loss'][i], c='magenta', marker=(5, 1), linewidths=4)
@@ -534,7 +535,7 @@ class TrainerTeacherStudent:
         imgs = np.random.choice(list(range(len(self.s_test_loss['groundtruth']))), 8)
         imgs = np.sort(imgs)
         fig = plt.figure(constrained_layout=True)
-        fig.suptitle('Student Test Results - images')
+        fig.suptitle(f"Student Test Predicts @ep{self.train_loss['s']['epochs'][-1]}")
         subfigs = fig.subfigures(nrows=2, ncols=1)
 
         subfigs[0].suptitle('Ground Truth')
@@ -561,7 +562,7 @@ class TrainerTeacherStudent:
 
         # Latent Vectors
         fig = plt.figure(constrained_layout=True)
-        fig.suptitle('Student Test Results - latent')
+        fig.suptitle(f"Student Test Latents @ep{self.train_loss['s']['epochs'][-1]}")
         axes = fig.subplots(nrows=2, ncols=4)
         axes = axes.flatten()
         for a in range(len(axes)):
@@ -580,7 +581,7 @@ class TrainerTeacherStudent:
 
         # Test Loss
         fig = plt.figure(constrained_layout=True)
-        fig.suptitle('Student Test Loss')
+        fig.suptitle(f"Student Test Loss @ep{self.train_loss['s']['epochs'][-1]}")
         axes = fig.subplots(nrows=2, ncols=2)
         axes = axes.flatten()
         axes[0].set_title('Student Loss')

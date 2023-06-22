@@ -505,7 +505,7 @@ class TrainerVTS(TrainerTeacherStudent):
 
         # Training Loss
         fig = plt.figure(constrained_layout=True)
-        fig.suptitle('Teacher Train Loss')
+        fig.suptitle(f"Teacher Train Loss @ep{self.train_loss['t']['epochs'][-1]}")
         axes = fig.subplots(2, 3)
         axes = axes.flatten()
 
@@ -548,7 +548,7 @@ class TrainerVTS(TrainerTeacherStudent):
         imgs = np.random.choice(list(range(len(self.t_test_loss['groundtruth']))), select_num, replace=False)
         imgs = np.sort(imgs)
         fig = plt.figure(constrained_layout=True)
-        fig.suptitle('Teacher Test Results')
+        fig.suptitle(f"Teacher Test Predicts @ep{self.train_loss['t']['epochs'][-1]}")
         subfigs = fig.subfigures(nrows=2, ncols=1)
 
         subfigs[0].suptitle('Ground Truth')
@@ -575,7 +575,7 @@ class TrainerVTS(TrainerTeacherStudent):
 
         # Test Loss
         fig = plt.figure(constrained_layout=True)
-        fig.suptitle('Teacher Test Loss')
+        fig.suptitle(f"Teacher Test Loss @ep{self.train_loss['t']['epochs'][-1]}")
         axes = fig.subplots(nrows=1, ncols=3)
         axes[0].set_title('Loss')
         axes[1].set_title('KL Loss')
