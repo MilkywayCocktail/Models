@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.utils.data as Data
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib import cm
 import time
 import os
 
@@ -187,6 +188,14 @@ class TrainerTeacherStudent:
 
     def current_title(self):
         return f"Te{self.train_loss['t']['epochs'][-1]}_Se{self.train_loss['s']['epochs'][-1]}"
+
+    @staticmethod
+    def colors(arrays):
+        arr = np.array(arrays)
+        norm = plt.Normalize(arr.min(), arr.max())
+        map_vir = cm.get_cmap(name='viridis')
+        c = map_vir(norm(arr))
+        return c
 
     def logger(self, mode='t'):
         # First round
@@ -413,9 +422,10 @@ class TrainerTeacherStudent:
         fig = plt.figure(constrained_layout=True)
         fig.suptitle(f"Teacher Train Loss @ep{self.train_loss['t']['epochs'][-1]}")
         axes = fig.subplots(2, 1)
+        color = self.colors(self.train_loss['t']['learning_rate'])
 
         for i, learning_rate in enumerate(self.train_loss['t']['learning_rate']):
-            axes[0].axvline(self.train_loss['t']['epochs'][i], linestyle='--', label=f'lr={learning_rate}')
+            axes[0].axvline(self.train_loss['t']['epochs'][i], linestyle='--', color=color[i], label=f'lr={learning_rate}')
 
         axes[0].plot(self.train_loss['t']['train_epochs'])
 
@@ -438,23 +448,32 @@ class TrainerTeacherStudent:
     def plot_student_loss(self, autosave=False, notion=''):
         self.__plot_settings__()
 
+        loss_items = {'Student Loss': ['train_epochs', 'valid_epochs'],
+                      'Straight Loss': ['train_straight_epochs', 'valid_straight_epochs'],
+                      'Distillation Loss': ['train_distil_epochs', 'valid_distil_epochs'],
+                      'Image Loss': ['train_image_epochs', 'valid_image_epochs']
+                      }
+        color = self.colors(self.train_loss['s']['learning_rate'])
+
         # Training Loss
         fig = plt.figure(constrained_layout=True)
         fig.suptitle(f"Student Train Loss @ep{self.train_loss['s']['epochs'][-1]}")
         axes = fig.subplots(nrows=2, ncols=2)
         axes = axes.flatten()
-        axes[0].set_title('Student Loss')
-        axes[1].set_title('Straight Loss')
-        axes[2].set_title('Distillation Loss')
-        axes[3].set_title('Image Loss')
 
-        loss_items = ('train_epochs', 'train_straight_epochs', 'train_distil_epochs', 'train_image_epochs')
+        for i, loss in enumerate(loss_items.keys()):
+            for j, learning_rate in enumerate(self.train_loss['t']['learning_rate']):
 
-        for i, lo in enumerate(loss_items):
-            axes[i].plot(self.train_loss['s'][lo], 'b')
-            axes[i].set_ylabel('loss')
+                axes[i].axvline(self.train_loss['s']['epochs'][j],
+                                linestyle='--',
+                                color=color[j],
+                                label=f'lr={learning_rate}')
+
+            axes[i].plot(self.train_loss['s'][loss_items[loss][0]], 'b')
+            axes[i].set_title(loss)
             axes[i].set_xlabel('#epoch')
-            axes[i].grid(True)
+            axes[i].set_ylabel('loss')
+            axes[i].grid()
 
         if autosave:
             plt.savefig(f"{self.current_title()}_S_train_{notion}.jpg")
@@ -462,18 +481,13 @@ class TrainerTeacherStudent:
 
         # Validation Loss
         fig = plt.figure(constrained_layout=True)
-        fig.suptitle('Student Validation Status')
+        fig.suptitle(f"Student Validation Loss @ep{self.train_loss['s']['epochs'][-1]}")
         axes = fig.subplots(nrows=2, ncols=2)
         axes = axes.flatten()
-        axes[0].set_title('Student Loss')
-        axes[1].set_title('Straight Loss')
-        axes[2].set_title('Distillation Loss')
-        axes[3].set_title('Image Loss')
 
-        loss_items = ('valid_epochs', 'valid_straight_epochs', 'valid_distil_epochs', 'valid_image_epochs')
-
-        for i, lo in enumerate(loss_items):
-            axes[i].plot(self.train_loss['s'][lo], 'orange')
+        for i, loss in enumerate(loss_items.keys()):
+            axes[i].plot(self.train_loss['s'][loss_items[loss][1]], 'orange')
+            axes[i].set_title(loss)
             axes[i].set_ylabel('loss')
             axes[i].set_xlabel('#epoch')
             axes[i].grid(True)

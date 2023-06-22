@@ -508,11 +508,12 @@ class TrainerVTS(TrainerTeacherStudent):
         fig.suptitle(f"Teacher Train Loss @ep{self.train_loss['t']['epochs'][-1]}")
         axes = fig.subplots(2, 3)
         axes = axes.flatten()
+        color = self.colors(self.train_loss['t']['learning_rate'])
 
         for i, learning_rate in enumerate(self.train_loss['t']['learning_rate']):
-            axes[0].axvline(self.train_loss['t']['epochs'][i], linestyle='--', label=f'lr={learning_rate}')
-            axes[1].axvline(self.train_loss['t']['epochs'][i], linestyle='--', label=f'lr={learning_rate}')
-            axes[2].axvline(self.train_loss['t']['epochs'][i], linestyle='--', label=f'lr={learning_rate}')
+            axes[0].axvline(self.train_loss['t']['epochs'][i], linestyle='--', color=color[i], label=f'lr={learning_rate}')
+            axes[1].axvline(self.train_loss['t']['epochs'][i], linestyle='--', color=color[i], label=f'lr={learning_rate}')
+            axes[2].axvline(self.train_loss['t']['epochs'][i], linestyle='--', color=color[i], label=f'lr={learning_rate}')
 
         axes[0].plot(self.train_loss['t']['train_epochs'], 'b')
         axes[1].plot(self.train_loss['t']['train_kl_epochs'], 'b')

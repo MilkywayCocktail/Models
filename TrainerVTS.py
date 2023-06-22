@@ -157,39 +157,35 @@ class TrainerVTS(TrainerTeacherStudent):
     def plot_teacher_loss(self, autosave=False, notion=''):
         self.__plot_settings__()
 
+        loss_items = {'Train': 'train_epochs',
+                      'Train KL Loss': 'train_kl_epochs',
+                      'Train Recon Loss': 'train_recon_epochs',
+                      'Valid': 'valid_epochs',
+                      'Valid KL Loss': 'valid_kl_epochs',
+                      'Valid Recon Loss': 'valid_recon_epochs'}
+        color = self.colors(self.train_loss['t']['learning_rate'])
+        linecolor = ['b', 'b', 'b', 'orange', 'orange', 'orange']
+
         # Training Loss
         fig = plt.figure(constrained_layout=True)
         fig.suptitle(f"Teacher Train Loss @ep{self.train_loss['t']['epochs'][-1]}")
         axes = fig.subplots(2, 3)
         axes = axes.flatten()
-        for i, learning_rate in enumerate(self.train_loss['t']['learning_rate']):
-            axes[0].axvline(self.train_loss['t']['epochs'][i], linestyle='--', label=f'lr={learning_rate}')
-            axes[1].axvline(self.train_loss['t']['epochs'][i], linestyle='--', label=f'lr={learning_rate}')
-            axes[2].axvline(self.train_loss['t']['epochs'][i], linestyle='--', label=f'lr={learning_rate}')
-            
-        axes[0].plot(self.train_loss['t']['train_epochs'], 'b')
-        axes[1].plot(self.train_loss['t']['train_kl_epochs'], 'b')
-        axes[2].plot(self.train_loss['t']['train_recon_epochs'], 'b')
 
-        axes[3].plot(self.train_loss['t']['valid_epochs'], 'orange')
-        axes[4].plot(self.train_loss['t']['valid_kl_epochs'], 'orange')
-        axes[5].plot(self.train_loss['t']['valid_recon_epochs'], 'orange')
+        for i, loss in enumerate(loss_items.keys()):
+            for j, learning_rate in enumerate(self.train_loss['t']['learning_rate']):
 
-        axes[0].set_title('Train')
-        axes[1].set_title('Train KL Loss')
-        axes[2].set_title('Train Recon Loss')
-        axes[0].legend()
-        axes[1].legend()
-        axes[2].legend()
+                axes[i].axvline(self.train_loss['t']['epochs'][j],
+                                linestyle='--',
+                                color=color[j],
+                                label=f'lr={learning_rate}')
 
-        axes[3].set_title('Valid')
-        axes[4].set_title('Valid KL Loss')
-        axes[5].set_title('Valid Recon Loss')
-
-        for ax in axes:
-            ax.set_xlabel('#epoch')
-            ax.set_ylabel('loss')
-            ax.grid()
+            axes[i].plot(self.train_loss['t'][loss_items[loss]], linecolor[i])
+            axes[i].set_title(loss)
+            axes[i].legend()
+            axes.set_xlabel('#epoch')
+            axes.set_ylabel('loss')
+            axes.grid()
 
         if autosave:
             plt.savefig(f"{self.current_title()}_T_train_{notion}.jpg")
