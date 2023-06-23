@@ -384,24 +384,24 @@ class TrainerVTS(TrainerTeacherStudent):
     def __gen_teacher_train__():
         t_train_loss = {'learning_rate': [],
                         'epochs': [],
-                        'train_epochs': [],
-                        'valid_epochs': [],
-                        'train_kl_epochs': [],
-                        'valid_kl_epochs': [],
-                        'train_recon_epochs': [],
-                        'valid_recon_epochs': [],
+                        'train': [],
+                        'valid': [],
+                        'train_kl': [],
+                        'valid_kl': [],
+                        'train_recon': [],
+                        'valid_recon': [],
                         }
 
         return t_train_loss
 
     @staticmethod
     def __gen_teacher_test__():
-        test_loss = {'loss': [],
+        t_test_loss = {'loss': [],
                      'recon': [],
                      'kl': [],
                      'predicts': [],
                      'groundtruth': []}
-        return test_loss
+        return t_test_loss
 
     @staticmethod
     def kl_loss(mu, logvar):
@@ -440,7 +440,7 @@ class TrainerVTS(TrainerTeacherStudent):
                 recon_epoch_loss.append(recon_loss.item())
 
                 if idx % (len(self.train_loader) // 5) == 0:
-                    print("\rTeacher: epoch={}/{},{}/{}of train, loss={}".format(
+                    print("\rTeacher: epoch={}/{}, {}/{} of train, loss={}".format(
                         epoch, self.args['t'].epochs, idx, len(self.train_loader), loss.item()), end='')
             self.train_loss['t']['train'].append(np.average(train_epoch_loss))
             self.train_loss['t']['train_kl'].append(np.average(kl_epoch_loss))
@@ -499,7 +499,7 @@ class TrainerVTS(TrainerTeacherStudent):
             self.test_loss['t']['groundtruth'].append(data_y.cpu().detach().numpy().squeeze())
 
             if idx % (len(self.test_loader) // 5) == 0:
-                print("\rTeacher: {}/{}of test, loss={}".format(idx, len(loader), loss.item()), end='')
+                print("\rTeacher: {}/{} of test, loss={}".format(idx, len(loader), loss.item()), end='')
 
     def plot_teacher_loss(self, autosave=False, notion=''):
         self.__plot_settings__()

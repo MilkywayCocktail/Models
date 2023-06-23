@@ -94,7 +94,7 @@ class TrainerVTS(TrainerTeacherStudent):
                 recon_epoch_loss.append(recon_loss.item())
 
                 if idx % (len(self.train_loader) // 2) == 0:
-                    print("\rTeacher: epoch={}/{},{}/{}of train, loss={}".format(
+                    print("\rTeacher: epoch={}/{}, {}/{} of train, loss={}".format(
                         epoch, self.args['t'].epochs, idx, len(self.train_loader), loss.item()), end='')
             self.train_loss['t']['train'].append(np.average(train_epoch_loss))
             self.train_loss['t']['train_kls'].append(np.average(kl_epoch_loss))
@@ -155,7 +155,7 @@ class TrainerVTS(TrainerTeacherStudent):
             self.test_loss['t']['groundtruth'].append(data_y.cpu().detach().numpy().squeeze().tolist())
 
             if idx % (len(self.test_loader)//5) == 0:
-                print("\rTeacher: {}/{}of test, loss={}".format(idx, len(loader), loss.item()), end='')
+                print("\rTeacher: {}/{} of test, loss={}".format(idx, len(loader), loss.item()), end='')
 
     def plot_teacher_loss(self, autosave=False, notion=''):
         self.__plot_settings__()

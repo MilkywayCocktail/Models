@@ -232,7 +232,7 @@ class TrainerTeacherStudent:
                 train_epoch_loss.append(loss.item())
 
                 if idx % (len(self.train_loader) // 5) == 0:
-                    print("\rTeacher: epoch={}/{},{}/{}of train, loss={}".format(
+                    print("\rTeacher: epoch={}/{}, {}/{} of train, loss={}".format(
                         epoch, self.args['t'].epochs, idx, len(self.train_loader), loss.item()), end='')
             self.train_loss['t']['train'].append(np.average(train_epoch_loss))
 
@@ -298,7 +298,7 @@ class TrainerTeacherStudent:
                 image_epoch_loss.append(image_loss.item())
 
                 if idx % (len(self.train_loader) // 5) == 0:
-                    print("\rStudent: epoch={}/{},{}/{}of train, student loss={}, distill loss={}".format(
+                    print("\rStudent: epoch={}/{}, {}/{} of train, student loss={}, distill loss={}".format(
                         epoch, self.args['s'].epochs, idx, len(self.train_loader),
                         loss.item(), distil_loss.item()), end='')
 
@@ -368,7 +368,7 @@ class TrainerTeacherStudent:
             self.test_loss['t']['groundtruth'].append(data_y.cpu().detach().numpy().squeeze())
 
             if idx % (len(self.test_loader)//5) == 0:
-                print("\rTeacher: {}/{}of test, loss={}".format(idx, len(self.test_loader), loss.item()), end='')
+                print("\rTeacher: {}/{} of test, loss={}".format(idx, len(self.test_loader), loss.item()), end='')
 
     def test_student(self, mode='test'):
         self.test_loss['s'] = self.__gen_student_test__()
