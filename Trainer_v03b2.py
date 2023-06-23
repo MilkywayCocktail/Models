@@ -364,7 +364,7 @@ class TrainerVTS(TrainerTeacherStudent):
                  img_loss=nn.SmoothL1Loss(),
                  temperature=20,
                  alpha=0.3,
-                 latent_dim=8,
+                 batch_size=64,
                  kl_weight=0.0025
                  ):
         super(TrainerVTS, self).__init__(img_encoder=img_encoder, img_decoder=img_decoder,
@@ -377,7 +377,7 @@ class TrainerVTS(TrainerTeacherStudent):
                                          img_loss=img_loss,
                                          temperature=temperature,
                                          alpha=alpha)
-        self.latent_dim = latent_dim
+        self.batch_size = batch_size
         self.kl_weight = kl_weight
 
     @staticmethod
@@ -408,7 +408,7 @@ class TrainerVTS(TrainerTeacherStudent):
         return -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
 
     def loss(self, y, gt, mu, logvar):
-        recon_loss = self.args['t'].criterion(gt, y) / 64
+        recon_loss = self.args['t'].criterion(gt, y) / self.batch_size
         kl_loss = self.kl_loss(mu, logvar)
         loss = recon_loss + kl_loss * self.kl_weight
         return loss, kl_loss, recon_loss
@@ -418,6 +418,8 @@ class TrainerVTS(TrainerTeacherStudent):
         self.logger(mode='t')
 
         for epoch in range(self.args['t'].epochs):
+
+            # =====================train============================
             self.img_encoder.train()
             self.img_decoder.train()
             train_epoch_loss = []
@@ -437,12 +439,33 @@ class TrainerVTS(TrainerTeacherStudent):
                 kl_epoch_loss.append(kl_loss.item())
                 recon_epoch_loss.append(recon_loss.item())
 
-                if idx % (len(self.train_loader) // 2) == 0:
+                if idx % (len(self.train_loader) // 5) == 0:
                     print("\rTeacher: epoch={}/{},{}/{}of train, loss={}".format(
                         epoch, self.args['t'].epochs, idx, len(self.train_loader), loss.item()), end='')
-            self.train_loss['t']['train_epochs'].append(np.average(train_epoch_loss))
-            self.train_loss['t']['train_kl_epochs'].append(np.average(kl_epoch_loss))
-            self.train_loss['t']['train_recon_epochs'].append(np.average(recon_epoch_loss))
+            self.train_loss['t']['train'].append(np.average(train_epoch_loss))
+            self.train_loss['t']['train_kl'].append(np.average(kl_epoch_loss))
+            self.train_loss['t']['train_recon'].append(np.average(recon_epoch_loss))
+
+            # =====================valid============================
+            self.img_encoder.eval()
+            self.img_decoder.eval()
+            valid_epoch_loss = []
+            valid_kl_epoch_loss = []
+            valid_recon_epoch_loss = []
+
+            for idx, (data_y, data_x) in enumerate(self.valid_loader, 0):
+                data_y = data_y.to(torch.float32).to(self.args['t'].device)
+                latent, z, mu, logvar = self.img_encoder(data_y)
+                output = self.img_decoder(z)
+
+                loss, kl_loss, recon_loss = self.loss(output, data_y, mu, logvar)
+
+                valid_epoch_loss.append(loss.item())
+                valid_kl_epoch_loss.append(kl_loss.item())
+                valid_recon_epoch_loss.append(recon_loss.item())
+            self.train_loss['t']['valid'].append(np.average(valid_epoch_loss))
+            self.train_loss['t']['valid_kl'].append(np.average(valid_kl_epoch_loss))
+            self.train_loss['t']['valid_recon'].append(np.average(valid_recon_epoch_loss))
 
         if autosave:
             torch.save(self.img_encoder.state_dict(),
@@ -450,29 +473,8 @@ class TrainerVTS(TrainerTeacherStudent):
             torch.save(self.img_decoder.state_dict(),
                        f"../Models/{self.img_decoder}{self.current_title()}_{notion}.pth")
 
-        # =====================valid============================
-        self.img_encoder.eval()
-        self.img_decoder.eval()
-        valid_epoch_loss = []
-        valid_kl_epoch_loss = []
-        valid_recon_epoch_loss = []
-
-        for idx, (data_y, data_x) in enumerate(self.valid_loader, 0):
-            data_y = data_y.to(torch.float32).to(self.args['t'].device)
-            latent, z, mu, logvar = self.img_encoder(data_y)
-            output = self.img_decoder(z)
-
-            loss, kl_loss, recon_loss = self.loss(output, data_y, mu, logvar)
-
-            valid_epoch_loss.append(loss.item())
-            valid_kl_epoch_loss.append(kl_loss.item())
-            valid_recon_epoch_loss.append(recon_loss.item())
-        self.train_loss['t']['valid_epochs'].append(np.average(valid_epoch_loss))
-        self.train_loss['t']['valid_kl_epochs'].append(np.average(valid_kl_epoch_loss))
-        self.train_loss['t']['valid_recon_epochs'].append(np.average(valid_recon_epoch_loss))
-
     def test_teacher(self, mode='test'):
-        self.t_test_loss = self.__gen_teacher_test__()
+        self.test_loss['t'] = self.__gen_teacher_test__()
         self.img_encoder.eval()
         self.img_decoder.eval()
 
@@ -485,17 +487,16 @@ class TrainerVTS(TrainerTeacherStudent):
             data_y = data_y.to(torch.float32).to(self.args['t'].device)
             if loader.batch_size != 1:
                 data_y = data_y[0][np.newaxis, ...]
+            with torch.no_grad():
+                latent, z, mu, logvar = self.img_encoder(data_y)
+                output = self.img_decoder(z)
+                loss, kl_loss, recon_loss = self.loss(output, data_y, mu, logvar)
 
-            latent, z, mu, logvar = self.img_encoder(data_y)
-            output = self.img_decoder(z)
-
-            loss, kl_loss, recon_loss = self.loss(output, data_y, mu, logvar)
-
-            self.t_test_loss['loss'].append(loss.item())
-            self.t_test_loss['kl'].append(kl_loss.item())
-            self.t_test_loss['recon'].append(recon_loss.item())
-            self.t_test_loss['predicts'].append(output.cpu().detach().numpy().squeeze().tolist())
-            self.t_test_loss['groundtruth'].append(data_y.cpu().detach().numpy().squeeze().tolist())
+            self.test_loss['t']['loss'].append(loss.item())
+            self.test_loss['t']['kl'].append(kl_loss.item())
+            self.test_loss['t']['recon'].append(recon_loss.item())
+            self.test_loss['t']['predicts'].append(output.cpu().detach().numpy().squeeze())
+            self.test_loss['t']['groundtruth'].append(data_y.cpu().detach().numpy().squeeze())
 
             if idx % (len(self.test_loader) // 5) == 0:
                 print("\rTeacher: {}/{}of test, loss={}".format(idx, len(loader), loss.item()), end='')
@@ -503,40 +504,33 @@ class TrainerVTS(TrainerTeacherStudent):
     def plot_teacher_loss(self, autosave=False, notion=''):
         self.__plot_settings__()
 
-        # Training Loss
+        loss_items = {'Total Loss': ['train_epochs', 'valid_epochs'],
+                      'KL Loss': ['train_kl_epochs', 'valid_kl_epochs'],
+                      'Recon Loss': ['train_recon_epochs', 'valid_recon_epochs']
+                      }
+        stage_color = self.colors(self.train_loss['t']['learning_rate'])
+        line_color = ['b', 'orange']
+
+        # Training & Validation Loss
         fig = plt.figure(constrained_layout=True)
-        fig.suptitle(f"Teacher Train Loss @ep{self.train_loss['t']['epochs'][-1]}")
-        axes = fig.subplots(2, 3)
+        fig.suptitle(f"Teacher Training Status @ep{self.train_loss['t']['epochs'][-1]}")
+        axes = fig.subplots(1, 3)
         axes = axes.flatten()
-        color = self.colors(self.train_loss['t']['learning_rate'])
 
-        for i, learning_rate in enumerate(self.train_loss['t']['learning_rate']):
-            axes[0].axvline(self.train_loss['t']['epochs'][i], linestyle='--', color=color[i], label=f'lr={learning_rate}')
-            axes[1].axvline(self.train_loss['t']['epochs'][i], linestyle='--', color=color[i], label=f'lr={learning_rate}')
-            axes[2].axvline(self.train_loss['t']['epochs'][i], linestyle='--', color=color[i], label=f'lr={learning_rate}')
+        for i, loss in enumerate(loss_items.keys()):
+            for j, learning_rate in enumerate(self.train_loss['t']['learning_rate']):
+                axes[i].axvline(self.train_loss['t']['epochs'][j],
+                                linestyle='--',
+                                color=stage_color[j],
+                                label=f'lr={learning_rate}')
 
-        axes[0].plot(self.train_loss['t']['train_epochs'], 'b')
-        axes[1].plot(self.train_loss['t']['train_kl_epochs'], 'b')
-        axes[2].plot(self.train_loss['t']['train_recon_epochs'], 'b')
-        axes[3].plot(self.train_loss['t']['valid_epochs'], 'orange')
-        axes[4].plot(self.train_loss['t']['valid_kl_epochs'], 'orange')
-        axes[5].plot(self.train_loss['t']['valid_recon_epochs'], 'orange')
-
-        axes[0].set_title('Train')
-        axes[1].set_title('Train KL Loss')
-        axes[2].set_title('Train Recon Loss')
-        axes[0].legend()
-        axes[1].legend()
-        axes[2].legend()
-
-        axes[3].set_title('Valid')
-        axes[4].set_title('Valid KL Loss')
-        axes[5].set_title('Valid Recon Loss')
-
-        for ax in axes:
-            ax.set_xlabel('#epoch')
-            ax.set_ylabel('loss')
-            ax.grid()
+            axes[i].plot(self.train_loss['t'][loss_items[loss][1]], line_color[1], label=loss_items[loss][1])
+            axes[i].plot(self.train_loss['t'][loss_items[loss][0]], line_color[0], label=loss_items[loss][0])
+            axes[i].set_title(loss)
+            axes[i].set_xlabel('#Epoch')
+            axes[i].set_ylabel('Loss')
+            axes[i].grid()
+            axes[i].legend()
 
         if autosave:
             plt.savefig(f"{self.current_title()}_T_train_{notion}.jpg")
@@ -544,55 +538,49 @@ class TrainerVTS(TrainerTeacherStudent):
 
     def plot_teacher_test(self, select_num=8, autosave=False, notion=''):
         self.__plot_settings__()
+        predict_items = {'Ground Truth': 'groundtruth',
+                         'Estimated': 'predicts'
+                         }
 
         # Depth Images
-        imgs = np.random.choice(list(range(len(self.t_test_loss['groundtruth']))), select_num, replace=False)
-        imgs = np.sort(imgs)
+        inds = np.random.choice(list(range(len(self.test_loss['t']['groundtruth']))), select_num, replace=False)
+        inds = np.sort(inds)
         fig = plt.figure(constrained_layout=True)
         fig.suptitle(f"Teacher Test Predicts @ep{self.train_loss['t']['epochs'][-1]}")
         subfigs = fig.subfigures(nrows=2, ncols=1)
 
-        subfigs[0].suptitle('Ground Truth')
-        ax = subfigs[0].subplots(nrows=1, ncols=select_num)
-        for a in range(len(ax)):
-            ima = ax[a].imshow(self.t_test_loss['groundtruth'][imgs[a]])
-            ax[a].axis('off')
-            ax[a].set_title('#' + str(imgs[a]))
-            ax[a].set_xlabel(str(imgs[a]))
-        subfigs[0].colorbar(ima, ax=ax, shrink=0.8)
-
-        subfigs[1].suptitle('Estimated')
-        ax = subfigs[1].subplots(nrows=1, ncols=select_num)
-        for a in range(len(ax)):
-            imb = ax[a].imshow(self.t_test_loss['predicts'][imgs[a]])
-            ax[a].axis('off')
-            ax[a].set_title('#' + str(imgs[a]))
-            ax[a].set_xlabel(str(imgs[a]))
-        subfigs[1].colorbar(imb, ax=ax, shrink=0.8)
+        for i, item in enumerate(predict_items.keys()):
+            subfigs[i].suptitle(predict_items[item])
+            axes = subfigs[i].subplots(nrows=1, ncols=select_num)
+            for j in range(len(axes)):
+                img = axes[j].imshow(self.test_loss['t'][predict_items[item]][inds[j]])
+                axes[j].axis('off')
+                axes[j].set_title(f"#{inds[j]}")
+            subfigs[i].colorbar(img, ax=axes, shrink=0.8)
 
         if autosave:
             plt.savefig(f"{self.current_title()}_T_predict_{notion}.jpg")
         plt.show()
 
         # Test Loss
+        loss_items = {'Loss': 'loss',
+                      'KL Loss': 'kl',
+                      'Recon Loss': 'recon'
+                      }
         fig = plt.figure(constrained_layout=True)
         fig.suptitle(f"Teacher Test Loss @ep{self.train_loss['t']['epochs'][-1]}")
         axes = fig.subplots(nrows=1, ncols=3)
-        axes[0].set_title('Loss')
-        axes[1].set_title('KL Loss')
-        axes[2].set_title('Recon Loss')
-        axes[0].scatter(list(range(len(self.t_test_loss['groundtruth']))), self.t_test_loss['loss'], alpha=0.6)
-        axes[1].scatter(list(range(len(self.t_test_loss['groundtruth']))), self.t_test_loss['kl'], alpha=0.6)
-        axes[2].scatter(list(range(len(self.t_test_loss['groundtruth']))), self.t_test_loss['recon'], alpha=0.6)
-        for i in imgs:
-            axes[0].scatter(i, self.t_test_loss['loss'][i], c='magenta', marker=(5, 1), linewidths=4)
-            axes[1].scatter(i, self.t_test_loss['kl'][i], c='magenta', marker=(5, 1), linewidths=4)
-            axes[2].scatter(i, self.t_test_loss['recon'][i], c='magenta', marker=(5, 1), linewidths=4)
-        for ax in axes:
-            ax.set_xlabel('#Sample')
-            ax.set_ylabel('Loss')
-            ax.grid()
 
+        for i, loss in enumerate(loss_items.keys()):
+            axes[i].scatter(list(range(len(self.test_loss['t']['groundtruth']))),
+                            self.test_loss['t'][loss_items[loss]], alpha=0.6)
+            axes[i].set_title(loss)
+            axes[i].set_xlabel('#Sample')
+            axes[i].set_ylabel('Loss')
+            axes[i].grid()
+            for j in inds:
+                axes[i].scatter(j, self.test_loss['t'][loss_items[loss]][j],
+                                c='magenta', marker=(5, 1), linewidths=4)
         if autosave:
             plt.savefig(f"{self.current_title()}_T_test_{notion}.jpg")
         plt.show()
