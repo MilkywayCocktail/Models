@@ -504,9 +504,9 @@ class TrainerVTS(TrainerTeacherStudent):
     def plot_teacher_loss(self, autosave=False, notion=''):
         self.__plot_settings__()
 
-        loss_items = {'Total Loss': ['train_epochs', 'valid_epochs'],
-                      'KL Loss': ['train_kl_epochs', 'valid_kl_epochs'],
-                      'Recon Loss': ['train_recon_epochs', 'valid_recon_epochs']
+        loss_items = {'Total Loss': ['train', 'valid'],
+                      'KL Loss': ['train_kl', 'valid_kl'],
+                      'Recon Loss': ['train_recon', 'valid_recon']
                       }
         stage_color = self.colors(self.train_loss['t']['learning_rate'])
         line_color = ['b', 'orange']
