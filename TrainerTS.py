@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.utils.data as Data
 import numpy as np
+from PIL import Image
 import matplotlib.pyplot as plt
 from matplotlib import cm
 import time
@@ -45,13 +46,19 @@ class Interpolate(nn.Module):
 
 
 class MyDataset(Data.Dataset):
-    def __init__(self, x_path, y_path, number=0):
+    def __init__(self, x_path, y_path, transform=None, number=0):
         self.seeds = None
+        self.transform = transform
         self.data = self.load_data(x_path, y_path, number=number)
         print('loaded')
 
     def __getitem__(self, index):
-        return self.data['x'][index], self.data['y'][index]
+        if self.transform:
+            image = self.transform(Image.fromarray((np.array(self.data['y'][index])), mode='L'))
+        else:
+            image = self.data['y'][index]
+
+        return self.data['x'][index], image
 
     def __len__(self):
         return self.data['x'].shape[0]
@@ -367,7 +374,7 @@ class TrainerTeacherStudent:
             self.test_loss['t']['predicts'].append(output.cpu().detach().numpy().squeeze())
             self.test_loss['t']['groundtruth'].append(data_y.cpu().detach().numpy().squeeze())
 
-            if idx % (len(self.test_loader)//5) == 0:
+            if idx % (len(loader) // 5) == 0:
                 print("\rTeacher: {}/{} of test, loss={}".format(idx, len(self.test_loader), loss.item()), end='')
 
     def test_student(self, mode='test'):
@@ -405,7 +412,7 @@ class TrainerTeacherStudent:
             self.test_loss['s']['predicts_image'].append(student_image_preds.cpu().detach().numpy().squeeze())
             self.test_loss['s']['groundtruth'].append(data_y.cpu().detach().numpy().squeeze())
 
-            if idx % (len(self.test_loader) // 5) == 0:
+            if idx % (len(loader) // 5) == 0:
                 print("\rStudent: {}/{}of test, student loss={}, distill loss={}, image loss={}".format(
                     idx, len(self.test_loader), student_loss.item(), distil_loss.item(), image_loss.item()), end='')
 

@@ -435,7 +435,7 @@ class TrainerTS(TrainerTeacherStudent):
             self.test_loss['t']['predicts'].append(output.cpu().detach().numpy().squeeze())
             self.test_loss['t']['groundtruth'].append(data_y.cpu().detach().numpy().squeeze())
 
-            if idx % (len(self.test_loader)//5) == 0:
+            if idx % (len(loader) // 5) == 0:
                 print("\rTeacher: {}/{} of test, loss={}".format(idx, len(loader), loss.item()), end='')
 
     def traverse_latent(self, img_ind, dataset, dim1=0, dim2=1, granularity=11, autosave=False, notion=''):

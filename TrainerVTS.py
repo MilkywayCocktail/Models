@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import numpy as np
+from scipy.stats import norm
 import matplotlib.pyplot as plt
 from TrainerTS import timer, MyDataset, split_loader, MyArgs, TrainerTeacherStudent
 
@@ -35,24 +36,24 @@ class TrainerVTS(TrainerTeacherStudent):
     def __gen_teacher_train__():
         t_train_loss = {'learning_rate': [],
                         'epochs': [],
-                        'train_epochs': [],
-                        'valid_epochs': [],
-                        'train_kl_epochs': [],
-                        'valid_kl_epochs': [],
-                        'train_recon_epochs': [],
-                        'valid_recon_epochs': [],
+                        'train': [],
+                        'valid': [],
+                        'train_kl': [],
+                        'valid_kl': [],
+                        'train_recon': [],
+                        'valid_recon': [],
                         }
 
         return t_train_loss
 
     @staticmethod
     def __gen_teacher_test__():
-        test_loss = {'loss': [],
-                     'recon': [],
-                     'kl': [],
-                     'predicts': [],
-                     'groundtruth': []}
-        return test_loss
+        t_test_loss = {'loss': [],
+                       'recon': [],
+                       'kl': [],
+                       'predicts': [],
+                       'groundtruth': []}
+        return t_test_loss
 
     @staticmethod
     def kl_loss(mu, logvar):
@@ -82,8 +83,8 @@ class TrainerVTS(TrainerTeacherStudent):
             for idx, (data_x, data_y) in enumerate(self.train_loader, 0):
                 data_y = data_y.to(torch.float32).to(self.args['t'].device)
                 self.teacher_optimizer.zero_grad()
-                latent, mu, logvar = self.img_encoder(data_y)
-                output = self.img_decoder(latent)
+                latent, z, mu, logvar = self.img_encoder(data_y)
+                output = self.img_decoder(z)
 
                 loss, kl_loss, recon_loss = self.loss(output, data_y, mu, logvar)
 
@@ -93,11 +94,11 @@ class TrainerVTS(TrainerTeacherStudent):
                 kl_epoch_loss.append(kl_loss.item())
                 recon_epoch_loss.append(recon_loss.item())
 
-                if idx % (len(self.train_loader) // 2) == 0:
+                if idx % (len(self.train_loader) // 5) == 0:
                     print("\rTeacher: epoch={}/{}, {}/{} of train, loss={}".format(
                         epoch, self.args['t'].epochs, idx, len(self.train_loader), loss.item()), end='')
             self.train_loss['t']['train'].append(np.average(train_epoch_loss))
-            self.train_loss['t']['train_kls'].append(np.average(kl_epoch_loss))
+            self.train_loss['t']['train_kl'].append(np.average(kl_epoch_loss))
             self.train_loss['t']['train_recon'].append(np.average(recon_epoch_loss))
 
             # =====================valid============================
@@ -110,8 +111,8 @@ class TrainerVTS(TrainerTeacherStudent):
             for idx, (data_x, data_y) in enumerate(self.valid_loader, 0):
                 data_y = data_y.to(torch.float32).to(self.args['t'].device)
                 with torch.no_grad():
-                    latent, mu, logvar = self.img_encoder(data_y)
-                    output = self.img_decoder(latent)
+                    latent, z, mu, logvar = self.img_encoder(data_y)
+                    output = self.img_decoder(z)
                     recon_loss = self.args['t'].criterion(output, data_y)
                     kl_loss = self.kl_loss(mu, logvar)
                     loss = recon_loss + kl_loss
@@ -144,25 +145,25 @@ class TrainerVTS(TrainerTeacherStudent):
             if loader.batch_size != 1:
                 data_y = data_y[0][np.newaxis, ...]
             with torch.no_grad():
-                latent, mu, logvar = self.img_encoder(data_y)
-                output = self.img_decoder(latent)
+                latent, z, mu, logvar = self.img_encoder(data_y)
+                output = self.img_decoder(z)
                 loss, kl_loss, recon_loss = self.loss(output, data_y, mu, logvar)
 
             self.test_loss['t']['loss'].append(loss.item())
             self.test_loss['t']['kl'].append(kl_loss.item())
             self.test_loss['t']['recon'].append(recon_loss.item())
-            self.test_loss['t']['predicts'].append(output.cpu().detach().numpy().squeeze().tolist())
-            self.test_loss['t']['groundtruth'].append(data_y.cpu().detach().numpy().squeeze().tolist())
+            self.test_loss['t']['predicts'].append(output.cpu().detach().numpy().squeeze())
+            self.test_loss['t']['groundtruth'].append(data_y.cpu().detach().numpy().squeeze())
 
-            if idx % (len(self.test_loader)//5) == 0:
+            if idx % (len(loader)//5) == 0:
                 print("\rTeacher: {}/{} of test, loss={}".format(idx, len(loader), loss.item()), end='')
 
     def plot_teacher_loss(self, autosave=False, notion=''):
         self.__plot_settings__()
 
-        loss_items = {'Total Loss': ['train_epochs', 'valid_epochs'],
-                      'KL Loss': ['train_kl_epochs', 'valid_kl_epochs'],
-                      'Recon Loss': ['train_recon_epochs', 'valid_recon_epochs']
+        loss_items = {'Total Loss': ['train', 'valid'],
+                      'KL Loss': ['train_kl', 'valid_kl'],
+                      'Recon Loss': ['train_recon', 'valid_recon']
                       }
         stage_color = self.colors(self.train_loss['t']['learning_rate'])
         line_color = ['b', 'orange']
@@ -235,7 +236,8 @@ class TrainerVTS(TrainerTeacherStudent):
             axes[i].set_ylabel('Loss')
             axes[i].grid()
             for j in inds:
-                axes[i].scatter(j, self.test_loss['t'][loss_items[loss]][j], c='magenta', marker=(5, 1), linewidths=4)
+                axes[i].scatter(j, self.test_loss['t'][loss_items[loss]][j],
+                                c='magenta', marker=(5, 1), linewidths=4)
 
         if autosave:
             plt.savefig(f"{self.current_title()}_T_test_{notion}.jpg")
@@ -326,3 +328,49 @@ class TrainerVTS(TrainerTeacherStudent):
         if autosave:
             torch.save(self.csi_encoder.state_dict(),
                        f"../Models/{self.csi_encoder}{self.current_title()}_{notion}.pth")
+
+    def traverse_latent(self, img_ind, dataset, dim1=0, dim2=1, granularity=11, autosave=False, notion=''):
+        self.__plot_settings__()
+
+        self.img_encoder.eval()
+        self.img_decoder.eval()
+
+        if img_ind >= len(dataset):
+            img_ind = np.random.randint(len(dataset))
+
+        data_y, data_x = dataset[img_ind]
+        data_y = data_y[np.newaxis, ...].to(torch.float32).to(self.args['t'].device)
+
+        latent, z, mu, logvar = self.img_encoder(data_y)
+        z = z.squeeze()
+        e = z.cpu().detach().numpy().squeeze()
+
+        grid_x = norm.ppf(np.linspace(0.05, 0.95, granularity))
+        grid_y = norm.ppf(np.linspace(0.05, 0.95, granularity))
+        anchor1 = np.searchsorted(grid_x, e[dim1])
+        anchor2 = np.searchsorted(grid_y, e[dim2])
+        anchor1 = anchor1 * 128 if anchor1 < granularity else (anchor1 - 1) * 128
+        anchor2 = anchor2 * 128 if anchor2 < granularity else (anchor2 - 1) * 128
+
+        figure = np.zeros((granularity * 128, granularity * 128))
+
+        for i, yi in enumerate(grid_y):
+            for j, xi in enumerate(grid_x):
+                z[dim1], z[dim2] = xi, yi
+                output = self.img_decoder(torch.from_numpy(e).to(self.args['t'].device))
+                figure[i * 128: (i + 1) * 128,
+                j * 128: (j + 1) * 128] = output.cpu().detach().numpy().squeeze().tolist()
+
+        fig = plt.figure(constrained_layout=True)
+        fig.suptitle(f"Teacher Traverse in dims {dim1}_{dim2}")
+        plt.imshow(figure)
+        rect = plt.Rectangle((anchor1, anchor2), 128, 128, fill=False, edgecolor='orange')
+        ax = plt.gca()
+        ax.add_patch(rect)
+        plt.axis('off')
+        plt.xlabel(str(dim1))
+        plt.ylabel(str(dim2))
+
+        if autosave:
+            plt.savefig(f"{self.current_title()}_T_traverse_{dim1}{dim2}_{notion}.jpg")
+        plt.show()
