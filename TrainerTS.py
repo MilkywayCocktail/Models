@@ -54,7 +54,7 @@ class MyDataset(Data.Dataset):
 
     def __getitem__(self, index):
         if self.transform:
-            image = self.transform(Image.fromarray((np.array(self.data['y'][index])), mode='L'))
+            image = self.transform(Image.fromarray((np.array(self.data['y'][index])).squeeze(), mode='L'))
         else:
             image = self.data['y'][index]
 
@@ -127,6 +127,14 @@ class TrainerTeacherStudent:
                            's': self.__gen_student_train__()}
         self.test_loss = {'t': self.__gen_teacher_test__(),
                           's': self.__gen_student_test__()}
+        self.plot_terms = {
+            't_train': {'Loss': ['train', 'valid']
+                        },
+            't_predict': {'Ground Truth': 'groundtruth',
+                          'Estimated': 'predicts'
+                          },
+            't_test': {'Loss': 'loss'}
+        }
 
         self.div_loss = div_loss
         self.temperature = temperature
@@ -183,7 +191,7 @@ class TrainerTeacherStudent:
                        'image': [],
                        'predicts_t_latent': [],
                        'predicts_latent': [],
-                       'predicts_image': [],
+                       'predicts': [],
                        'groundtruth': []
                        }
         return s_test_loss
@@ -409,7 +417,7 @@ class TrainerTeacherStudent:
             self.test_loss['s']['image'].append(image_loss.item())
             self.test_loss['s']['predicts_latent'].append(student_latent_preds.cpu().detach().numpy().squeeze())
             self.test_loss['s']['predicts_t_latent'].append(teacher_latent_preds.cpu().detach().numpy().squeeze())
-            self.test_loss['s']['predicts_image'].append(student_image_preds.cpu().detach().numpy().squeeze())
+            self.test_loss['s']['predicts'].append(student_image_preds.cpu().detach().numpy().squeeze())
             self.test_loss['s']['groundtruth'].append(data_y.cpu().detach().numpy().squeeze())
 
             if idx % (len(loader) // 5) == 0:
@@ -419,29 +427,30 @@ class TrainerTeacherStudent:
     def plot_teacher_loss(self, autosave=False, notion=''):
         self.__plot_settings__()
 
-        loss_items = {'Validation': 'valid',
-                      'Train': 'train'
-                      }
+        loss_items = self.plot_terms['t_train']
         stage_color = self.colors(self.train_loss['t']['learning_rate'])
-        line_color = ['orange', 'b']
+        line_color = ['b', 'orange']
 
         # Training & Validation Loss
         fig = plt.figure(constrained_layout=True)
         fig.suptitle(f"Teacher Training Status @ep{self.train_loss['t']['epochs'][-1]}")
-        ax = plt.gca()
+        axes = fig.subplots(1, len(loss_items.keys()))
+        axes = axes.flatten()
 
         for i, loss in enumerate(loss_items.keys()):
             for j, learning_rate in enumerate(self.train_loss['t']['learning_rate']):
-                ax.axvline(self.train_loss['t']['epochs'][j],
-                           linestyle='--',
-                           color=stage_color[j],
-                           label=f'lr={learning_rate}')
+                axes[i].axvline(self.train_loss['t']['epochs'][j],
+                                linestyle='--',
+                                color=stage_color[j],
+                                label=f'lr={learning_rate}')
 
-            ax.plot(self.train_loss['t'][loss_items[loss]], line_color[i], label=loss)
-            ax.set_xlabel('#Epoch')
-            ax.set_ylabel('Loss')
-            ax.grid()
-            ax.legend()
+            axes[i].plot(self.train_loss['t'][loss_items[loss][1]], line_color[1], label=loss_items[loss][1])
+            axes[i].plot(self.train_loss['t'][loss_items[loss][0]], line_color[0], label=loss_items[loss][0])
+            axes[i].set_title(loss)
+            axes[i].set_xlabel('#Epoch')
+            axes[i].set_ylabel('Loss')
+            axes[i].grid()
+            axes[i].legend()
 
         if autosave:
             plt.savefig(f"{self.current_title()}_T_train_{notion}.jpg")
@@ -482,15 +491,17 @@ class TrainerTeacherStudent:
             plt.savefig(f"{self.current_title()}_S_train_{notion}.jpg")
         plt.show()
 
-    def plot_teacher_test(self, select_num=8, autosave=False, notion=''):
+    def plot_teacher_test(self, select_ind=None, select_num=8, autosave=False, notion=''):
         self.__plot_settings__()
-        predict_items = {'Ground Truth': 'groundtruth',
-                         'Estimated': 'predicts'
-                         }
+        predict_items = self.plot_terms['t_predict']
 
         # Depth Images
-        inds = np.random.choice(list(range(len(self.test_loss['t']['groundtruth']))), select_num, replace=False)
+        if select_ind:
+            inds = select_ind
+        else:
+            inds = np.random.choice(list(range(len(self.test_loss['t']['groundtruth']))), select_num, replace=False)
         inds = np.sort(inds)
+
         fig = plt.figure(constrained_layout=True)
         fig.suptitle(f"Teacher Test Predicts @ep{self.train_loss['t']['epochs'][-1]}")
         subfigs = fig.subfigures(nrows=2, ncols=1)
@@ -499,7 +510,7 @@ class TrainerTeacherStudent:
             subfigs[i].suptitle(predict_items[item])
             axes = subfigs[i].subplots(nrows=1, ncols=select_num)
             for j in range(len(axes)):
-                img = axes[j].imshow(self.test_loss['t'][predict_items[item]][inds[j]])
+                img = axes[j].imshow(self.test_loss['t'][predict_items[item]][inds[j]], vmin=0, vmax=1)
                 axes[j].axis('off')
                 axes[j].set_title(f"#{inds[j]}")
             subfigs[i].colorbar(img, ax=axes, shrink=0.8)
@@ -509,17 +520,21 @@ class TrainerTeacherStudent:
         plt.show()
 
         # Test Loss
+        loss_items = self.plot_terms['t_test']
         fig = plt.figure(constrained_layout=True)
         fig.suptitle(f"Teacher Test Loss @ep{self.train_loss['t']['epochs'][-1]}")
-        ax = plt.gca()
-        ax.scatter(list(range(len(self.test_loss['t']['groundtruth']))),
-                   self.test_loss['t']['loss'], alpha=0.6)
-        ax.set_xlabel('#Sample')
-        ax.set_ylabel('Loss')
-        ax.grid()
-        for i in inds:
-            ax.scatter(i, self.test_loss['t']['loss'][i],
-                       c='magenta', marker=(5, 1), linewidths=4)
+        axes = fig.subplots(nrows=1, ncols=len(loss_items.keys()))
+
+        for i, loss in enumerate(loss_items.keys()):
+            axes[i].scatter(list(range(len(self.test_loss['t']['groundtruth']))),
+                            self.test_loss['t'][loss_items[loss]], alpha=0.6)
+            axes[i].set_title(loss)
+            axes[i].set_xlabel('#Sample')
+            axes[i].set_ylabel('Loss')
+            axes[i].grid()
+            for j in inds:
+                axes[i].scatter(j, self.test_loss['t'][loss_items[loss]][j],
+                                c='magenta', marker=(5, 1), linewidths=4)
 
         if autosave:
             plt.savefig(f"{self.current_title()}_T_test_{notion}.jpg")
@@ -542,7 +557,7 @@ class TrainerTeacherStudent:
             subfigs[i].suptitle(predict_items[item])
             axes = subfigs[i].subplots(nrows=1, ncols=select_num)
             for j in range(len(axes)):
-                img = axes[j].imshow(self.test_loss['s'][predict_items[item]][inds[j]])
+                img = axes[j].imshow(self.test_loss['s'][predict_items[item]][inds[j]], vmin=0, vmax=1)
                 axes[j].axis('off')
                 axes[j].set_title(f"#{inds[j]}")
             subfigs[i].colorbar(img, ax=axes, shrink=0.8)

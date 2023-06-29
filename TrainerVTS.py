@@ -32,6 +32,20 @@ class TrainerVTS(TrainerTeacherStudent):
         self.batch_size = batch_size
         self.kl_weight = kl_weight
 
+        self.plot_terms = {
+            't_train': {'Total Loss': ['train', 'valid'],
+                        'KL Loss': ['train_kl', 'valid_kl'],
+                        'Recon Loss': ['train_recon', 'valid_recon']
+                        },
+            't_predict': {'Ground Truth': 'groundtruth',
+                          'Estimated': 'predicts'
+                          },
+            't_test': {'Loss': 'loss',
+                       'KL Loss': 'kl',
+                       'Recon Loss': 'recon'
+                       }
+        }
+
     @staticmethod
     def __gen_teacher_train__():
         t_train_loss = {'learning_rate': [],
@@ -157,91 +171,6 @@ class TrainerVTS(TrainerTeacherStudent):
 
             if idx % (len(loader)//5) == 0:
                 print("\rTeacher: {}/{} of test, loss={}".format(idx, len(loader), loss.item()), end='')
-
-    def plot_teacher_loss(self, autosave=False, notion=''):
-        self.__plot_settings__()
-
-        loss_items = {'Total Loss': ['train', 'valid'],
-                      'KL Loss': ['train_kl', 'valid_kl'],
-                      'Recon Loss': ['train_recon', 'valid_recon']
-                      }
-        stage_color = self.colors(self.train_loss['t']['learning_rate'])
-        line_color = ['b', 'orange']
-
-        # Training & Validation Loss
-        fig = plt.figure(constrained_layout=True)
-        fig.suptitle(f"Teacher Training Status @ep{self.train_loss['t']['epochs'][-1]}")
-        axes = fig.subplots(1, 3)
-        axes = axes.flatten()
-
-        for i, loss in enumerate(loss_items.keys()):
-            for j, learning_rate in enumerate(self.train_loss['t']['learning_rate']):
-                axes[i].axvline(self.train_loss['t']['epochs'][j],
-                                linestyle='--',
-                                color=stage_color[j],
-                                label=f'lr={learning_rate}')
-
-            axes[i].plot(self.train_loss['t'][loss_items[loss][1]], line_color[1], label=loss_items[loss][1])
-            axes[i].plot(self.train_loss['t'][loss_items[loss][0]], line_color[0], label=loss_items[loss][0])
-            axes[i].set_title(loss)
-            axes[i].set_xlabel('#Epoch')
-            axes[i].set_ylabel('Loss')
-            axes[i].grid()
-            axes[i].legend()
-
-        if autosave:
-            plt.savefig(f"{self.current_title()}_T_train_{notion}.jpg")
-        plt.show()
-
-    def plot_teacher_test(self, select_num=8, autosave=False, notion=''):
-        self.__plot_settings__()
-        predict_items = {'Ground Truth': 'groundtruth',
-                         'Estimated': 'predicts'
-                         }
-
-        # Depth Images
-        inds = np.random.choice(list(range(len(self.test_loss['t']['groundtruth']))), select_num, replace=False)
-        inds = np.sort(inds)
-        fig = plt.figure(constrained_layout=True)
-        fig.suptitle(f"Teacher Test Predicts @ep{self.train_loss['t']['epochs'][-1]}")
-        subfigs = fig.subfigures(nrows=2, ncols=1)
-
-        for i, item in enumerate(predict_items.keys()):
-            subfigs[i].suptitle(predict_items[item])
-            axes = subfigs[i].subplots(nrows=1, ncols=select_num)
-            for j in range(len(axes)):
-                img = axes[j].imshow(self.test_loss['t'][predict_items[item]][inds[j]])
-                axes[j].axis('off')
-                axes[j].set_title(f"#{inds[j]}")
-            subfigs[i].colorbar(img, ax=axes, shrink=0.8)
-
-        if autosave:
-            plt.savefig(f"{self.current_title()}_T_predict_{notion}.jpg")
-        plt.show()
-
-        # Test Loss
-        loss_items = {'Loss': 'loss',
-                      'KL Loss': 'kl',
-                      'Recon Loss': 'recon'
-                      }
-        fig = plt.figure(constrained_layout=True)
-        fig.suptitle(f"Teacher Test Loss @ep{self.train_loss['t']['epochs'][-1]}")
-        axes = fig.subplots(nrows=1, ncols=3)
-
-        for i, loss in enumerate(loss_items.keys()):
-            axes[i].scatter(list(range(len(self.test_loss['t']['groundtruth']))),
-                            self.test_loss['t'][loss_items[loss]], alpha=0.6)
-            axes[i].set_title(loss)
-            axes[i].set_xlabel('#Sample')
-            axes[i].set_ylabel('Loss')
-            axes[i].grid()
-            for j in inds:
-                axes[i].scatter(j, self.test_loss['t'][loss_items[loss]][j],
-                                c='magenta', marker=(5, 1), linewidths=4)
-
-        if autosave:
-            plt.savefig(f"{self.current_title()}_T_test_{notion}.jpg")
-        plt.show()
 
     def train_student(self, autosave=False, notion=''):
         self.logger(mode='s')

@@ -24,6 +24,12 @@ def random_deviate(mn):
         im = add_margin(im, deviation[i, 0], deviation[i, 1], 28)
         im = (np.asarray(im) * value_rate[i]).astype(np.uint8)
         mn[i] = im
+
+        plt.figure()
+        plt.imshow(im)
+        plt.colorbar()
+        plt.show()
+
     return mn, labels
 
 
@@ -42,5 +48,5 @@ print(mni.shape)
 mni, labels = random_deviate(mni)
 labels = labels.transpose()
 print(labels.shape)
-np.save(mnist_path[:-4] + '_10c2000s.npy', mni.reshape((-1, 1, 28, 28)))
-np.save(mnist_path[:-4] + '_10c2000s_label.npy', labels)
+# np.save(mnist_path[:-4] + '_10c2000s.npy', mni.reshape((-1, 1, 28, 28)))
+# np.save(mnist_path[:-4] + '_10c2000s_label.npy', labels)
