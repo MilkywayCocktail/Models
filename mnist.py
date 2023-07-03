@@ -14,7 +14,7 @@ def random_deviate(mn):
     shrink_rate = np.random.randint(3, 10, len(mn)) / 10
     re_size = (28 * shrink_rate).astype(np.int8)
     deviation = np.zeros((len(re_size), 2), dtype=int)
-    value_rate = np.random.rand(len(mn))
+    value_rate = (np.random.rand(len(mn)) + 1) / 2.
     labels = np.array([re_size, value_rate, deviation[:, 0], deviation[:, 1]])
 
     for i in range(len(mn)):

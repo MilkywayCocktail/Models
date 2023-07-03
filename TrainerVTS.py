@@ -270,7 +270,10 @@ class TrainerVTS(TrainerTeacherStudent):
         if img_ind >= len(dataset):
             img_ind = np.random.randint(len(dataset))
 
-        data_y, data_x = dataset[img_ind]
+        try:
+            data_y, data_x = dataset[img_ind]
+        except ValueError:
+            data_y = dataset[img_ind]
         data_y = data_y[np.newaxis, ...].to(torch.float32).to(self.args['t'].device)
 
         latent, z, mu, logvar = self.img_encoder(data_y)
