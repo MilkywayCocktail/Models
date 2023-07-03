@@ -267,9 +267,9 @@ class TrainerTeacherStudent:
 
         if autosave:
             torch.save(self.img_encoder.state_dict(),
-                       f"../Models/{self.img_encoder}{self.current_title()}_{notion}.pth")
+                       f"../saved/{self.img_encoder}{self.current_title()}_{notion}.pth")
             torch.save(self.img_decoder.state_dict(),
-                       f"../Models/{self.img_decoder}{self.current_title()}_{notion}.pth")
+                       f"../saved/{self.img_decoder}{self.current_title()}_{notion}.pth")
 
     @timer
     def train_student(self, autosave=False, notion=''):
@@ -359,7 +359,7 @@ class TrainerTeacherStudent:
 
         if autosave:
             torch.save(self.csi_encoder.state_dict(),
-                       f"../Models/{self.csi_encoder}{self.current_title()}_{notion}.pth")
+                       f"../saved/{self.csi_encoder}{self.current_title()}_{notion}.pth")
 
     def test_teacher(self, mode='test'):
         self.test_loss['t'] = self.__gen_teacher_test__()
@@ -621,8 +621,8 @@ class TrainerTeacherStudent:
             os.makedirs(save_path)
 
         torch.save(self.img_encoder.state_dict(),
-                   f"../Models/{self.img_encoder}{self.current_title()}_{notion}.pth")
+                   f"../saved/{self.img_encoder}{self.current_title()}_{notion}.pth")
         torch.save(self.img_decoder.state_dict(),
-                   f"../Models/{self.img_decoder}{self.current_title()}_{notion}.pth")
+                   f"../saved/{self.img_decoder}{self.current_title()}_{notion}.pth")
         torch.save(self.csi_encoder.state_dict(),
-                   f"../Models/{self.csi_encoder}{self.current_title()}_{notion}.pth")
+                   f"../saved/{self.csi_encoder}{self.current_title()}_{notion}.pth")

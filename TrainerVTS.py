@@ -141,9 +141,9 @@ class TrainerVTS(TrainerTeacherStudent):
 
         if autosave:
             torch.save(self.img_encoder.state_dict(),
-                       f"../Models/{self.img_encoder}{self.current_title()}_{notion}.pth")
+                       f"../saved/{self.img_encoder}{self.current_title()}_{notion}.pth")
             torch.save(self.img_decoder.state_dict(),
-                       f"../Models/{self.img_decoder}{self.current_title()}_{notion}.pth")
+                       f"../saved/{self.img_decoder}{self.current_title()}_{notion}.pth")
 
     def test_teacher(self, mode='test'):
         self.test_loss['t'] = self.__gen_teacher_test__()
@@ -259,7 +259,7 @@ class TrainerVTS(TrainerTeacherStudent):
 
         if autosave:
             torch.save(self.csi_encoder.state_dict(),
-                       f"../Models/{self.csi_encoder}{self.current_title()}_{notion}.pth")
+                       f"../saved/{self.csi_encoder}{self.current_title()}_{notion}.pth")
 
     def traverse_latent(self, img_ind, dataset, dim1=0, dim2=1, granularity=11, autosave=False, notion=''):
         self.__plot_settings__()
