@@ -13,7 +13,6 @@ class TrainerVTS(TrainerTeacherStudent):
     def __init__(self, img_encoder, img_decoder, csi_encoder,
                  teacher_args, student_args,
                  train_loader, valid_loader, test_loader,
-                 optimizer=torch.optim.Adam,
                  div_loss=nn.KLDivLoss(reduction='batchmean'),
                  img_loss=nn.SmoothL1Loss(),
                  temperature=20,
@@ -24,7 +23,6 @@ class TrainerVTS(TrainerTeacherStudent):
         super(TrainerVTS, self).__init__(img_encoder=img_encoder, img_decoder=img_decoder, csi_encoder=csi_encoder,
                                          teacher_args=teacher_args, student_args=student_args,
                                          train_loader=train_loader, valid_loader=valid_loader, test_loader=test_loader,
-                                         optimizer=optimizer,
                                          div_loss=div_loss,
                                          img_loss=img_loss,
                                          temperature=temperature,
@@ -85,6 +83,9 @@ class TrainerVTS(TrainerTeacherStudent):
     @timer
     def train_teacher(self, autosave=False, notion=''):
         self.logger(mode='t')
+        teacher_optimizer = self.args['t'].optimizer([{'params': self.img_encoder.parameters()},
+                                                      {'params': self.img_decoder.parameters()}],
+                                                     lr=self.args['t'].learning_rate)
 
         for epoch in range(self.args['t'].epochs):
 
@@ -96,14 +97,14 @@ class TrainerVTS(TrainerTeacherStudent):
             recon_epoch_loss = []
             for idx, (data_x, data_y) in enumerate(self.train_loader, 0):
                 data_y = data_y.to(torch.float32).to(self.args['t'].device)
-                self.teacher_optimizer.zero_grad()
+                teacher_optimizer.zero_grad()
                 latent, z, mu, logvar = self.img_encoder(data_y)
                 output = self.img_decoder(z)
 
                 loss, kl_loss, recon_loss = self.loss(output, data_y, mu, logvar)
 
                 loss.backward()
-                self.teacher_optimizer.step()
+                teacher_optimizer.step()
                 train_epoch_loss.append(loss.item())
                 kl_epoch_loss.append(kl_loss.item())
                 recon_epoch_loss.append(recon_loss.item())
@@ -174,6 +175,8 @@ class TrainerVTS(TrainerTeacherStudent):
 
     def train_student(self, autosave=False, notion=''):
         self.logger(mode='s')
+        student_optimizer = self.args['s'].optimizer(self.csi_encoder.parameters(),
+                                                     lr=self.args['s'].learning_rate)
 
         for epoch in range(self.args['s'].epochs):
 
@@ -203,9 +206,9 @@ class TrainerVTS(TrainerTeacherStudent):
 
                 loss = self.alpha * student_loss + (1 - self.alpha) * distil_loss
 
-                self.student_optimizer.zero_grad()
+                student_optimizer.zero_grad()
                 loss.backward()
-                self.student_optimizer.step()
+                student_optimizer.step()
 
                 train_epoch_loss.append(loss.item())
                 straight_epoch_loss.append(student_loss.item())

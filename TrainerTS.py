@@ -90,11 +90,14 @@ def split_loader(dataset, train_size, valid_size, test_size, batch_size):
 
 
 class MyArgs:
-    def __init__(self, cuda=1, epochs=30, learning_rate=0.001, criterion=nn.CrossEntropyLoss()):
+    def __init__(self, cuda=1, epochs=30, learning_rate=0.001,
+                 criterion=nn.CrossEntropyLoss(),
+                 optimizer=torch.optim.Adam):
         self.epochs = epochs
         self.learning_rate = learning_rate
         self.device = torch.device("cuda:" + str(cuda) if torch.cuda.is_available() else "cpu")
         self.criterion = criterion
+        self.optimizer = optimizer
 
 
 class TrainerTeacherStudent:
@@ -102,7 +105,6 @@ class TrainerTeacherStudent:
     def __init__(self, img_encoder, img_decoder, csi_encoder,
                  teacher_args, student_args,
                  train_loader, valid_loader, test_loader,
-                 optimizer=torch.optim.Adam,
                  div_loss=nn.KLDivLoss(reduction='batchmean'),
                  img_loss=nn.SmoothL1Loss(),
                  temperature=20,
@@ -117,11 +119,6 @@ class TrainerTeacherStudent:
         self.train_loader = train_loader
         self.valid_loader = valid_loader
         self.test_loader = test_loader
-
-        self.teacher_optimizer = optimizer([{'params': self.img_encoder.parameters()},
-                                           {'params': self.img_decoder.parameters()}],
-                                           lr=self.args['t'].learning_rate)
-        self.student_optimizer = optimizer(self.csi_encoder.parameters(), lr=self.args['s'].learning_rate)
 
         self.train_loss = {'t': self.__gen_teacher_train__(),
                            's': self.__gen_student_train__()}
@@ -228,6 +225,9 @@ class TrainerTeacherStudent:
     @timer
     def train_teacher(self, autosave=False, notion=''):
         self.logger(mode='t')
+        teacher_optimizer = self.args['t'].optimizer([{'params': self.img_encoder.parameters()},
+                                                      {'params': self.img_decoder.parameters()}],
+                                                     lr=self.args['t'].learning_rate)
 
         for epoch in range(self.args['t'].epochs):
 
@@ -237,13 +237,13 @@ class TrainerTeacherStudent:
             train_epoch_loss = []
             for idx, (data_x, data_y) in enumerate(self.train_loader, 0):
                 data_y = data_y.to(torch.float32).to(self.args['t'].device)
-                self.teacher_optimizer.zero_grad()
+                teacher_optimizer.zero_grad()
                 latent = self.img_encoder(data_y).data
                 output = self.img_decoder(latent)
 
                 loss = self.args['t'].criterion(output, data_y)
                 loss.backward()
-                self.teacher_optimizer.step()
+                teacher_optimizer.step()
                 train_epoch_loss.append(loss.item())
 
                 if idx % (len(self.train_loader) // 5) == 0:
@@ -274,6 +274,8 @@ class TrainerTeacherStudent:
     @timer
     def train_student(self, autosave=False, notion=''):
         self.logger(mode='s')
+        student_optimizer = self.args['s'].optimizer(self.csi_encoder.parameters(),
+                                                     lr=self.args['s'].learning_rate)
 
         for epoch in range(self.args['s'].epochs):
 
@@ -303,9 +305,9 @@ class TrainerTeacherStudent:
 
                 loss = self.alpha * student_loss + (1 - self.alpha) * distil_loss
 
-                self.student_optimizer.zero_grad()
+                student_optimizer.zero_grad()
                 loss.backward()
-                self.student_optimizer.step()
+                student_optimizer.step()
 
                 train_epoch_loss.append(loss.item())
                 straight_epoch_loss.append(student_loss.item())
