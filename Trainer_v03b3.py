@@ -14,7 +14,6 @@ from Trainer_v03b2 import *
 # Model v03b3
 # VAE version; Adaptive to 3D Shapes dataset.
 # Added interpolating decoder
-# Adjusted for MNIST
 
 # ImageEncoder: in = 128 * 128, out = 1 * 256
 # ImageDecoder: in = 1 * 256, out = 128 * 128

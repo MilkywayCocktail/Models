@@ -10,7 +10,7 @@ from TrainerTS import timer, MyDataset, split_loader, MyArgs, TrainerTeacherStud
 # ------------------------------------- #
 # Model v03b1
 # Added interpolating decoder
-# Adjusted for MNIST
+# Adaptive to MNIST
 
 # ImageEncoder: in = 128 * 128, out = 1 * 256
 # ImageDecoder: in = 1 * 256, out = 128 * 128

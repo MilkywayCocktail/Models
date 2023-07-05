@@ -10,7 +10,6 @@ from TrainerVTS import TrainerVTS
 # Model v03b2
 # VAE version; Adaptive to MNIST
 # Added interpolating decoder
-# Adjusted for MNIST
 
 # ImageEncoder: in = 128 * 128, out = 1 * 256
 # ImageDecoder: in = 1 * 256, out = 128 * 128

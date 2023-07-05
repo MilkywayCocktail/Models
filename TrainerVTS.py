@@ -195,14 +195,15 @@ class TrainerVTS(TrainerTeacherStudent):
 
                 student_preds, mu, logvar = self.csi_encoder(data_x)
                 with torch.no_grad():
-                    teacher_preds, t_mu, t_logvar = self.img_encoder(data_y)
+                    teacher_preds, t_z, t_mu, t_logvar = self.img_encoder(data_y)
                     image_preds = self.img_decoder(student_preds)
 
                 image_loss = self.img_loss(image_preds, data_y)
                 student_loss = self.args['s'].criterion(student_preds, teacher_preds)
 
-                distil_loss = self.div_loss(nn.functional.softmax(student_preds / self.temperature, -1),
-                                            nn.functional.softmax(teacher_preds / self.temperature, -1))
+                # distil_loss = self.div_loss(nn.functional.softmax(student_preds / self.temperature, -1),
+                #                             nn.functional.softmax(teacher_preds / self.temperature, -1))
+                distil_loss = self.div_loss(student_preds, teacher_preds)
 
                 loss = self.alpha * student_loss + (1 - self.alpha) * distil_loss
 
