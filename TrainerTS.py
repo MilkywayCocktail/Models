@@ -205,6 +205,12 @@ class TrainerTeacherStudent:
         return c
 
     def logger(self, mode='t'):
+        """
+        Logs learning rate and number of epochs before training.
+        :param mode: 't' or 's'
+        :return:
+        """
+
         # First round
         if not self.train_loss[mode]['learning_rate']:
             self.train_loss[mode]['learning_rate'].append(self.args[mode].learning_rate)
@@ -299,10 +305,9 @@ class TrainerTeacherStudent:
 
                 image_loss = self.img_loss(image_preds, data_y)
                 student_loss = self.args['s'].criterion(student_preds, teacher_preds)
-
-                distil_loss = self.div_loss(nn.functional.softmax(student_preds / self.temperature, -1),
-                                            nn.functional.softmax(teacher_preds / self.temperature, -1))
-
+                # distil_loss = self.div_loss(nn.functional.softmax(student_preds / self.temperature, -1),
+                #                             nn.functional.softmax(teacher_preds / self.temperature, -1))
+                distil_loss = self.div_loss(student_preds, teacher_preds)
                 loss = self.alpha * student_loss + (1 - self.alpha) * distil_loss
 
                 student_optimizer.zero_grad()
@@ -342,9 +347,9 @@ class TrainerTeacherStudent:
                     image_preds = self.img_decoder(student_preds)
                     image_loss = self.img_loss(image_preds, data_y)
                     student_loss = self.args['s'].criterion(student_preds, teacher_preds)
-                    distil_loss = self.div_loss(nn.functional.softmax(student_preds / self.temperature, -1),
-                                                nn.functional.softmax(teacher_preds / self.temperature, -1))
-
+                    # distil_loss = self.div_loss(nn.functional.softmax(student_preds / self.temperature, -1),
+                    #                             nn.functional.softmax(teacher_preds / self.temperature, -1))
+                    distil_loss = self.div_loss(student_preds, teacher_preds)
                     loss = self.alpha * student_loss + (1 - self.alpha) * distil_loss
 
                 valid_epoch_loss.append(loss.item())
@@ -402,24 +407,24 @@ class TrainerTeacherStudent:
             data_x = data_x.to(torch.float32).to(self.args['s'].device)
             data_y = data_y.to(torch.float32).to(self.args['s'].device)
             with torch.no_grad():
-                teacher_latent_preds = self.img_encoder(data_y)
-                student_latent_preds = self.csi_encoder(data_x)
-                student_image_preds = self.img_decoder(student_latent_preds)
-            student_loss = self.args['s'].criterion(student_latent_preds, teacher_latent_preds)
-            image_loss = self.img_loss(student_image_preds, data_y)
+                teacher_preds = self.img_encoder(data_y)
+                student_preds = self.csi_encoder(data_x)
+                image_preds = self.img_decoder(student_preds)
+            student_loss = self.args['s'].criterion(student_preds, teacher_preds)
+            image_loss = self.img_loss(image_preds, data_y)
 
-            distil_loss = self.div_loss(nn.functional.softmax(student_latent_preds / self.temperature, -1),
-                                        nn.functional.softmax(teacher_latent_preds / self.temperature, -1))
-
+            # distil_loss = self.div_loss(nn.functional.softmax(student_preds / self.temperature, -1),
+            #                             nn.functional.softmax(teacher_preds / self.temperature, -1))
+            distil_loss = self.div_loss(student_preds, teacher_preds)
             loss = self.alpha * student_loss + (1 - self.alpha) * distil_loss
 
             self.test_loss['s']['loss'].append(image_loss.item())
             self.test_loss['s']['latent_straight'].append(student_loss.item())
             self.test_loss['s']['latent_distil'].append(loss.item())
             self.test_loss['s']['image'].append(image_loss.item())
-            self.test_loss['s']['predicts_latent'].append(student_latent_preds.cpu().detach().numpy().squeeze())
-            self.test_loss['s']['predicts_t_latent'].append(teacher_latent_preds.cpu().detach().numpy().squeeze())
-            self.test_loss['s']['predicts'].append(student_image_preds.cpu().detach().numpy().squeeze())
+            self.test_loss['s']['predicts_latent'].append(student_preds.cpu().detach().numpy().squeeze())
+            self.test_loss['s']['predicts_t_latent'].append(teacher_preds.cpu().detach().numpy().squeeze())
+            self.test_loss['s']['predicts'].append(image_preds.cpu().detach().numpy().squeeze())
             self.test_loss['s']['groundtruth'].append(data_y.cpu().detach().numpy().squeeze())
 
             if idx % (len(loader) // 5) == 0:
