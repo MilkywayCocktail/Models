@@ -22,13 +22,13 @@ def random_deviate(mn):
         im = Image.fromarray(mn[i], mode='L')
         im = im.resize((re_size[i], re_size[i]))
         im = add_margin(im, deviation[i, 0], deviation[i, 1], 28)
-        im = (np.asarray(im) * value_rate[i]).astype(np.uint8)
+        #im = (np.asarray(im) * value_rate[i]).astype(np.uint8)
         mn[i] = im
 
-        plt.figure()
-        plt.imshow(im)
-        plt.colorbar()
-        plt.show()
+        #plt.figure()
+        #plt.imshow(im)
+        #plt.colorbar()
+        #plt.show()
 
     return mn, labels
 
@@ -48,21 +48,20 @@ def only_displacement(mn):
     return mn, labels
 
 
-if __name__ == 'main':
-    mnist_path = '../../dataset/myMNIST/train_images.npy'
+mnist_path = '../../dataset/myMNIST/train_images.npy'
 
-    mnist = np.load(mnist_path)
+mnist = np.load(mnist_path)
 
-    inds = np.random.choice(np.arange(60000), 10, replace=False)
-    inds.sort()
+inds = np.random.choice(np.arange(60000), 10, replace=False)
+inds.sort()
 
-    mni = mnist[inds]
-    mni = np.tile(mni, 2000)
-    mni = mni.reshape((-1, 28, 28))
-    print(mni.shape)
+mni = mnist[inds]
+mni = np.tile(mni, 2000)
+mni = mni.reshape((-1, 28, 28))
+print(mni.shape)
 
-    mni, labels = random_deviate(mni)
-    labels = labels.transpose()
-    print(labels.shape)
-    # np.save(mnist_path[:-4] + '_10c2000s.npy', mni.reshape((-1, 1, 28, 28)))
-    # np.save(mnist_path[:-4] + '_10c2000s_label.npy', labels)
+mni, labels = random_deviate(mni)
+labels = labels.transpose()
+print(labels.shape)
+np.save(mnist_path[:-4] + '_10c2000s_2.npy', mni.reshape((-1, 1, 28, 28)))
+np.save(mnist_path[:-4] + '_10c2000s_label_2.npy', labels)
