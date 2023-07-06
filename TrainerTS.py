@@ -431,7 +431,7 @@ class TrainerTeacherStudent:
                 print("\rStudent: {}/{}of test, student loss={}, distill loss={}, image loss={}".format(
                     idx, len(self.test_loader), student_loss.item(), distil_loss.item(), image_loss.item()), end='')
 
-    def plot_teacher_loss(self, autosave=False, notion=''):
+    def plot_teacher_loss(self, double_y=False, autosave=False, notion=''):
         self.__plot_settings__()
 
         loss_items = self.plot_terms['t_train']
@@ -454,7 +454,10 @@ class TrainerTeacherStudent:
             axes[i].plot(list(range(len(self.train_loss['t'][loss_items[loss][1]]))),
                          self.train_loss['t'][loss_items[loss][1]],
                          line_color[1], label=loss_items[loss][1])
-            ax_r = axes[i].twinx()
+            if double_y:
+                ax_r = axes[i].twinx()
+            else:
+                ax_r = axes[i]
             ax_r.plot(list(range(len(self.train_loss['t'][loss_items[loss][0]]))),
                       self.train_loss['t'][loss_items[loss][0]],
                       line_color[0], label=loss_items[loss][0])
