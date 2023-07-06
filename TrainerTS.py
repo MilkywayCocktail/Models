@@ -198,7 +198,7 @@ class TrainerTeacherStudent:
 
     @staticmethod
     def colors(arrays):
-        arr = np.array(arrays)
+        arr = -np.log(arrays)
         norm = plt.Normalize(arr.min(), arr.max())
         map_vir = cm.get_cmap(name='viridis')
         c = map_vir(norm(arr))
@@ -451,8 +451,13 @@ class TrainerTeacherStudent:
                                 color=stage_color[j],
                                 label=f'lr={learning_rate}')
 
-            axes[i].plot(self.train_loss['t'][loss_items[loss][1]], line_color[1], label=loss_items[loss][1])
-            axes[i].plot(self.train_loss['t'][loss_items[loss][0]], line_color[0], label=loss_items[loss][0])
+            axes[i].plot(list(range(len(self.train_loss['t'][loss_items[loss][1]]))),
+                         self.train_loss['t'][loss_items[loss][1]],
+                         line_color[1], label=loss_items[loss][1])
+            ax_r = axes[i].twinx()
+            ax_r.plot(list(range(len(self.train_loss['t'][loss_items[loss][0]]))),
+                      self.train_loss['t'][loss_items[loss][0]],
+                      line_color[0], label=loss_items[loss][0])
             axes[i].set_title(loss)
             axes[i].set_xlabel('#Epoch')
             axes[i].set_ylabel('Loss')
@@ -471,7 +476,7 @@ class TrainerTeacherStudent:
                       'Distillation Loss': ['train_distil', 'valid_distil'],
                       'Image Loss': ['train_image', 'valid_image']
                       }
-        stage_color = self.colors(self.train_loss['s']['learning_rate'])
+        stage_color = self.colors(-np.log(self.train_loss['s']['learning_rate']))
         line_color = ['b', 'orange']
 
         # Training & Validation Loss
