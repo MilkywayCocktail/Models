@@ -313,4 +313,3 @@ class TrainerVTS(TrainerTeacherStudent):
         if autosave:
             plt.savefig(f"{self.current_title()}_T_traverse_{dim1}{dim2}_{notion}.jpg")
         plt.show()
-        
