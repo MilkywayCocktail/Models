@@ -364,7 +364,7 @@ class TrainerTS(TrainerTeacherStudent):
                                         alpha=alpha)
         self.latent_dim = latent_dim
 
-    def traverse_latent(self, img_ind, dataset, dim1=0, dim2=1, granularity=11, autosave=False, notion=''):
+    def traverse_latent(self, img_ind, dataset, img='x', dim1=0, dim2=1, granularity=11, autosave=False, notion=''):
         self.__plot_settings__()
 
         self.img_encoder.eval()
@@ -373,10 +373,13 @@ class TrainerTS(TrainerTeacherStudent):
         if img_ind >= len(dataset):
             img_ind = np.random.randint(len(dataset))
 
-        data_y, data_x = dataset[img_ind]
-        data_y = data_y[np.newaxis, ...].to(torch.float32).to(self.args['t'].device)
+        data_x, data_y = dataset[img_ind]
+        if img == 'x':
+            image = data_x[np.newaxis, ...].to(torch.float32).to(self.args['t'].device)
+        elif img == 'y':
+            image = data_y[np.newaxis, ...].to(torch.float32).to(self.args['t'].device)
 
-        z = self.img_encoder(data_y)
+        z = self.img_encoder(image)
         z = z.cpu().detach().numpy().squeeze()
 
         grid_x = norm.ppf(np.linspace(0.05, 0.95, granularity))

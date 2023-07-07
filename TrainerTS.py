@@ -50,7 +50,7 @@ class MyDataset(Data.Dataset):
         self.seeds = None
         self.transform = transform
         self.img = img
-        self.data = self.load_data(x_path, y_path, number=number)
+        self.data = self.__load_data__(x_path, y_path, number=number)
         print('loaded')
 
     def __transform__(self, sample):
@@ -68,7 +68,7 @@ class MyDataset(Data.Dataset):
     def __len__(self):
         return self.data['x'].shape[0]
 
-    def load_data(self, x_path, y_path, number):
+    def __load_data__(self, x_path, y_path, number):
         x = np.load(x_path)
         y = np.load(y_path)
 

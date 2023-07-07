@@ -261,7 +261,7 @@ class TrainerVTS(TrainerTeacherStudent):
             torch.save(self.csi_encoder.state_dict(),
                        f"../saved/{self.csi_encoder}{self.current_title()}_{notion}.pth")
 
-    def traverse_latent(self, img_ind, dataset, dim1=0, dim2=1, granularity=11, autosave=False, notion=''):
+    def traverse_latent(self, img_ind, dataset, img='x', dim1=0, dim2=1, granularity=11, autosave=False, notion=''):
         self.__plot_settings__()
 
         self.img_encoder.eval()
@@ -271,12 +271,16 @@ class TrainerVTS(TrainerTeacherStudent):
             img_ind = np.random.randint(len(dataset))
 
         try:
-            data_y, data_x = dataset[img_ind]
-        except ValueError:
-            data_y = dataset[img_ind]
-        data_y = data_y[np.newaxis, ...].to(torch.float32).to(self.args['t'].device)
+            data_x, data_y = dataset[img_ind]
+            if img == 'x':
+                image = data_x[np.newaxis, ...].to(torch.float32).to(self.args['t'].device)
+            elif img == 'y':
+                image = data_y[np.newaxis, ...].to(torch.float32).to(self.args['t'].device)
 
-        latent, z, mu, logvar = self.img_encoder(data_y)
+        except ValueError:
+            image = dataset[img_ind][np.newaxis, ...].to(torch.float32).to(self.args['t'].device)
+
+        latent, z, mu, logvar = self.img_encoder(image)
         z = z.squeeze()
         e = z.cpu().detach().numpy().squeeze()
 
@@ -294,7 +298,7 @@ class TrainerVTS(TrainerTeacherStudent):
                 z[dim1], z[dim2] = xi, yi
                 output = self.img_decoder(torch.from_numpy(e).to(self.args['t'].device))
                 figure[i * 128: (i + 1) * 128,
-                j * 128: (j + 1) * 128] = output.cpu().detach().numpy().squeeze().tolist()
+                       j * 128: (j + 1) * 128] = output.cpu().detach().numpy().squeeze().tolist()
 
         fig = plt.figure(constrained_layout=True)
         fig.suptitle(f"Teacher Traverse in dims {dim1}_{dim2}")
@@ -309,3 +313,4 @@ class TrainerVTS(TrainerTeacherStudent):
         if autosave:
             plt.savefig(f"{self.current_title()}_T_traverse_{dim1}{dim2}_{notion}.jpg")
         plt.show()
+        
