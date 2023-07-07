@@ -411,5 +411,5 @@ class TrainerTS(TrainerTeacherStudent):
 
 
 if __name__ == "__main__":
-    m1 = ImageDecoder(batchnorm=False, active_func=nn.ReLU(), latent_dim=256)
-    summary(m1, input_size=(1, 256))
+    m1 = ImageEncoder(batchnorm=False, latent_dim=8)
+    summary(m1, input_size=(1, 128, 128))

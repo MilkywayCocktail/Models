@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 from torchinfo import summary
-import numpy as np
 from TrainerTS import timer, MyDataset, split_loader, MyArgs, bn, Interpolate
 from TrainerVTS import TrainerVTS
 
