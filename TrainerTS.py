@@ -450,7 +450,7 @@ class TrainerTeacherStudent:
             axes = fig.subplots(1, len(loss_items.keys()))
             axes = axes.flatten()
         else:
-            axes = plt.gca()
+            axes = [plt.gca()]
 
         for i, loss in enumerate(loss_items.keys()):
             for j, learning_rate in enumerate(self.train_loss['t']['learning_rate']):
