@@ -46,19 +46,24 @@ class Interpolate(nn.Module):
 
 
 class MyDataset(Data.Dataset):
-    def __init__(self, x_path, y_path, transform=None, number=0):
+    def __init__(self, x_path, y_path, transform=None, img='y', number=0):
         self.seeds = None
         self.transform = transform
+        self.img = img
         self.data = self.load_data(x_path, y_path, number=number)
         print('loaded')
 
-    def __getitem__(self, index):
+    def __transform__(self, sample):
         if self.transform:
-            image = self.transform(Image.fromarray((np.array(self.data['y'][index])).squeeze(), mode='L'))
+            return self.transform(Image.fromarray((np.array(sample)).squeeze(), mode='L'))
         else:
-            image = self.data['y'][index]
+            return sample
 
-        return self.data['x'][index], image
+    def __getitem__(self, index):
+        if self.img == 'y':
+            return self.data['x'][index], self.__transform__(self.data['y'][index])
+        elif self.img == 'x':
+            return self.__transform__(self.data['x'][index]), self.data['y'][index]
 
     def __len__(self):
         return self.data['x'].shape[0]

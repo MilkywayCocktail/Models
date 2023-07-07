@@ -77,7 +77,7 @@ class ImageEncoder(nn.Module):
             nn.Linear(4 * 4 * 256, 4096),
             nn.ReLU(),
             nn.Linear(4096, self.latent_dim),
-            #nn.Sigmoid()
+            # nn.Sigmoid()
         )
 
     def __str__(self):
@@ -162,7 +162,7 @@ class ImageDecoder(nn.Module):
         )
 
     def __str__(self):
-        return 'v03a1_ImgDe_' + self.fc
+        return 'v03b1_ImgDe_' + self.fc
 
     def forward(self, x):
 
@@ -227,7 +227,7 @@ class ImageDecoderInterp(ImageDecoder):
         )
 
     def __str__(self):
-        return 'v03b2_ImgDeI_' + self.fc
+        return 'v03b1_ImgDeI_' + self.fc
 
     def forward(self, x):
 
@@ -305,7 +305,7 @@ class CsiEncoder(nn.Module):
             nn.Linear(256 * 8 * 42, 4096),
             nn.ReLU(),
             nn.Linear(4096, 256),
-            #nn.ReLU()
+            # nn.ReLU()
         )
 
         self.lstm = nn.Sequential(
@@ -364,81 +364,6 @@ class TrainerTS(TrainerTeacherStudent):
                                         alpha=alpha)
         self.latent_dim = latent_dim
 
-    @timer
-    def train_teacher(self, autosave=False, notion=''):
-        self.logger(mode='t')
-        teacher_optimizer = self.args['t'].optimizer([{'params': self.img_encoder.parameters()},
-                                                      {'params': self.img_decoder.parameters()}],
-                                                     lr=self.args['t'].learning_rate)
-
-        for epoch in range(self.args['t'].epochs):
-
-            # =====================train============================
-            self.img_encoder.train()
-            self.img_decoder.train()
-            train_epoch_loss = []
-            for idx, (data_y, data_x) in enumerate(self.train_loader, 0):
-                data_y = data_y.to(torch.float32).to(self.args['t'].device)
-                teacher_optimizer.zero_grad()
-                latent = self.img_encoder(data_y).data
-                output = self.img_decoder(latent)
-
-                loss = self.args['t'].criterion(output, data_y)
-                loss.backward()
-                teacher_optimizer.step()
-                train_epoch_loss.append(loss.item())
-
-                if idx % (len(self.train_loader) // 5) == 0:
-                    print("\rTeacher: epoch={}/{}, {}/{} of train, loss={}".format(
-                        epoch, self.args['t'].epochs, idx, len(self.train_loader), loss.item()), end='')
-            self.train_loss['t']['train'].append(np.average(train_epoch_loss))
-
-            # =====================valid============================
-            self.img_encoder.eval()
-            self.img_decoder.eval()
-            valid_epoch_loss = []
-
-            for idx, (data_y, data_x) in enumerate(self.valid_loader, 0):
-                data_y = data_y.to(torch.float32).to(self.args['t'].device)
-                with torch.no_grad():
-                    latent = self.img_encoder(data_y).data
-                    output = self.img_decoder(latent)
-                    loss = self.args['t'].criterion(output, data_y)
-                valid_epoch_loss.append(loss.item())
-            self.train_loss['t']['valid'].append(np.average(valid_epoch_loss))
-
-        if autosave:
-            torch.save(self.img_encoder.state_dict(),
-                       f"../saved/{self.img_encoder}{self.current_title()}_{notion}.pth")
-            torch.save(self.img_decoder.state_dict(),
-                       f"../saved/{self.img_decoder}{self.current_title()}_{notion}.pth")
-
-    def test_teacher(self, mode='test'):
-        self.test_loss['t'] = self.__gen_teacher_test__()
-        self.img_encoder.eval()
-        self.img_decoder.eval()
-
-        if mode == 'test':
-            loader = self.test_loader
-        elif mode == 'train':
-            loader = self.train_loader
-
-        for idx, (data_y, data_x) in enumerate(loader, 0):
-            data_y = data_y.to(torch.float32).to(self.args['t'].device)
-            if loader.batch_size != 1:
-                data_y = data_y[0][np.newaxis, ...]
-            with torch.no_grad():
-                latent = self.img_encoder(data_y)
-                output = self.img_decoder(latent)
-                loss = self.args['t'].criterion(output, data_y)
-
-            self.test_loss['t']['loss'].append(loss.item())
-            self.test_loss['t']['predicts'].append(output.cpu().detach().numpy().squeeze())
-            self.test_loss['t']['groundtruth'].append(data_y.cpu().detach().numpy().squeeze())
-
-            if idx % (len(loader) // 5) == 0:
-                print("\rTeacher: {}/{} of test, loss={}".format(idx, len(loader), loss.item()), end='')
-
     def traverse_latent(self, img_ind, dataset, dim1=0, dim2=1, granularity=11, autosave=False, notion=''):
         self.__plot_settings__()
 
@@ -468,7 +393,7 @@ class TrainerTS(TrainerTeacherStudent):
                 z[dim1], z[dim2] = xi, yi
                 output = self.img_decoder(torch.from_numpy(z).to(self.args['t'].device))
                 figure[i * 128: (i + 1) * 128,
-                j * 128: (j + 1) * 128] = output.cpu().detach().numpy().squeeze()
+                       j * 128: (j + 1) * 128] = output.cpu().detach().numpy().squeeze()
 
         fig = plt.figure(constrained_layout=True)
         fig.suptitle(f"Teacher Traverse in dims {dim1}_{dim2}")
