@@ -373,17 +373,21 @@ class TrainerTS(TrainerTeacherStudent):
         if img_ind >= len(dataset):
             img_ind = np.random.randint(len(dataset))
 
-        data_x, data_y = dataset[img_ind]
-        if img == 'x':
-            image = data_x[np.newaxis, ...].to(torch.float32).to(self.args['t'].device)
-        elif img == 'y':
-            image = data_y[np.newaxis, ...].to(torch.float32).to(self.args['t'].device)
+        try:
+            data_x, data_y = dataset[img_ind]
+            if img == 'x':
+                image = data_x[np.newaxis, ...].to(torch.float32).to(self.args['t'].device)
+            elif img == 'y':
+                image = data_y[np.newaxis, ...].to(torch.float32).to(self.args['t'].device)
+
+        except ValueError:
+            image = dataset[img_ind][np.newaxis, ...].to(torch.float32).to(self.args['t'].device)
 
         z = self.img_encoder(image)
         z = z.cpu().detach().numpy().squeeze()
 
-        grid_x = norm.ppf(np.linspace(0.05, 0.95, granularity))
-        grid_y = norm.ppf(np.linspace(0.05, 0.95, granularity))
+        grid_x = norm.ppf(np.linspace(np.min(z), np.max(z), granularity))
+        grid_y = norm.ppf(np.linspace(np.min(z), np.max(z), granularity))
         anchor1 = np.searchsorted(grid_x, z[dim1])
         anchor2 = np.searchsorted(grid_y, z[dim2])
         anchor1 = anchor1 * 128 if anchor1 < granularity else (anchor1 - 1) * 128
