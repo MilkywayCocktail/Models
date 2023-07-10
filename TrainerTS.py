@@ -46,8 +46,9 @@ class Interpolate(nn.Module):
 
 
 class MyDataset(Data.Dataset):
-    def __init__(self, x_path, y_path, transform=None, img='y', number=0):
+    def __init__(self, x_path, y_path, img_size=(128, 128), transform=None, img='y', number=0):
         self.seeds = None
+        self.img_size=img_size
         self.transform = transform
         self.img = img
         self.data = self.__load_data__(x_path, y_path, number=number)
@@ -71,6 +72,10 @@ class MyDataset(Data.Dataset):
     def __load_data__(self, x_path, y_path, number):
         x = np.load(x_path)
         y = np.load(y_path)
+        if self.img == 'x':
+            x = x.reshape(self.img_size)
+        elif self.img == 'y':
+            y = y.reshape(self.img_size)
 
         if x.shape[0] == y.shape[0]:
             total_count = x.shape[0]
