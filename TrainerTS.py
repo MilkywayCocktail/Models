@@ -73,9 +73,9 @@ class MyDataset(Data.Dataset):
         x = np.load(x_path)
         y = np.load(y_path)
         if self.img == 'x':
-            x = x.reshape(self.img_size)
+            x = x.reshape((-1, self.img_size[0], self.img_size[1]))
         elif self.img == 'y':
-            y = y.reshape(self.img_size)
+            y = y.reshape((-1, self.img_size[0], self.img_size[1]))
 
         if x.shape[0] == y.shape[0]:
             total_count = x.shape[0]
