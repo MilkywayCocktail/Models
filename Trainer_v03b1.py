@@ -386,8 +386,8 @@ class TrainerTS(TrainerTeacherStudent):
         z = self.img_encoder(image)
         z = z.cpu().detach().numpy().squeeze()
 
-        grid_x = norm.ppf(np.linspace(np.min(z), np.max(z), granularity))
-        grid_y = norm.ppf(np.linspace(np.min(z), np.max(z), granularity))
+        grid_x = np.linspace(np.min(z), np.max(z), granularity)
+        grid_y = np.linspace(np.min(z), np.max(z), granularity)
         anchor1 = np.searchsorted(grid_x, z[dim1])
         anchor2 = np.searchsorted(grid_y, z[dim2])
         anchor1 = anchor1 * 128 if anchor1 < granularity else (anchor1 - 1) * 128
