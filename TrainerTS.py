@@ -46,11 +46,12 @@ class Interpolate(nn.Module):
 
 
 class MyDataset(Data.Dataset):
-    def __init__(self, x_path, y_path, img_size=(128, 128), transform=None, img='y', number=0):
+    def __init__(self, x_path, y_path, img_size=(128, 128), transform=None, img='y', swap_xy=False, number=0):
         self.seeds = None
-        self.img_size=img_size
+        self.img_size = img_size
         self.transform = transform
         self.img = img
+        self.swap_xy = swap_xy
         self.data = self.__load_data__(x_path, y_path, number=number)
         print('loaded')
 
@@ -73,9 +74,9 @@ class MyDataset(Data.Dataset):
         x = np.load(x_path)
         y = np.load(y_path)
         if self.img == 'x':
-            x = x.reshape((-1, self.img_size[0], self.img_size[1]))
+            x = x.reshape((-1, 1, self.img_size[0], self.img_size[1]))
         elif self.img == 'y':
-            y = y.reshape((-1, self.img_size[0], self.img_size[1]))
+            y = y.reshape((-1, 1, self.img_size[0], self.img_size[1]))
 
         if x.shape[0] == y.shape[0]:
             total_count = x.shape[0]
@@ -87,7 +88,10 @@ class MyDataset(Data.Dataset):
         else:
             print(x.shape, y.shape, "lengths not equal!")
 
-        return {'x': x, 'y': y}
+        if self.swap_xy:
+            return {'x': y, 'y': x}
+        else:
+            return {'x': x, 'y': y}
 
 
 def split_loader(dataset, train_size, valid_size, test_size, batch_size):

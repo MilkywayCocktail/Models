@@ -33,21 +33,6 @@ def random_deviate(mn):
     return mn, labels
 
 
-def only_displacement(mn):
-    re_size = 14
-    deviation = np.zeros((len(re_size), 2), dtype=int)
-    labels = np.array(deviation[:, 0]. deviation[:, 1])
-
-    for i in range(len(mn)):
-        deviation[i] = np.random.randint(0, 29 - re_size[i], 2)
-        im = Image.fromarray(mn[i], mode='L')
-        im = im.resize((re_size[i], re_size[i]))
-        im = add_margin(im, deviation[i, 0], deviation[i, 1], 28)
-        mn[i] = im
-
-    return mn, labels
-
-
 mnist_path = '../../dataset/myMNIST/train_images.npy'
 
 mnist = np.load(mnist_path)
