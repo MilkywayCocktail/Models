@@ -46,12 +46,11 @@ class Interpolate(nn.Module):
 
 
 class MyDataset(Data.Dataset):
-    def __init__(self, x_path, y_path, img_size=(128, 128), transform=None, img='y', swap_xy=False, number=0):
+    def __init__(self, x_path, y_path, img_size=(128, 128), transform=None, img='y', number=0):
         self.seeds = None
         self.img_size = img_size
         self.transform = transform
         self.img = img
-        self.swap_xy = swap_xy
         self.data = self.__load_data__(x_path, y_path, number=number)
         print('loaded')
 
@@ -77,6 +76,34 @@ class MyDataset(Data.Dataset):
             x = x.reshape((-1, 1, self.img_size[0], self.img_size[1]))
         elif self.img == 'y':
             y = y.reshape((-1, 1, self.img_size[0], self.img_size[1]))
+
+        if x.shape[0] == y.shape[0]:
+            total_count = x.shape[0]
+            if number != 0:
+                picked = np.random.choice(list(range(total_count)), size=number, replace=False)
+                self.seeds = picked
+                x = x[picked]
+                y = y[picked]
+        else:
+            print(x.shape, y.shape, "lengths not equal!")
+
+        return {'x': x, 'y': y}
+
+
+class MnistDataset(MyDataset):
+    def __init__(self, mnist, img_size=(28, 28), transform=None, swap_xy=False, number=0):
+        MyDataset.__init__(x_path=None, y_path=None, img_size=img_size)
+        self.seeds = None
+        self.img_size = img_size
+        self.transform = transform
+        self.swap_xy = swap_xy
+        self.data = self.__load_data__(mnist, number=number)
+        print('loaded')
+
+    def __load_data__(self, mnist, number):
+
+        x = mnist[:, 0].reshape((-1, 1, self.img_size[0], self.img_size[1]))
+        y = mnist[:, 1]
 
         if x.shape[0] == y.shape[0]:
             total_count = x.shape[0]
