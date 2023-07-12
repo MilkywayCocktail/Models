@@ -10,8 +10,8 @@ from TrainerVTS import TrainerVTS
 # VAE version; Adaptive to MNIST
 # Added interpolating decoder
 
-# ImageEncoder: in = 128 * 128, out = 1 * 256
-# ImageDecoder: in = 1 * 256, out = 128 * 128
+# ImageEncoder: in = 128 * 128, out = 1 * latent_dim
+# ImageDecoder: in = 1 * latent_dim, out = 128 * 128
 # CSIEncoder: in = 2 * 90 * 100, out = 1 * 256 (Unused)
 
 
