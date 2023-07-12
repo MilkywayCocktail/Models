@@ -77,9 +77,6 @@ class TrainerVTS(TrainerTeacherStudent):
         loss = recon_loss + kl_loss * self.kl_weight
         return loss, kl_loss, recon_loss
 
-    def current_title(self):
-        return 'Te' + str(self.train_loss['t']['epochs'][-1][-1]) + '_Se' + str(self.train_loss['s']['epochs'][-1][-1])
-
     @timer
     def train_teacher(self, autosave=False, notion='', ret=''):
         self.logger(mode='t')
