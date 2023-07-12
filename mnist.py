@@ -37,7 +37,7 @@ mnist_path = '../../dataset/myMNIST/train_images.npy'
 
 mnist = np.load(mnist_path)
 
-inds = np.random.choice(np.arange(60000), 10, replace=False)
+inds = np.random.choice(np.arange(60000), 30, replace=False)
 inds.sort()
 
 mni = mnist[inds]
@@ -48,5 +48,5 @@ print(mni.shape)
 mni, labels = random_deviate(mni)
 labels = labels.transpose()
 print(labels.shape)
-np.save(mnist_path[:-4] + '_10c2000s_2.npy', mni.reshape((-1, 1, 28, 28)))
-np.save(mnist_path[:-4] + '_10c2000s_label_2.npy', labels)
+np.save(mnist_path[:-4] + '_30c2000s.npy', mni.reshape((-1, 1, 28, 28)))
+np.save(mnist_path[:-4] + '_30c2000s_label.npy', labels)

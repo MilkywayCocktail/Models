@@ -2,8 +2,8 @@ from Trainer_v03b2 import *
 
 
 # ------------------------------------- #
-# Model v03b3
-# Minor modifications to Model v03b2
+# Model v03b4
+# Minor modifications to Model v03b1
 # In number of channels
 
 # ImageEncoder: in = 128 * 128, out = 1 * 256
@@ -71,7 +71,7 @@ class ImageEncoderM1(ImageEncoder):
         )
 
     def __str__(self):
-        return 'Model_v03b3_ImgEn_' + self.bottleneck.capitalize()
+        return 'Model_v03b4_ImgEn_' + self.bottleneck.capitalize()
 
 
 class ImageDecoderM1(ImageDecoder):
@@ -126,7 +126,7 @@ class ImageDecoderM1(ImageDecoder):
         )
 
     def __str__(self):
-        return 'Model_v03b3_ImgDe_'
+        return 'Model_v03b4_ImgDe_'
 
     def forward(self, z):
         z = self.fclayers(z)
