@@ -81,7 +81,7 @@ class TrainerVTS(TrainerTeacherStudent):
         return 'Te' + str(self.train_loss['t']['epochs'][-1][-1]) + '_Se' + str(self.train_loss['s']['epochs'][-1][-1])
 
     @timer
-    def train_teacher(self, autosave=False, notion=''):
+    def train_teacher(self, autosave=False, notion='', ret=''):
         self.logger(mode='t')
         teacher_optimizer = self.args['t'].optimizer([{'params': self.img_encoder.parameters()},
                                                       {'params': self.img_decoder.parameters()}],
@@ -111,7 +111,7 @@ class TrainerVTS(TrainerTeacherStudent):
 
                 if idx % (len(self.train_loader) // 5) == 0:
                     print("\rTeacher: epoch={}/{}, {}/{} of train, recon_loss={}, kl_loss={}".format(
-                        epoch, self.args['t'].epochs, idx, len(self.train_loader), loss.item(), kl_loss.item()), end='')
+                        epoch, self.args['t'].epochs, idx, len(self.train_loader), loss.item(), kl_loss.item()), end=ret)
             self.train_loss['t']['train'].append(np.average(train_epoch_loss))
             self.train_loss['t']['train_kl'].append(np.average(kl_epoch_loss))
             self.train_loss['t']['train_recon'].append(np.average(recon_epoch_loss))
