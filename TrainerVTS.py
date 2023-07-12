@@ -110,8 +110,8 @@ class TrainerVTS(TrainerTeacherStudent):
                 recon_epoch_loss.append(recon_loss.item())
 
                 if idx % (len(self.train_loader) // 5) == 0:
-                    print("\rTeacher: epoch={}/{}, {}/{} of train, loss={}".format(
-                        epoch, self.args['t'].epochs, idx, len(self.train_loader), loss.item()), end='')
+                    print("\rTeacher: epoch={}/{}, {}/{} of train, recon_loss={}, kl_loss={}".format(
+                        epoch, self.args['t'].epochs, idx, len(self.train_loader), loss.item(), kl_loss.item()), end='')
             self.train_loss['t']['train'].append(np.average(train_epoch_loss))
             self.train_loss['t']['train_kl'].append(np.average(kl_epoch_loss))
             self.train_loss['t']['train_recon'].append(np.average(recon_epoch_loss))
