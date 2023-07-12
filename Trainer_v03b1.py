@@ -383,7 +383,7 @@ class TrainerTS(TrainerTeacherStudent):
         except ValueError:
             image = dataset[img_ind][np.newaxis, ...]
 
-        z = self.img_encoder(torch.from_numpy(image).to(torch.float32).to(self.args['t'].device))
+        z = self.img_encoder(image)
         z = z.cpu().detach().numpy().squeeze()
 
         grid_x = np.linspace(np.min(z), np.max(z), granularity)

@@ -128,9 +128,7 @@ class TrainerVTS(TrainerTeacherStudent):
                 with torch.no_grad():
                     latent, z, mu, logvar = self.img_encoder(data_y)
                     output = self.img_decoder(z)
-                    recon_loss = self.args['t'].criterion(output, data_y)
-                    kl_loss = self.kl_loss(mu, logvar)
-                    loss = recon_loss + kl_loss
+                    loss, kl_loss, recon_loss = self.loss(output, data_y, mu, logvar)
 
                 valid_epoch_loss.append(loss.item())
                 valid_kl_epoch_loss.append(kl_loss.item())
