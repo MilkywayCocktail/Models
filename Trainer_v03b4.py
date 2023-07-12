@@ -1,4 +1,4 @@
-from Trainer_v03b2 import *
+from Trainer_v03b1 import *
 from TrainerTS import timer, MyDataset, split_loader, MyArgs, TrainerTeacherStudent, bn, Interpolate
 
 

@@ -273,14 +273,14 @@ class TrainerVTS(TrainerTeacherStudent):
         try:
             data_x, data_y = dataset[img_ind]
             if img == 'x':
-                image = data_x[np.newaxis, ...].to(torch.float32).to(self.args['t'].device)
+                image = data_x[np.newaxis, ...]
             elif img == 'y':
-                image = data_y[np.newaxis, ...].to(torch.float32).to(self.args['t'].device)
+                image = data_y[np.newaxis, ...]
 
         except ValueError:
-            image = dataset[img_ind][np.newaxis, ...].to(torch.float32).to(self.args['t'].device)
+            image = dataset[img_ind][np.newaxis, ...]
 
-        latent, z, mu, logvar = self.img_encoder(image)
+        latent, z, mu, logvar = self.img_encoder(torch.from_numpy(image).to(torch.float32).to(self.args['t'].device))
         z = z.squeeze()
         e = z.cpu().detach().numpy().squeeze()
 
