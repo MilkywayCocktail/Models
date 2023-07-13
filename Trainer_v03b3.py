@@ -136,7 +136,7 @@ class ImageDecoderM1(ImageDecoder):
         z = self.layer3(z)
         z = self.layer4(z)
         z = self.layer5(z)
-        print(z[0])
+        print(z)
 
         return z.view(-1, 1, 128, 128)
 
