@@ -72,7 +72,7 @@ class TrainerVTS(TrainerTeacherStudent):
         return -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
 
     def loss(self, y, gt, mu, logvar):
-        recon_loss = self.args['t'].criterion(gt, y) / self.batch_size
+        recon_loss = self.args['t'].criterion(y, gt) / self.batch_size
         kl_loss = self.kl_loss(mu, logvar)
         loss = recon_loss + kl_loss * self.kl_weight
         return loss, kl_loss, recon_loss
