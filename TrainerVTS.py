@@ -14,11 +14,11 @@ class TrainerVTS(TrainerTeacherStudent):
                  teacher_args, student_args,
                  train_loader, valid_loader, test_loader,
                  div_loss=nn.KLDivLoss(reduction='batchmean'),
-                 img_loss=nn.SmoothL1Loss(),
+                 img_loss=nn.MSELoss(),
                  temperature=20,
                  alpha=0.3,
                  batch_size=64,
-                 kl_weight=0.0025
+                 kl_weight=0.25
                  ):
         super(TrainerVTS, self).__init__(img_encoder=img_encoder, img_decoder=img_decoder, csi_encoder=csi_encoder,
                                          teacher_args=teacher_args, student_args=student_args,
