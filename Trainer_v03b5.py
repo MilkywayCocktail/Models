@@ -92,7 +92,8 @@ class TrainerVTSM1(TrainerVTS):
                     z_p = self.img_encoder(output)
 
                 print(z.shape)
-                print(len(z_p), z_p)
+                for i in z_p:
+                    print(len(i))
                 loss, kl_loss, recon_loss, latent_loss = self.loss(output, data_y, mu, logvar, z, z_p)
 
                 loss.backward()
