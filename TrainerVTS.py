@@ -47,7 +47,7 @@ class TrainerVTS(TrainerTeacherStudent):
     @staticmethod
     def __gen_teacher_train__():
         t_train_loss = {'learning_rate': [],
-                        'epochs': [],
+                        'epochs': [0],
                         'train': [],
                         'valid': [],
                         'train_kl': [],

@@ -192,7 +192,7 @@ class TrainerTeacherStudent:
     @staticmethod
     def __gen_teacher_train__():
         t_train_loss = {'learning_rate': [],
-                        'epochs': [],
+                        'epochs': [0],
                         'train': [],
                         'valid': [],
                         }
@@ -201,7 +201,7 @@ class TrainerTeacherStudent:
     @staticmethod
     def __gen_student_train__():
         s_train_loss = {'learning_rate': [],
-                        'epochs': [],
+                        'epochs': [0],
                         'train': [],
                         'valid': [],
                         'train_straight': [],
@@ -255,7 +255,6 @@ class TrainerTeacherStudent:
         # First round
         if not self.train_loss[mode]['learning_rate']:
             self.train_loss[mode]['learning_rate'].append(self.args[mode].learning_rate)
-            self.train_loss[mode]['epochs'].append(0)
             self.train_loss[mode]['epochs'].append(self.args[mode].epochs)
 
         else:
