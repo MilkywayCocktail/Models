@@ -88,12 +88,9 @@ class TrainerVTSM1(TrainerVTS):
                 teacher_optimizer.zero_grad()
                 latent, z, mu, logvar = self.img_encoder(data_y)
                 output = self.img_decoder(z)
-                #with torch.no_grad():
-                z_p = self.img_encoder(output)
-                print(output.shape)
-                print(z.shape)
-                for i in z_p:
-                    print(len(i))
+                with torch.no_grad():
+                    latent_p, z_p, mu_p, logvar_p = self.img_encoder(output)
+
                 loss, kl_loss, recon_loss, latent_loss = self.loss(output, data_y, mu, logvar, z, z_p)
 
                 loss.backward()
@@ -125,7 +122,7 @@ class TrainerVTSM1(TrainerVTS):
                 with torch.no_grad():
                     latent, z, mu, logvar = self.img_encoder(data_y)
                     output = self.img_decoder(z)
-                    z_p = self.img_encoder(output)
+                    latent_p, z_p, mu_p, logvar_p = self.img_encoder(output)
                     loss, kl_loss, recon_loss, latent_loss = self.loss(output, data_y, mu, logvar, z, z_p)
 
                 valid_epoch_loss.append(loss.item())
@@ -160,7 +157,7 @@ class TrainerVTSM1(TrainerVTS):
             with torch.no_grad():
                 latent, z, mu, logvar = self.img_encoder(data_y)
                 output = self.img_decoder(z)
-                z_p = self.img_encoder(output)
+                latent_p, z_p, mu_p, logvar_p = self.img_encoder(output)
                 loss, kl_loss, recon_loss, latent_loss = self.loss(output, data_y, mu, logvar, z, z_p)
 
             self.test_loss['t']['loss'].append(loss.item())
