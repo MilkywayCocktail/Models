@@ -88,8 +88,8 @@ class TrainerVTSM1(TrainerVTS):
                 teacher_optimizer.zero_grad()
                 latent, z, mu, logvar = self.img_encoder(data_y)
                 output = self.img_decoder(z)
-                with torch.no_grad():
-                    z_p = self.img_encoder(output)
+                #with torch.no_grad():
+                z_p = self.img_encoder(output)
                 print(output.shape)
                 print(z.shape)
                 for i in z_p:
