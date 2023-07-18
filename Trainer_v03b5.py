@@ -61,7 +61,7 @@ class TrainerVTSM1(TrainerVTS):
                        'kl': [],
                        'latent': [],
                        'predicts': [],
-                       're_predicts':[],
+                       're_predicts': [],
                        'groundtruth': []}
         return t_test_loss
 
@@ -170,6 +170,7 @@ class TrainerVTSM1(TrainerVTS):
             self.test_loss['t']['recon'].append(recon_loss.item())
             self.test_loss['t']['latent'].append(latent_loss.item())
             self.test_loss['t']['predicts'].append(output.cpu().detach().numpy().squeeze())
+            self.test_loss['t']['re_predicts'].append(output.cpu().detach().numpy().squeeze())
             self.test_loss['t']['groundtruth'].append(data_y.cpu().detach().numpy().squeeze())
 
             if idx % (len(loader)//5) == 0:
