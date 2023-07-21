@@ -65,9 +65,9 @@ class TrainerVTSM1(TrainerVTS):
                        'groundtruth': []}
         return t_test_loss
 
-    def loss(self, y, gt, mu, logvar, z, z_p):
+    def loss(self, y, gt, mu, logvar, latent, latent_p):
         recon_loss = self.args['t'].criterion(y, gt) / self.batch_size
-        latent_loss = self.args['s'].criterion(z_p, z) / self.batch_size
+        latent_loss = self.args['s'].criterion(latent_p, latent) / self.batch_size
         kl_loss = self.kl_loss(mu, logvar)
         loss = recon_loss + kl_loss * self.kl_weight + latent_loss
         return loss, kl_loss, recon_loss, latent_loss
@@ -96,7 +96,7 @@ class TrainerVTSM1(TrainerVTS):
                 with torch.no_grad():
                     latent_p, z_p, mu_p, logvar_p = self.img_encoder(output)
 
-                loss, kl_loss, recon_loss, latent_loss = self.loss(output, data_y, mu, logvar, z, z_p)
+                loss, kl_loss, recon_loss, latent_loss = self.loss(output, data_y, mu, logvar, latent, latent_p)
 
                 loss.backward()
                 teacher_optimizer.step()
@@ -128,7 +128,7 @@ class TrainerVTSM1(TrainerVTS):
                     latent, z, mu, logvar = self.img_encoder(data_y)
                     output = self.img_decoder(z)
                     latent_p, z_p, mu_p, logvar_p = self.img_encoder(output)
-                    loss, kl_loss, recon_loss, latent_loss = self.loss(output, data_y, mu, logvar, z, z_p)
+                    loss, kl_loss, recon_loss, latent_loss = self.loss(output, data_y, mu, logvar, latent, latent_p)
 
                 valid_epoch_loss.append(loss.item())
                 valid_kl_epoch_loss.append(kl_loss.item())
@@ -163,14 +163,15 @@ class TrainerVTSM1(TrainerVTS):
                 latent, z, mu, logvar = self.img_encoder(data_y)
                 output = self.img_decoder(z)
                 latent_p, z_p, mu_p, logvar_p = self.img_encoder(output)
-                loss, kl_loss, recon_loss, latent_loss = self.loss(output, data_y, mu, logvar, z, z_p)
+                re_output = self.img_decoder(z_p)
+                loss, kl_loss, recon_loss, latent_loss = self.loss(output, data_y, mu, logvar, latent, latent_p)
 
             self.test_loss['t']['loss'].append(loss.item())
             self.test_loss['t']['kl'].append(kl_loss.item())
             self.test_loss['t']['recon'].append(recon_loss.item())
             self.test_loss['t']['latent'].append(latent_loss.item())
             self.test_loss['t']['predicts'].append(output.cpu().detach().numpy().squeeze())
-            self.test_loss['t']['re_predicts'].append(output.cpu().detach().numpy().squeeze())
+            self.test_loss['t']['re_predicts'].append(re_output.cpu().detach().numpy().squeeze())
             self.test_loss['t']['groundtruth'].append(data_y.cpu().detach().numpy().squeeze())
 
             if idx % (len(loader)//5) == 0:
