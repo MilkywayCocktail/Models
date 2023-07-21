@@ -275,7 +275,7 @@ class TrainerVTS(TrainerTeacherStudent):
         except ValueError:
             image = dataset[img_ind][np.newaxis, ...]
 
-        latent, z, mu, logvar = self.img_encoder(torch.from_numpy(image).to(torch.float32).to(self.args['t'].device))
+        latent, z, mu, logvar = self.img_encoder(image.to(torch.float32).to(self.args['t'].device))
         z = z.squeeze()
         e = z.cpu().detach().numpy().squeeze()
 
