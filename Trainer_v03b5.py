@@ -26,11 +26,9 @@ class TrainerVTSM1(TrainerVTS):
                         'Latent Loss': ['train_latent', 'valid_latent']
                         },
             't_predict': {'Ground Truth': 'groundtruth',
-                          'Estimated': 'predicts'
+                          'Estimated': 'predicts',
+                          'Re-Estimated': 're_predicts'
                           },
-            't_re_predict': {'Estimated': 'predicts',
-                             'Re-Estimated': 're_predicts'
-                             },
             't_test': {'Loss': 'loss',
                        'KL Loss': 'kl',
                        'Recon Loss': 'recon',
@@ -190,7 +188,7 @@ class TrainerVTSM1(TrainerVTS):
 
         fig = plt.figure(constrained_layout=True)
         fig.suptitle(f"Teacher Test Predicts @ep{self.train_loss['t']['epochs'][-1]}")
-        subfigs = fig.subfigures(nrows=2, ncols=1)
+        subfigs = fig.subfigures(nrows=3, ncols=1)
 
         for i, item in enumerate(predict_items.keys()):
             subfigs[i].suptitle(predict_items[item])
@@ -203,24 +201,6 @@ class TrainerVTSM1(TrainerVTS):
 
         if autosave:
             plt.savefig(f"{self.current_title()}_T_predict_{notion}.jpg")
-        plt.show()
-
-        predict_items = self.plot_terms['t_re_predict']
-        fig = plt.figure(constrained_layout=True)
-        fig.suptitle(f"Teacher Test Re-Predicts @ep{self.train_loss['t']['epochs'][-1]}")
-        subfigs = fig.subfigures(nrows=2, ncols=1)
-
-        for i, item in enumerate(predict_items.keys()):
-            subfigs[i].suptitle(predict_items[item])
-            axes = subfigs[i].subplots(nrows=1, ncols=select_num)
-            for j in range(len(axes)):
-                img = axes[j].imshow(self.test_loss['t'][predict_items[item]][inds[j]], vmin=0, vmax=1)
-                axes[j].axis('off')
-                axes[j].set_title(f"#{inds[j]}")
-            subfigs[i].colorbar(img, ax=axes, shrink=0.8)
-
-        if autosave:
-            plt.savefig(f"{self.current_title()}_T_re_predict_{notion}.jpg")
         plt.show()
 
         # Test Loss
