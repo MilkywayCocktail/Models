@@ -275,7 +275,7 @@ class TrainerVTS(TrainerTeacherStudent):
             with torch.no_grad():
                 teacher_preds, t_z, t_mu, t_logvar = self.img_encoder(data_y)
                 student_preds, s_z, mu, logvar = self.csi_encoder(data_x)
-                image_preds = self.img_decoder(student_preds)
+                image_preds = self.img_decoder(s_z)
             student_loss = self.args['s'].criterion(student_preds, teacher_preds)
             image_loss = self.img_loss(image_preds, data_y)
 
