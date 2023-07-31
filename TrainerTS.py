@@ -166,24 +166,8 @@ class TrainerTeacherStudent:
                            's': self.__gen_student_train__()}
         self.test_loss = {'t': self.__gen_teacher_test__(),
                           's': self.__gen_student_test__()}
-        self.plot_terms = {
-            't_train': {'Loss': ['train', 'valid']
-                        },
-            't_predict': {'Ground Truth': 'groundtruth',
-                          'Estimated': 'predicts'
-                          },
-            't_test': {'Loss': 'loss'},
-            's_train': {'Student Loss': ['train', 'valid'],
-                        'Straight Loss': ['train_straight', 'valid_straight'],
-                        'Distillation Loss': ['train_distil', 'valid_distil'],
-                        'Image Loss': ['train_image', 'valid_image']},
-            's_predict': {'Ground Truth': 'groundtruth',
-                          'Estimated': 'predicts'},
-            's_test': {'Student Loss': 'loss',
-                       'Straight Loss': 'latent_straight',
-                       'Distillation Loss': 'latent_distil',
-                       'Image Loss': 'image'}
-        }
+        self.plot_terms = {'t': self.__teacher_plot_terms__(),
+                           's': self.__student_plot_terms__()}
 
         self.div_loss = div_loss
         self.temperature = temperature
@@ -245,6 +229,30 @@ class TrainerTeacherStudent:
                        'groundtruth': []
                        }
         return s_test_loss
+
+    @staticmethod
+    def __teacher_plot_terms__():
+        terms = {'train': {'Loss': ['train', 'valid']},
+                 'predict': {'Ground Truth': 'groundtruth',
+                             'Estimated': 'predicts'},
+                 'test': {'Loss': 'loss'}
+                 }
+        return terms
+
+    @staticmethod
+    def __student_plot_terms__():
+        terms = {'train': {'Student Loss': ['train', 'valid'],
+                           'Straight Loss': ['train_straight', 'valid_straight'],
+                           'Distillation Loss': ['train_distil', 'valid_distil'],
+                           'Image Loss': ['train_image', 'valid_image']},
+                 'predict': {'Ground Truth': 'groundtruth',
+                             'Estimated': 'predicts'},
+                 'test': {'Student Loss': 'loss',
+                          'Straight Loss': 'latent_straight',
+                          'Distillation Loss': 'latent_distil',
+                          'Image Loss': 'image'}
+                 }
+        return terms
 
     def current_title(self):
         return f"Te{self.train_loss['t']['epochs'][-1]}_Se{self.train_loss['s']['epochs'][-1]}"
@@ -486,7 +494,7 @@ class TrainerTeacherStudent:
     def plot_teacher_loss(self, double_y=False, autosave=False, notion=''):
         self.__plot_settings__()
 
-        loss_items = self.plot_terms['t_train']
+        loss_items = self.plot_terms['t']['train']
         stage_color = self.colors(self.train_loss['t']['learning_rate'])
         line_color = ['b', 'orange']
 
@@ -529,7 +537,7 @@ class TrainerTeacherStudent:
     def plot_student_loss(self, autosave=False, notion=''):
         self.__plot_settings__()
 
-        loss_items = self.plot_terms['s_train']
+        loss_items = self.plot_terms['s']['train']
         stage_color = self.colors(-np.log(self.train_loss['s']['learning_rate']))
         line_color = ['b', 'orange']
 
@@ -559,7 +567,7 @@ class TrainerTeacherStudent:
 
     def plot_teacher_test(self, select_ind=None, select_num=8, autosave=False, notion=''):
         self.__plot_settings__()
-        predict_items = self.plot_terms['t_predict']
+        predict_items = self.plot_terms['t']['predict']
 
         # Depth Images
         if select_ind:
@@ -586,7 +594,7 @@ class TrainerTeacherStudent:
         plt.show()
 
         # Test Loss
-        loss_items = self.plot_terms['t_test']
+        loss_items = self.plot_terms['t']['test']
         fig = plt.figure(constrained_layout=True)
         fig.suptitle(f"Teacher Test Loss @ep{self.train_loss['t']['epochs'][-1]}")
         if len(loss_items.keys()) > 1:
@@ -612,7 +620,7 @@ class TrainerTeacherStudent:
 
     def plot_student_test(self, select_num=8, autosave=False, notion=''):
         self.__plot_settings__()
-        predict_items = self.plot_terms['s_predict']
+        predict_items = self.plot_terms['s']['predict']
 
         # Depth Images
         inds = np.random.choice(list(range(len(self.test_loss['s']['groundtruth']))), 8)
@@ -656,7 +664,7 @@ class TrainerTeacherStudent:
         plt.show()
 
         # Test Loss
-        loss_items = self.plot_terms['s_test']
+        loss_items = self.plot_terms['s']['test']
         fig = plt.figure(constrained_layout=True)
         fig.suptitle(f"Student Test Loss @ep{self.train_loss['s']['epochs'][-1]}")
         axes = fig.subplots(nrows=2, ncols=2)

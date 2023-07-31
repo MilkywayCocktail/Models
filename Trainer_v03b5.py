@@ -19,22 +19,24 @@ class TrainerVTSM1(TrainerVTS):
     def __init__(self, *args, **kwargs):
         super(TrainerVTSM1, self).__init__(*args, **kwargs)
 
-        self.plot_terms = {
-            't_train': {'Total Loss': ['train', 'valid'],
-                        'KL Loss': ['train_kl', 'valid_kl'],
-                        'Recon Loss': ['train_recon', 'valid_recon'],
-                        'Latent Loss': ['train_latent', 'valid_latent']
-                        },
-            't_predict': {'Ground Truth': 'groundtruth',
-                          'Estimated': 'predicts',
-                          'Re-Estimated': 're_predicts'
-                          },
-            't_test': {'Loss': 'loss',
-                       'KL Loss': 'kl',
-                       'Recon Loss': 'recon',
-                       'Latent Loss': 'latent'
-                       }
-        }
+    @staticmethod
+    def __teacher_plot_terms__():
+        terms = {'train': {'Total Loss': ['train', 'valid'],
+                           'KL Loss': ['train_kl', 'valid_kl'],
+                           'Recon Loss': ['train_recon', 'valid_recon'],
+                           'Latent Loss': ['train_latent', 'valid_latent']
+                           },
+                 'predict': {'Ground Truth': 'groundtruth',
+                             'Estimated': 'predicts',
+                             'Re-Estimated': 're_predicts'
+                             },
+                 'test': {'Loss': 'loss',
+                          'KL Loss': 'kl',
+                          'Recon Loss': 'recon',
+                          'Latent Loss': 'latent'
+                          }
+                 }
+        return terms
 
     @staticmethod
     def __gen_teacher_train__():
@@ -177,7 +179,7 @@ class TrainerVTSM1(TrainerVTS):
 
     def plot_teacher_test(self, select_ind=None, select_num=8, autosave=False, notion=''):
         self.__plot_settings__()
-        predict_items = self.plot_terms['t_predict']
+        predict_items = self.plot_terms['t']['predict']
 
         # Depth Images
         if select_ind:
@@ -204,7 +206,7 @@ class TrainerVTSM1(TrainerVTS):
         plt.show()
 
         # Test Loss
-        loss_items = self.plot_terms['t_test']
+        loss_items = self.plot_terms['t']['test']
         fig = plt.figure(constrained_layout=True)
         fig.suptitle(f"Teacher Test Loss @ep{self.train_loss['t']['epochs'][-1]}")
         if len(loss_items.keys()) > 1:
