@@ -41,7 +41,18 @@ class TrainerVTS(TrainerTeacherStudent):
             't_test': {'Loss': 'loss',
                        'KL Loss': 'kl',
                        'Recon Loss': 'recon'
-                       }
+                       },
+            's_train': {'Student Loss': ['train', 'valid'],
+                        'Straight Loss': ['train_straight', 'valid_straight'],
+                        'Distillation Loss': ['train_distil', 'valid_distil'],
+                        'Image Loss': ['train_image', 'valid_image']},
+            's_predict': {'Ground Truth': 'groundtruth',
+                          'Estimated': 'predicts'},
+            's_test': {'Student Loss': 'loss',
+                       'Straight Loss': 'latent_straight',
+                       'Distillation Loss': 'latent_distil',
+                       'Image Loss': 'image'
+            }
         }
 
     @staticmethod
@@ -188,10 +199,10 @@ class TrainerVTS(TrainerTeacherStudent):
                 data_x = data_x.to(torch.float32).to(self.args['s'].device)
                 data_y = data_y.to(torch.float32).to(self.args['s'].device)
 
-                student_preds, mu, logvar = self.csi_encoder(data_x)
+                student_preds, s_z, mu, logvar = self.csi_encoder(data_x)
                 with torch.no_grad():
                     teacher_preds, t_z, t_mu, t_logvar = self.img_encoder(data_y)
-                    image_preds = self.img_decoder(student_preds)
+                    image_preds = self.img_decoder(s_z)
 
                 image_loss = self.img_loss(image_preds, data_y)
                 student_loss = self.args['s'].criterion(student_preds, teacher_preds)
@@ -232,9 +243,9 @@ class TrainerVTS(TrainerTeacherStudent):
                 data_x = data_x.to(torch.float32).to(self.args['s'].device)
                 data_y = data_y.to(torch.float32).to(self.args['s'].device)
                 with torch.no_grad():
-                    teacher_preds = self.img_encoder(data_y)
-                    student_preds = self.csi_encoder(data_x)
-                    image_preds = self.img_decoder(student_preds)
+                    teacher_preds, t_z, t_mu, t_logvar = self.img_encoder(data_y)
+                    student_preds, s_z, mu, logvar = self.csi_encoder(data_x)
+                    image_preds = self.img_decoder(s_z)
                     image_loss = self.img_loss(image_preds, data_y)
                     student_loss = self.args['s'].criterion(student_preds, teacher_preds)
                     # distil_loss = self.div_loss(nn.functional.softmax(student_preds / self.temperature, -1),
@@ -256,6 +267,45 @@ class TrainerVTS(TrainerTeacherStudent):
             torch.save(self.csi_encoder.state_dict(),
                        f"../saved/{self.csi_encoder}{self.current_title()}_{notion}.pth")
 
+    def test_student(self, mode='test'):
+        self.test_loss['s'] = self.__gen_student_test__()
+        self.img_encoder.eval()
+        self.img_decoder.eval()
+        self.csi_encoder.eval()
+
+        if mode == 'test':
+            loader = self.test_loader
+        elif mode == 'train':
+            loader = self.train_loader
+
+        for idx, (data_x, data_y) in enumerate(loader, 0):
+            data_x = data_x.to(torch.float32).to(self.args['s'].device)
+            data_y = data_y.to(torch.float32).to(self.args['s'].device)
+            with torch.no_grad():
+                teacher_preds, t_z, t_mu, t_logvar = self.img_encoder(data_y)
+                student_preds, s_z, mu, logvar = self.csi_encoder(data_x)
+                image_preds = self.img_decoder(student_preds)
+            student_loss = self.args['s'].criterion(student_preds, teacher_preds)
+            image_loss = self.img_loss(image_preds, data_y)
+
+            # distil_loss = self.div_loss(nn.functional.softmax(student_preds / self.temperature, -1),
+            #                             nn.functional.softmax(teacher_preds / self.temperature, -1))
+            distil_loss = self.div_loss(student_preds, teacher_preds)
+            loss = self.alpha * student_loss + (1 - self.alpha) * distil_loss
+
+            self.test_loss['s']['loss'].append(image_loss.item())
+            self.test_loss['s']['latent_straight'].append(student_loss.item())
+            self.test_loss['s']['latent_distil'].append(loss.item())
+            self.test_loss['s']['image'].append(image_loss.item())
+            self.test_loss['s']['predicts_latent'].append(student_preds.cpu().detach().numpy().squeeze())
+            self.test_loss['s']['predicts_t_latent'].append(teacher_preds.cpu().detach().numpy().squeeze())
+            self.test_loss['s']['predicts'].append(image_preds.cpu().detach().numpy().squeeze())
+            self.test_loss['s']['groundtruth'].append(data_y.cpu().detach().numpy().squeeze())
+
+            if idx % (len(loader) // 5) == 0:
+                print("\rStudent: {}/{}of test, student loss={}, distill loss={}, image loss={}".format(
+                    idx, len(self.test_loader), student_loss.item(), distil_loss.item(), image_loss.item()), end='')
+
     def traverse_latent(self, img_ind, dataset, img='x', dim1=0, dim2=1, granularity=11, autosave=False, notion=''):
         self.__plot_settings__()
 
@@ -275,7 +325,7 @@ class TrainerVTS(TrainerTeacherStudent):
         except ValueError:
             image = dataset[img_ind][np.newaxis, ...]
 
-        latent, z, mu, logvar = self.img_encoder(image.to(torch.float32).to(self.args['t'].device))
+        latent, z, mu, logvar = self.img_encoder(torch.from_numpy(image).to(torch.float32).to(self.args['t'].device))
         z = z.squeeze()
         e = z.cpu().detach().numpy().squeeze()
 
@@ -291,7 +341,8 @@ class TrainerVTS(TrainerTeacherStudent):
         for i, yi in enumerate(grid_y):
             for j, xi in enumerate(grid_x):
                 z[dim1], z[dim2] = xi, yi
-                output = self.img_decoder(torch.from_numpy(e).to(self.args['t'].device))
+                # output = self.img_decoder(torch.from_numpy(e).to(self.args['t'].device))
+                output = self.img_decoder(e)
                 figure[i * 128: (i + 1) * 128,
                        j * 128: (j + 1) * 128] = output.cpu().detach().numpy().squeeze().tolist()
 

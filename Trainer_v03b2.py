@@ -348,8 +348,9 @@ class CsiEncoder(nn.Module):
             out = out[:, -1, :]
 
         mu, logvar = out.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
+        z = reparameterize(mu, logvar)
 
-        return out, mu, logvar
+        return out, z, mu, logvar
 
 
 if __name__ == "__main__":

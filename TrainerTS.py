@@ -364,10 +364,10 @@ class TrainerTeacherStudent:
                         epoch, self.args['s'].epochs, idx, len(self.train_loader),
                         loss.item(), distil_loss.item()), end='')
 
-            self.train_loss['s']['train_epochs'].append(np.average(train_epoch_loss))
-            self.train_loss['s']['train_straight_epochs'].append(np.average(straight_epoch_loss))
-            self.train_loss['s']['train_distil_epochs'].append(np.average(distil_epoch_loss))
-            self.train_loss['s']['train_image_epochs'].append(np.average(image_epoch_loss))
+            self.train_loss['s']['train'].append(np.average(train_epoch_loss))
+            self.train_loss['s']['train_straight'].append(np.average(straight_epoch_loss))
+            self.train_loss['s']['train_distil'].append(np.average(distil_epoch_loss))
+            self.train_loss['s']['train_image'].append(np.average(image_epoch_loss))
 
             # =====================valid============================
             self.csi_encoder.eval()
@@ -517,11 +517,7 @@ class TrainerTeacherStudent:
     def plot_student_loss(self, autosave=False, notion=''):
         self.__plot_settings__()
 
-        loss_items = {'Student Loss': ['train', 'valid'],
-                      'Straight Loss': ['train_straight', 'valid_straight'],
-                      'Distillation Loss': ['train_distil', 'valid_distil'],
-                      'Image Loss': ['train_image', 'valid_image']
-                      }
+        loss_items = self.plot_terms['s_train']
         stage_color = self.colors(-np.log(self.train_loss['s']['learning_rate']))
         line_color = ['b', 'orange']
 
@@ -604,9 +600,7 @@ class TrainerTeacherStudent:
 
     def plot_student_test(self, select_num=8, autosave=False, notion=''):
         self.__plot_settings__()
-        predict_items = {'Ground Truth': 'groundtruth',
-                         'Estimated': 'predicts_image'
-                         }
+        predict_items = self.plot_terms['s_predict']
 
         # Depth Images
         inds = np.random.choice(list(range(len(self.test_loss['s']['groundtruth']))), 8)
@@ -650,11 +644,7 @@ class TrainerTeacherStudent:
         plt.show()
 
         # Test Loss
-        loss_items = {'Student Loss': 'loss',
-                      'Straight Loss': 'latent_straight',
-                      'Distillation Loss': 'latent_distil',
-                      'Image Loss': 'image'
-                      }
+        loss_items = self.plot_terms['s_test']
         fig = plt.figure(constrained_layout=True)
         fig.suptitle(f"Student Test Loss @ep{self.train_loss['s']['epochs'][-1]}")
         axes = fig.subplots(nrows=2, ncols=2)
