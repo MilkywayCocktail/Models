@@ -647,9 +647,9 @@ class TrainerTeacherStudent:
         axes = fig.subplots(nrows=2, ncols=np.ceil(select_num/2).astype(int))
         axes = axes.flatten()
         for a in range(len(axes)):
-            axes[a].bar(range(256), self.test_loss['s']['predicts_t_latent'][inds[a]], width=1, fc='blue',
+            axes[a].bar(range(self.latent_dim), self.test_loss['s']['predicts_t_latent'][inds[a]], width=1, fc='blue',
                         alpha=0.8, label='Teacher')
-            axes[a].bar(range(256), self.test_loss['s']['predicts_latent'][inds[a]], width=1, fc='orange',
+            axes[a].bar(range(self.latent_dim), self.test_loss['s']['predicts_latent'][inds[a]], width=1, fc='orange',
                         alpha=0.8, label='student')
             axes[a].set_title(f"#{inds[a]}")
             axes[a].grid()
