@@ -149,7 +149,8 @@ class TrainerTeacherStudent:
                  div_loss=nn.KLDivLoss(reduction='batchmean'),
                  img_loss=nn.SmoothL1Loss(),
                  temperature=20,
-                 alpha=0.3):
+                 alpha=0.3,
+                 latent_dim=8):
         self.img_encoder = img_encoder
         self.img_decoder = img_decoder
         self.csi_encoder = csi_encoder
@@ -171,13 +172,24 @@ class TrainerTeacherStudent:
             't_predict': {'Ground Truth': 'groundtruth',
                           'Estimated': 'predicts'
                           },
-            't_test': {'Loss': 'loss'}
+            't_test': {'Loss': 'loss'},
+            's_train': {'Student Loss': ['train', 'valid'],
+                        'Straight Loss': ['train_straight', 'valid_straight'],
+                        'Distillation Loss': ['train_distil', 'valid_distil'],
+                        'Image Loss': ['train_image', 'valid_image']},
+            's_predict': {'Ground Truth': 'groundtruth',
+                          'Estimated': 'predicts'},
+            's_test': {'Student Loss': 'loss',
+                       'Straight Loss': 'latent_straight',
+                       'Distillation Loss': 'latent_distil',
+                       'Image Loss': 'image'}
         }
 
         self.div_loss = div_loss
         self.temperature = temperature
         self.alpha = alpha
         self.img_loss = img_loss
+        self.latent_dim = latent_dim
 
     @staticmethod
     def __plot_settings__():
@@ -662,6 +674,58 @@ class TrainerTeacherStudent:
                                 c='magenta', marker=(5, 1), linewidths=4)
         if autosave:
             plt.savefig(f"{self.current_title()}_S_test_{notion}.jpg")
+        plt.show()
+
+    def traverse_latent(self, img_ind, dataset, img='x', dim1=0, dim2=1, granularity=11, autosave=False, notion=''):
+        self.__plot_settings__()
+
+        self.img_encoder.eval()
+        self.img_decoder.eval()
+
+        if img_ind >= len(dataset):
+            img_ind = np.random.randint(len(dataset))
+
+        try:
+            data_x, data_y = dataset[img_ind]
+            if img == 'x':
+                image = data_x[np.newaxis, ...]
+            elif img == 'y':
+                image = data_y[np.newaxis, ...]
+
+        except ValueError:
+            image = dataset[img_ind][np.newaxis, ...]
+
+        z = self.img_encoder(image.to(torch.float32).to(self.args['t'].device))
+        z = z.cpu().detach().numpy().squeeze()
+
+        grid_x = np.linspace(np.min(z), np.max(z), granularity)
+        grid_y = np.linspace(np.min(z), np.max(z), granularity)
+        anchor1 = np.searchsorted(grid_x, z[dim1])
+        anchor2 = np.searchsorted(grid_y, z[dim2])
+        anchor1 = anchor1 * 128 if anchor1 < granularity else (anchor1 - 1) * 128
+        anchor2 = anchor2 * 128 if anchor2 < granularity else (anchor2 - 1) * 128
+
+        figure = np.zeros((granularity * 128, granularity * 128))
+
+        for i, yi in enumerate(grid_y):
+            for j, xi in enumerate(grid_x):
+                z[dim1], z[dim2] = xi, yi
+                output = self.img_decoder(torch.from_numpy(z).to(self.args['t'].device))
+                figure[i * 128: (i + 1) * 128,
+                       j * 128: (j + 1) * 128] = output.cpu().detach().numpy().squeeze()
+
+        fig = plt.figure(constrained_layout=True)
+        fig.suptitle(f"Teacher Traverse in dims {dim1}_{dim2}")
+        plt.imshow(figure)
+        rect = plt.Rectangle((anchor1, anchor2), 128, 128, fill=False, edgecolor='orange')
+        ax = plt.gca()
+        ax.add_patch(rect)
+        plt.axis('off')
+        plt.xlabel(str(dim1))
+        plt.ylabel(str(dim2))
+
+        if autosave:
+            plt.savefig(f"{self.current_title()}_T_traverse_{dim1}{dim2}_{notion}.jpg")
         plt.show()
 
     def save_all_params(self, notion=''):

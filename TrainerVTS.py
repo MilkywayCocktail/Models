@@ -51,8 +51,7 @@ class TrainerVTS(TrainerTeacherStudent):
             's_test': {'Student Loss': 'loss',
                        'Straight Loss': 'latent_straight',
                        'Distillation Loss': 'latent_distil',
-                       'Image Loss': 'image'
-            }
+                       'Image Loss': 'image'}
         }
 
     @staticmethod
@@ -225,7 +224,7 @@ class TrainerVTS(TrainerTeacherStudent):
                         epoch, self.args['s'].epochs, idx, len(self.train_loader),
                         loss.item(), distil_loss.item()), end='')
 
-            self.train_loss['s']['train_epochs'].append(np.average(train_epoch_loss))
+            self.train_loss['s']['train'].append(np.average(train_epoch_loss))
             self.train_loss['s']['train_straight'].append(np.average(straight_epoch_loss))
             self.train_loss['s']['train_distil'].append(np.average(distil_epoch_loss))
             self.train_loss['s']['train_image'].append(np.average(image_epoch_loss))
@@ -325,7 +324,7 @@ class TrainerVTS(TrainerTeacherStudent):
         except ValueError:
             image = dataset[img_ind][np.newaxis, ...]
 
-        latent, z, mu, logvar = self.img_encoder(torch.from_numpy(image).to(torch.float32).to(self.args['t'].device))
+        latent, z, mu, logvar = self.img_encoder(image)
         z = z.squeeze()
         e = z.cpu().detach().numpy().squeeze()
 
