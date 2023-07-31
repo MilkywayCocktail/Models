@@ -270,6 +270,9 @@ class TrainerVTS(TrainerTeacherStudent):
         for idx, (data_x, data_y) in enumerate(loader, 0):
             data_x = data_x.to(torch.float32).to(self.args['s'].device)
             data_y = data_y.to(torch.float32).to(self.args['s'].device)
+            if loader.batch_size != 1:
+                data_x = data_x[0][np.newaxis, ...]
+                data_y = data_y[0][np.newaxis, ...]
             with torch.no_grad():
                 teacher_preds, t_z, t_mu, t_logvar = self.img_encoder(data_y)
                 student_preds, s_z, mu, logvar = self.csi_encoder(data_x)
