@@ -30,30 +30,6 @@ class TrainerVTS(TrainerTeacherStudent):
         self.batch_size = batch_size
         self.kl_weight = kl_weight
 
-        self.plot_terms = {
-            't_train': {'Total Loss': ['train', 'valid'],
-                        'KL Loss': ['train_kl', 'valid_kl'],
-                        'Recon Loss': ['train_recon', 'valid_recon']
-                        },
-            't_predict': {'Ground Truth': 'groundtruth',
-                          'Estimated': 'predicts'
-                          },
-            't_test': {'Loss': 'loss',
-                       'KL Loss': 'kl',
-                       'Recon Loss': 'recon'
-                       },
-            's_train': {'Student Loss': ['train', 'valid'],
-                        'Straight Loss': ['train_straight', 'valid_straight'],
-                        'Distillation Loss': ['train_distil', 'valid_distil'],
-                        'Image Loss': ['train_image', 'valid_image']},
-            's_predict': {'Ground Truth': 'groundtruth',
-                          'Estimated': 'predicts'},
-            's_test': {'Student Loss': 'loss',
-                       'Straight Loss': 'latent_straight',
-                       'Distillation Loss': 'latent_distil',
-                       'Image Loss': 'image'}
-        }
-
     @staticmethod
     def __gen_teacher_train__():
         t_train_loss = {'learning_rate': [],
@@ -76,6 +52,22 @@ class TrainerVTS(TrainerTeacherStudent):
                        'predicts': [],
                        'groundtruth': []}
         return t_test_loss
+
+    @staticmethod
+    def __teacher_plot_terms__():
+        terms = {'train': {'Total Loss': ['train', 'valid'],
+                           'KL Loss': ['train_kl', 'valid_kl'],
+                           'Recon Loss': ['train_recon', 'valid_recon']
+                           },
+                 'predict': {'Ground Truth': 'groundtruth',
+                             'Estimated': 'predicts'
+                             },
+                 'test': {'Loss': 'loss',
+                          'KL Loss': 'kl',
+                          'Recon Loss': 'recon'
+                          }
+                 }
+        return terms
 
     @staticmethod
     def kl_loss(mu, logvar):
