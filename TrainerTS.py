@@ -647,7 +647,7 @@ class TrainerTeacherStudent:
         # Latent Vectors
         fig = plt.figure(constrained_layout=True)
         fig.suptitle(f"Student Test Latents @ep{self.train_loss['s']['epochs'][-1]}")
-        axes = fig.subplots(nrows=2, ncols=np.ceil(select_num/2))
+        axes = fig.subplots(nrows=2, ncols=np.ceil(select_num/2).astype(int))
         axes = axes.flatten()
         for a in range(len(axes)):
             axes[a].bar(range(256), self.test_loss['s']['predicts_t_latent'][inds[a]], width=1, fc='blue',
