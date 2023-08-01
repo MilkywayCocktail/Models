@@ -80,6 +80,7 @@ class ImageEncoder(nn.Module):
             nn.Linear(4 * 4 * 256, 4096),
             nn.ReLU(),
             nn.Linear(4096, 2 * self.latent_dim),
+            nn.Sigmoid()
             # nn.Tanh()
         )
 
@@ -247,11 +248,12 @@ class ImageDecoderInterp(ImageDecoder):
 
 
 class CsiEncoder(nn.Module):
-    def __init__(self, bottleneck='last', batchnorm=False, latent_dim=8):
+    def __init__(self, bottleneck='last', batchnorm=False, latent_dim=8, active_func=nn.Sigmoid()):
         super(CsiEncoder, self).__init__()
 
         self.bottleneck = bottleneck
         self.latent_dim = latent_dim
+        self.active_func = active_func
 
         self.layer1 = nn.Sequential(
             nn.Conv2d(1, 16, kernel_size=3, stride=(3, 1), padding=0),
@@ -315,7 +317,8 @@ class CsiEncoder(nn.Module):
         )
 
         self.lstm = nn.Sequential(
-            nn.LSTM(512, 2 * self.latent_dim, 2, batch_first=True, dropout=0.1)
+            nn.LSTM(512, 2 * self.latent_dim, 2, batch_first=True, dropout=0.1),
+            self.activation()
         )
 
     def __str__(self):
