@@ -650,10 +650,12 @@ class TrainerTeacherStudent:
         axes = fig.subplots(nrows=2, ncols=np.ceil(select_num/2).astype(int))
         axes = axes.flatten()
         for a in range(len(axes)):
-            axes[a].bar(range(self.latent_dim), self.test_loss['s']['predicts_t_latent'][inds[a]], width=1, fc='blue',
-                        alpha=0.8, label='Teacher')
-            axes[a].bar(range(self.latent_dim), self.test_loss['s']['predicts_latent'][inds[a]], width=1, fc='orange',
-                        alpha=0.8, label='student')
+            axes[a].bar(range(len(self.test_loss['s']['predicts_t_latent'][inds[a]])),
+                        self.test_loss['s']['predicts_t_latent'][inds[a]],
+                        width=1, fc='blue', alpha=0.8, label='Teacher')
+            axes[a].bar(range(len(self.test_loss['s']['predicts_t_latent'][inds[a]])),
+                        self.test_loss['s']['predicts_latent'][inds[a]],
+                        width=1, fc='orange', alpha=0.8, label='student')
             axes[a].set_title(f"#{inds[a]}")
             axes[a].grid()
 
@@ -754,3 +756,4 @@ class TrainerTeacherStudent:
                    f"../saved/{self.img_decoder}{self.current_title()}_{notion}.pth")
         torch.save(self.csi_encoder.state_dict(),
                    f"../saved/{self.csi_encoder}{self.current_title()}_{notion}.pth")
+        

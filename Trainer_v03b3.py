@@ -75,10 +75,9 @@ class ImageEncoderM1(ImageEncoder):
 
 
 class ImageDecoderM1(ImageDecoder):
-    def __init__(self, batchnorm=False, latent_dim=8, active_func=nn.Sigmoid(), verbose=False):
+    def __init__(self, batchnorm=False, latent_dim=8, active_func=nn.Sigmoid()):
         super(ImageDecoderM1, self).__init__(batchnorm, latent_dim, active_func)
 
-        self.verbose = verbose
         self.fclayers = nn.Sequential(
             nn.Linear(self.latent_dim, 4096),
             nn.ReLU(),

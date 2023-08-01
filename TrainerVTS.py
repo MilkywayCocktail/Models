@@ -336,7 +336,7 @@ class TrainerVTS(TrainerTeacherStudent):
 
         for i, yi in enumerate(grid_y):
             for j, xi in enumerate(grid_x):
-                z[dim1], z[dim2] = xi, yi
+                e[dim1], e[dim2] = xi, yi
                 # output = self.img_decoder(torch.from_numpy(e).to(self.args['t'].device))
                 output = self.img_decoder(e)
                 figure[i * 128: (i + 1) * 128,
