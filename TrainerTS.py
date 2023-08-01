@@ -465,6 +465,9 @@ class TrainerTeacherStudent:
         for idx, (data_x, data_y) in enumerate(loader, 0):
             data_x = data_x.to(torch.float32).to(self.args['s'].device)
             data_y = data_y.to(torch.float32).to(self.args['s'].device)
+            if loader.batch_size != 1:
+                data_x = data_x[0][np.newaxis, ...]
+                data_y = data_y[0][np.newaxis, ...]
             with torch.no_grad():
                 teacher_preds = self.img_encoder(data_y)
                 student_preds = self.csi_encoder(data_x)
@@ -681,11 +684,12 @@ class TrainerTeacherStudent:
             plt.savefig(f"{self.current_title()}_S_test_{notion}.jpg")
         plt.show()
 
-    def traverse_latent(self, img_ind, dataset, img='x', dim1=0, dim2=1, granularity=11, autosave=False, notion=''):
+    def traverse_latent(self, img_ind, dataset, mode='t', img='x', dim1=0, dim2=1, granularity=11, autosave=False, notion=''):
         self.__plot_settings__()
 
         self.img_encoder.eval()
         self.img_decoder.eval()
+        self.csi_encoder.eval()
 
         if img_ind >= len(dataset):
             img_ind = np.random.randint(len(dataset))
@@ -696,11 +700,16 @@ class TrainerTeacherStudent:
                 image = data_x[np.newaxis, ...]
             elif img == 'y':
                 image = data_y[np.newaxis, ...]
+                csi = data_x[np.newaxis, ...]
 
         except ValueError:
             image = dataset[img_ind][np.newaxis, ...]
 
-        z = self.img_encoder(image.to(torch.float32).to(self.args['t'].device))
+        if mode == 't':
+            z = self.img_encoder(torch.from_numpy(image).to(torch.float32).to(self.args['t'].device))
+        if mode == 's':
+            z = self.img_encoder(torch.from_numpy(csi).to(torch.float32).to(self.args['s'].device))
+
         z = z.cpu().detach().numpy().squeeze()
 
         grid_x = np.linspace(np.min(z), np.max(z), granularity)

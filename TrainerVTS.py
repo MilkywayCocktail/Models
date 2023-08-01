@@ -170,6 +170,7 @@ class TrainerVTS(TrainerTeacherStudent):
             if idx % (len(loader)//5) == 0:
                 print("\rTeacher: {}/{} of test, loss={}".format(idx, len(loader), loss.item()), end='')
 
+    @timer
     def train_student(self, autosave=False, notion=''):
         self.logger(mode='s')
         student_optimizer = self.args['s'].optimizer(self.csi_encoder.parameters(),
@@ -296,11 +297,12 @@ class TrainerVTS(TrainerTeacherStudent):
                 print("\rStudent: {}/{}of test, student loss={}, distill loss={}, image loss={}".format(
                     idx, len(self.test_loader), student_loss.item(), distil_loss.item(), image_loss.item()), end='')
 
-    def traverse_latent(self, img_ind, dataset, img='x', dim1=0, dim2=1, granularity=11, autosave=False, notion=''):
+    def traverse_latent(self, img_ind, dataset, mode='t', img='x', dim1=0, dim2=1, granularity=11, autosave=False, notion=''):
         self.__plot_settings__()
 
         self.img_encoder.eval()
         self.img_decoder.eval()
+        self.csi_encoder.eval()
 
         if img_ind >= len(dataset):
             img_ind = np.random.randint(len(dataset))
@@ -311,12 +313,16 @@ class TrainerVTS(TrainerTeacherStudent):
                 image = data_x[np.newaxis, ...]
             elif img == 'y':
                 image = data_y[np.newaxis, ...]
+                csi = data_x[np.newaxis, ...]
 
         except ValueError:
             image = dataset[img_ind][np.newaxis, ...]
 
-        latent, z, mu, logvar = self.img_encoder(image)
-        z = z.squeeze()
+        if mode == 't':
+            latent, z, mu, logvar = self.img_encoder(torch.from_numpy(image).to(torch.float32).to(self.args['t'].device))
+        elif mode == 's':
+            latent, z, mu, logvar = self.csi_encoder(torch.from_numpy(csi).to(torch.float32).to(self.args['s'].device))
+
         e = z.cpu().detach().numpy().squeeze()
 
         grid_x = norm.ppf(np.linspace(0.05, 0.95, granularity))
