@@ -318,7 +318,7 @@ class CsiEncoder(nn.Module):
 
         self.lstm = nn.Sequential(
             nn.LSTM(512, 2 * self.latent_dim, 2, batch_first=True, dropout=0.1),
-            self.activation()
+            self.active_func()
         )
 
     def __str__(self):
