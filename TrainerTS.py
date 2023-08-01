@@ -756,4 +756,3 @@ class TrainerTeacherStudent:
                    f"../saved/{self.img_decoder}{self.current_title()}_{notion}.pth")
         torch.save(self.csi_encoder.state_dict(),
                    f"../saved/{self.csi_encoder}{self.current_title()}_{notion}.pth")
-        
