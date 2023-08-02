@@ -388,7 +388,7 @@ class TrainerVTS(TrainerTeacherStudent):
         figure = np.zeros((2 * self.latent_dim * 128, 2 * self.latent_dim * 128))
 
         anchors = []
-        for dim in range(len(2 * self.latent_dim)):
+        for dim in range(2 * self.latent_dim):
             grid_x = norm.ppf(np.linspace(0.05, 0.95, 2 * self.latent_dim))
             anchor = np.searchsorted(grid_x, e[dim])
             anchors.append(anchor * 128 if anchor < 2 * self.latent_dim else (anchor - 1) * 128)
