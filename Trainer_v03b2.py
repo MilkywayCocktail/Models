@@ -318,7 +318,6 @@ class CsiEncoder(nn.Module):
 
         self.lstm = nn.Sequential(
             nn.LSTM(512, 2 * self.latent_dim, 2, batch_first=True, dropout=0.1),
-            self.active_func()
         )
 
     def __str__(self):
@@ -341,14 +340,8 @@ class CsiEncoder(nn.Module):
         out = torch.cat([x1, x2], dim=1)
         out, (final_hidden_state, final_cell_state) = self.lstm.forward(out.view(-1, 512, 8 * 42).transpose(1, 2))
 
-        if self.bottleneck == 'full_fc':
-            out = self.fclayers(out.view(-1, 256 * 8 * 42))
-
-        elif self.bottleneck == 'full_gap':
-            out = self.gap(out.transpose(1, 2))
-
-        elif self.bottleneck == 'last':
-            out = out[:, -1, :]
+        if self.bottleneck == 'last':
+            out = self.active_func(out[:, -1, :])
 
         mu, logvar = out.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
         z = reparameterize(mu, logvar)
