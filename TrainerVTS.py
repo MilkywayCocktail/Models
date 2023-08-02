@@ -393,7 +393,7 @@ class TrainerVTS(TrainerTeacherStudent):
             anchor = np.searchsorted(grid_x, e[dim])
             anchors.append(anchor * 128 if anchor < 2 * self.latent_dim else (anchor - 1) * 128)
 
-            for i in range(len(2 * self.latent_dim)):
+            for i in range(2 * self.latent_dim):
                 for j, xi in enumerate(grid_x):
                     e[dim] = xi
                     output = self.img_decoder(torch.from_numpy(e).to(torch.float32).to(self.args['t'].device))
