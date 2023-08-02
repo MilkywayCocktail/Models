@@ -297,7 +297,7 @@ class TrainerVTS(TrainerTeacherStudent):
                 print("\rStudent: {}/{}of test, student loss={}, distill loss={}, image loss={}".format(
                     idx, len(self.test_loader), student_loss.item(), distil_loss.item(), image_loss.item()), end='')
 
-    def traverse_latent(self, img_ind, dataset, mode='t', img='x', dim1=0, dim2=1, granularity=11, autosave=False, notion=''):
+    def traverse_latentV2(self, img_ind, dataset, mode='t', img='x', dim1=0, dim2=1, granularity=11, autosave=False, notion=''):
         self.__plot_settings__()
 
         self.img_encoder.eval()
@@ -353,4 +353,65 @@ class TrainerVTS(TrainerTeacherStudent):
 
         if autosave:
             plt.savefig(f"{self.current_title()}_T_traverse_{dim1}{dim2}_{notion}.jpg")
+        plt.show()
+
+    def traverse_latent(self, img_ind, dataset, mode='t', img='x',  autosave=False, notion=''):
+        self.__plot_settings__()
+
+        self.img_encoder.eval()
+        self.img_decoder.eval()
+        self.csi_encoder.eval()
+
+        if img_ind >= len(dataset):
+            img_ind = np.random.randint(len(dataset))
+
+        try:
+            data_x, data_y = dataset.__getitem__(img_ind)
+            if img == 'x':
+                image = data_x[np.newaxis, ...]
+            elif img == 'y':
+                image = data_y[np.newaxis, ...]
+                csi = data_x[np.newaxis, ...]
+
+        except ValueError:
+            image = dataset[img_ind][np.newaxis, ...]
+
+        if mode == 't':
+            latent, z, mu, logvar = self.img_encoder(
+                torch.from_numpy(image).to(torch.float32).to(self.args['t'].device))
+        elif mode == 's':
+            latent, z, mu, logvar = self.csi_encoder(
+                torch.from_numpy(csi).to(torch.float32).to(self.args['s'].device))
+
+        e = z.cpu().detach().numpy().squeeze()
+
+        figure = np.zeros((2 * self.latent_dim * 128, 2 * self.latent_dim * 128))
+
+        anchors = []
+        for dim in range(len(2 * self.latent_dim)):
+            grid_x = norm.ppf(np.linspace(0.05, 0.95, 2 * self.latent_dim))
+            anchor = np.searchsorted(grid_x, e[dim])
+            anchors.append(anchor * 128 if anchor < 2 * self.latent_dim else (anchor - 1) * 128)
+
+            for i in range(len(2 * self.latent_dim)):
+                for j, xi in enumerate(grid_x):
+                    e[dim] = xi
+                    output = self.img_decoder(torch.from_numpy(e).to(torch.float32).to(self.args['t'].device))
+                    figure[i * 128: (i + 1) * 128,
+                    j * 128: (j + 1) * 128] = output.cpu().detach().numpy().squeeze().tolist()
+
+        fig = plt.figure(constrained_layout=True)
+        fig.suptitle(f"Teacher Traverse in dims 0~{2 * self.latent_dim - 1}")
+        plt.imshow(figure)
+        for i, an in enumerate(anchors):
+            rect = plt.Rectangle((an, i * 128), 128, 128, fill=False, edgecolor='orange')
+            ax = plt.gca()
+            ax.add_patch(rect)
+        rect = plt.Rectangle((0, 0), 128, 128, fill=False, edgecolor='yellow')
+        ax = plt.gca()
+        ax.add_patch(rect)
+        plt.axis('off')
+
+        if autosave:
+            plt.savefig(f"{self.current_title()}_T_traverse_{2 * self.latent_dim}_{notion}.jpg")
         plt.show()
