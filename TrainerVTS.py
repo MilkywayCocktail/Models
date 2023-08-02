@@ -387,15 +387,15 @@ class TrainerVTS(TrainerTeacherStudent):
 
         e = z.cpu().detach().numpy().squeeze()
 
-        figure = np.zeros((2 * self.latent_dim * 128, 2 * self.latent_dim * 128))
+        figure = np.zeros((self.latent_dim * 128, self.latent_dim * 128))
 
         anchors = []
-        for dim in range(2 * self.latent_dim):
-            grid_x = norm.ppf(np.linspace(0.05, 0.95, 2 * self.latent_dim))
+        for dim in range(self.latent_dim):
+            grid_x = norm.ppf(np.linspace(0.05, 0.95, self.latent_dim))
             anchor = np.searchsorted(grid_x, e[dim])
-            anchors.append(anchor * 128 if anchor < 2 * self.latent_dim else (anchor - 1) * 128)
+            anchors.append(anchor * 128 if anchor < self.latent_dim else (anchor - 1) * 128)
 
-            for i in range(2 * self.latent_dim):
+            for i in range(self.latent_dim):
                 for j, xi in enumerate(grid_x):
                     e[dim] = xi
                     output = self.img_decoder(torch.from_numpy(e).to(torch.float32).to(self.args['t'].device))
@@ -403,7 +403,7 @@ class TrainerVTS(TrainerTeacherStudent):
                     j * 128: (j + 1) * 128] = output.cpu().detach().numpy().squeeze().tolist()
 
         fig = plt.figure(constrained_layout=True)
-        fig.suptitle(f"Teacher Traverse in dims 0~{2 * self.latent_dim - 1}")
+        fig.suptitle(f"Teacher Traverse in dims 0~{self.latent_dim - 1}")
         plt.imshow(figure)
         for i, an in enumerate(anchors):
             rect = plt.Rectangle((an, i * 128), 128, 128, fill=False, edgecolor='orange')
@@ -412,8 +412,10 @@ class TrainerVTS(TrainerTeacherStudent):
         rect = plt.Rectangle((0, 0), 128, 128, fill=False, edgecolor='yellow')
         ax = plt.gca()
         ax.add_patch(rect)
-        plt.axis('off')
+        #plt.axis('off')
+        plt.xlabel('Trvs')
+        plt.ylabel('Dims')
 
         if autosave:
-            plt.savefig(f"{self.current_title()}_T_traverse_{2 * self.latent_dim}_{notion}.jpg")
+            plt.savefig(f"{self.current_title()}_T_traverse_{self.latent_dim}_{notion}.jpg")
         plt.show()
