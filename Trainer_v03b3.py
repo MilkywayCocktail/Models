@@ -67,7 +67,7 @@ class ImageEncoderM1(ImageEncoder):
             nn.Linear(4 * 4 * 256, 4096),
             nn.ReLU(),
             nn.Linear(4096, 2 * self.latent_dim),
-            nn.Sigmoid()
+            # nn.Sigmoid()
             # nn.Tanh()
         )
 

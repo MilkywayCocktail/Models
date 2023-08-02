@@ -80,7 +80,7 @@ class ImageEncoder(nn.Module):
             nn.Linear(4 * 4 * 256, 4096),
             nn.ReLU(),
             nn.Linear(4096, 2 * self.latent_dim),
-            nn.Sigmoid()
+            # nn.Sigmoid()
             # nn.Tanh()
         )
 
@@ -341,7 +341,7 @@ class CsiEncoder(nn.Module):
         out, (final_hidden_state, final_cell_state) = self.lstm.forward(out.view(-1, 512, 8 * 42).transpose(1, 2))
 
         if self.bottleneck == 'last':
-            out = self.active_func(out[:, -1, :])
+            out = out[:, -1, :]
 
         mu, logvar = out.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
         z = reparameterize(mu, logvar)
