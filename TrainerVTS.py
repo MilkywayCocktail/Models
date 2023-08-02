@@ -17,6 +17,7 @@ class TrainerVTS(TrainerTeacherStudent):
                  img_loss=nn.MSELoss(),
                  temperature=20,
                  alpha=0.3,
+                 latent_dim=8,
                  batch_size=64,
                  kl_weight=0.25
                  ):
@@ -26,7 +27,8 @@ class TrainerVTS(TrainerTeacherStudent):
                                          div_loss=div_loss,
                                          img_loss=img_loss,
                                          temperature=temperature,
-                                         alpha=alpha)
+                                         alpha=alpha,
+                                         latent_dim=latent_dim)
         self.batch_size = batch_size
         self.kl_weight = kl_weight
 
@@ -297,7 +299,7 @@ class TrainerVTS(TrainerTeacherStudent):
                 print("\rStudent: {}/{}of test, student loss={}, distill loss={}, image loss={}".format(
                     idx, len(self.test_loader), student_loss.item(), distil_loss.item(), image_loss.item()), end='')
 
-    def traverse_latentV2(self, img_ind, dataset, mode='t', img='x', dim1=0, dim2=1, granularity=11, autosave=False, notion=''):
+    def traverse_latent_2dim(self, img_ind, dataset, mode='t', img='x', dim1=0, dim2=1, granularity=11, autosave=False, notion=''):
         self.__plot_settings__()
 
         self.img_encoder.eval()
