@@ -97,7 +97,7 @@ class TrainerVTS(TrainerTeacherStudent):
             train_epoch_loss = []
             kl_epoch_loss = []
             recon_epoch_loss = []
-            for idx, (data_x, data_y) in enumerate(self.train_loader, 0):
+            for idx, (data_x, data_y, index) in enumerate(self.train_loader, 0):
                 data_y = data_y.to(torch.float32).to(self.args['t'].device)
                 teacher_optimizer.zero_grad()
                 latent, z, mu, logvar = self.img_encoder(data_y)
@@ -125,7 +125,7 @@ class TrainerVTS(TrainerTeacherStudent):
             valid_kl_epoch_loss = []
             valid_recon_epoch_loss = []
 
-            for idx, (data_x, data_y) in enumerate(self.valid_loader, 0):
+            for idx, (data_x, data_y, index) in enumerate(self.valid_loader, 0):
                 data_y = data_y.to(torch.float32).to(self.args['t'].device)
                 with torch.no_grad():
                     latent, z, mu, logvar = self.img_encoder(data_y)
@@ -155,7 +155,7 @@ class TrainerVTS(TrainerTeacherStudent):
         elif mode == 'train':
             loader = self.train_loader
 
-        for idx, (data_x, data_y) in enumerate(loader, 0):
+        for idx, (data_x, data_y, index) in enumerate(loader, 0):
             data_y = data_y.to(torch.float32).to(self.args['t'].device)
             if loader.batch_size != 1:
                 data_y = data_y[0][np.newaxis, ...]
@@ -190,7 +190,7 @@ class TrainerVTS(TrainerTeacherStudent):
             distil_epoch_loss = []
             image_epoch_loss = []
 
-            for idx, (data_x, data_y) in enumerate(self.train_loader, 0):
+            for idx, (data_x, data_y, index) in enumerate(self.train_loader, 0):
                 data_x = data_x.to(torch.float32).to(self.args['s'].device)
                 data_y = data_y.to(torch.float32).to(self.args['s'].device)
 
@@ -233,7 +233,7 @@ class TrainerVTS(TrainerTeacherStudent):
             distil_epoch_loss = []
             image_epoch_loss = []
 
-            for idx, (data_x, data_y) in enumerate(self.valid_loader, 0):
+            for idx, (data_x, data_y, index) in enumerate(self.valid_loader, 0):
                 data_x = data_x.to(torch.float32).to(self.args['s'].device)
                 data_y = data_y.to(torch.float32).to(self.args['s'].device)
                 with torch.no_grad():
@@ -271,7 +271,7 @@ class TrainerVTS(TrainerTeacherStudent):
         elif mode == 'train':
             loader = self.train_loader
 
-        for idx, (data_x, data_y) in enumerate(loader, 0):
+        for idx, (data_x, data_y, index) in enumerate(loader, 0):
             data_x = data_x.to(torch.float32).to(self.args['s'].device)
             data_y = data_y.to(torch.float32).to(self.args['s'].device)
             if loader.batch_size != 1:
@@ -410,14 +410,11 @@ class TrainerVTS(TrainerTeacherStudent):
             rect = plt.Rectangle((an, i * 128), 128, 128, fill=False, edgecolor='orange')
             ax = plt.gca()
             ax.add_patch(rect)
-        rect = plt.Rectangle((0, 0), 128, 128, fill=False, edgecolor='yellow')
-        ax = plt.gca()
-        ax.add_patch(rect)
         #plt.axis('off')
         plt.xticks([x * 128 for x in (range(self.latent_dim))], [x for x in (range(self.latent_dim))])
         plt.yticks([x * 128 for x in (range(self.latent_dim))], [x for x in (range(self.latent_dim))])
-        plt.xlabel('Trvs')
-        plt.ylabel('Dims')
+        plt.xlabel('Traversing')
+        plt.ylabel('Dimensions')
 
         if autosave:
             plt.savefig(f"{self.current_title()}_T_traverse_{self.latent_dim}_{notion}.jpg")

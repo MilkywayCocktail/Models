@@ -64,7 +64,7 @@ class MyDataset(Data.Dataset):
         if self.img == 'y':
             return self.data['x'][index], self.__transform__(self.data['y'][index])
         elif self.img == 'x':
-            return self.__transform__(self.data['x'][index]), self.data['y'][index]
+            return self.__transform__(self.data['x'][index]), self.data['y'][index], index
 
     def __len__(self):
         return self.data['x'].shape[0]
@@ -302,7 +302,7 @@ class TrainerTeacherStudent:
             self.img_encoder.train()
             self.img_decoder.train()
             train_epoch_loss = []
-            for idx, (data_x, data_y) in enumerate(self.train_loader, 0):
+            for idx, (data_x, data_y, index) in enumerate(self.train_loader, 0):
                 data_y = data_y.to(torch.float32).to(self.args['t'].device)
                 teacher_optimizer.zero_grad()
                 latent = self.img_encoder(data_y).data
@@ -323,7 +323,7 @@ class TrainerTeacherStudent:
             self.img_decoder.eval()
             valid_epoch_loss = []
 
-            for idx, (data_x, data_y) in enumerate(self.valid_loader, 0):
+            for idx, (data_x, data_y), index in enumerate(self.valid_loader, 0):
                 data_y = data_y.to(torch.float32).to(self.args['t'].device)
                 with torch.no_grad():
                     latent = self.img_encoder(data_y).data
@@ -355,7 +355,7 @@ class TrainerTeacherStudent:
             distil_epoch_loss = []
             image_epoch_loss = []
 
-            for idx, (data_x, data_y) in enumerate(self.train_loader, 0):
+            for idx, (data_x, data_y, index) in enumerate(self.train_loader, 0):
                 data_x = data_x.to(torch.float32).to(self.args['s'].device)
                 data_y = data_y.to(torch.float32).to(self.args['s'].device)
 
@@ -398,7 +398,7 @@ class TrainerTeacherStudent:
             distil_epoch_loss = []
             image_epoch_loss = []
 
-            for idx, (data_x, data_y) in enumerate(self.valid_loader, 0):
+            for idx, (data_x, data_y, index) in enumerate(self.valid_loader, 0):
                 data_x = data_x.to(torch.float32).to(self.args['s'].device)
                 data_y = data_y.to(torch.float32).to(self.args['s'].device)
                 with torch.no_grad():
@@ -435,7 +435,7 @@ class TrainerTeacherStudent:
         elif mode == 'train':
             loader = self.train_loader
 
-        for idx, (data_x, data_y) in enumerate(loader, 0):
+        for idx, (data_x, data_y, index) in enumerate(loader, 0):
             data_y = data_y.to(torch.float32).to(self.args['t'].device)
             if loader.batch_size != 1:
                 data_y = data_y[0][np.newaxis, ...]
@@ -462,7 +462,7 @@ class TrainerTeacherStudent:
         elif mode == 'train':
             loader = self.train_loader
 
-        for idx, (data_x, data_y) in enumerate(loader, 0):
+        for idx, (data_x, data_y, index) in enumerate(loader, 0):
             data_x = data_x.to(torch.float32).to(self.args['s'].device)
             data_y = data_y.to(torch.float32).to(self.args['s'].device)
             if loader.batch_size != 1:
@@ -623,7 +623,7 @@ class TrainerTeacherStudent:
         predict_items = self.plot_terms['s']['predict']
 
         # Depth Images
-        inds = np.random.choice(list(range(len(self.test_loss['s']['groundtruth']))), 8)
+        inds = np.random.choice(list(range(len(self.test_loss['s']['groundtruth']))), select_num)
         inds = np.sort(inds)
         fig = plt.figure(constrained_layout=True)
         fig.suptitle(f"Student Test Predicts @ep{self.train_loss['s']['epochs'][-1]}")

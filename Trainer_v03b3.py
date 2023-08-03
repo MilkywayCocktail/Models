@@ -68,7 +68,7 @@ class ImageEncoderM1(ImageEncoder):
             nn.ReLU(),
             nn.Linear(4096, 2 * self.latent_dim),
             # nn.Sigmoid()
-            # nn.Tanh()
+            nn.Tanh()
         )
 
     def __str__(self):

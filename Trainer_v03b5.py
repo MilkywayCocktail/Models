@@ -62,7 +62,8 @@ class TrainerVTSM1(TrainerVTS):
                        'latent': [],
                        'predicts': [],
                        're_predicts': [],
-                       'groundtruth': []}
+                       'groundtruth': [],
+                       'indices': []}
         return t_test_loss
 
     def loss(self, y, gt, mu, logvar, latent, latent_p):
@@ -88,7 +89,7 @@ class TrainerVTSM1(TrainerVTS):
             kl_epoch_loss = []
             recon_epoch_loss = []
             latent_epoch_loss = []
-            for idx, (data_x, data_y) in enumerate(self.train_loader, 0):
+            for idx, (data_x, data_y, index) in enumerate(self.train_loader, 0):
                 data_y = data_y.to(torch.float32).to(self.args['t'].device)
                 teacher_optimizer.zero_grad()
                 latent, z, mu, logvar = self.img_encoder(data_y)
@@ -122,7 +123,7 @@ class TrainerVTSM1(TrainerVTS):
             valid_recon_epoch_loss = []
             valid_latent_epoch_loss = []
 
-            for idx, (data_x, data_y) in enumerate(self.valid_loader, 0):
+            for idx, (data_x, data_y, index) in enumerate(self.valid_loader, 0):
                 data_y = data_y.to(torch.float32).to(self.args['t'].device)
                 with torch.no_grad():
                     latent, z, mu, logvar = self.img_encoder(data_y)
@@ -149,22 +150,28 @@ class TrainerVTSM1(TrainerVTS):
         self.test_loss['t'] = self.__gen_teacher_test__()
         self.img_encoder.eval()
         self.img_decoder.eval()
+        test_epoch_loss = []
+        test_kl_epoch_loss = []
+        test_recon_epoch_loss = []
+        test_latent_epoch_loss = []
 
         if mode == 'test':
             loader = self.test_loader
         elif mode == 'train':
             loader = self.train_loader
 
-        for idx, (data_x, data_y) in enumerate(loader, 0):
+        for idx, (data_x, data_y, index) in enumerate(loader, 0):
             data_y = data_y.to(torch.float32).to(self.args['t'].device)
-            if loader.batch_size != 1:
-                data_y = data_y[0][np.newaxis, ...]
             with torch.no_grad():
                 latent, z, mu, logvar = self.img_encoder(data_y)
                 output = self.img_decoder(z)
                 latent_p, z_p, mu_p, logvar_p = self.img_encoder(output)
                 re_output = self.img_decoder(z_p)
                 loss, kl_loss, recon_loss, latent_loss = self.loss(output, data_y, mu, logvar, latent, latent_p)
+            test_epoch_loss.append(loss.item())
+            test_kl_epoch_loss.append(kl_loss.item())
+            test_recon_epoch_loss.append(recon_loss.item())
+            test_latent_epoch_loss.append(latent_loss.item())
 
             self.test_loss['t']['loss'].append(loss.item())
             self.test_loss['t']['kl'].append(kl_loss.item())
@@ -173,20 +180,28 @@ class TrainerVTSM1(TrainerVTS):
             self.test_loss['t']['predicts'].append(output.cpu().detach().numpy().squeeze())
             self.test_loss['t']['re_predicts'].append(re_output.cpu().detach().numpy().squeeze())
             self.test_loss['t']['groundtruth'].append(data_y.cpu().detach().numpy().squeeze())
+            self.test_loss['t']['indices'].append(index.cpu().detach().numpy().squeeze())
 
             if idx % (len(loader)//5) == 0:
                 print("\rTeacher: {}/{} of test, loss={}".format(idx, len(loader), loss.item()), end='')
 
-    def plot_teacher_test(self, select_ind=None, select_num=8, autosave=False, notion=''):
+        avg_loss = np.mean(test_epoch_loss)
+        avg_kl_loss = np.mean(test_kl_epoch_loss)
+        avg_recon_loss = np.mean(test_recon_epoch_loss)
+        avg_latent_loss = np.mean(test_latent_epoch_loss)
+        for key in self.test_loss['t'].keys():
+            self.test_loss['t'][key] = self.test_loss['t'][key].flatten()
+
+        print(f"Test finished. Average loss: total={avg_loss}, kl={avg_kl_loss}, recon={avg_recon_loss}, "
+              f"latent={avg_latent_loss}")
+
+    def plot_teacher_test(self, select_num=8, autosave=False, notion=''):
         self.__plot_settings__()
         predict_items = self.plot_terms['t']['predict']
 
         # Depth Images
-        if select_ind:
-            inds = select_ind
-        else:
-            inds = np.random.choice(list(range(len(self.test_loss['t']['groundtruth']))), select_num, replace=False)
-        inds = np.sort(inds)
+        inds = np.random.choice(list(range(len(self.test_loss['t']['indices']))), select_num)
+        samples = self.test_loss['t']['indices'][inds]
 
         fig = plt.figure(constrained_layout=True)
         fig.suptitle(f"Teacher Test Predicts @ep{self.train_loss['t']['epochs'][-1]}")
@@ -198,7 +213,7 @@ class TrainerVTSM1(TrainerVTS):
             for j in range(len(axes)):
                 img = axes[j].imshow(self.test_loss['t'][predict_items[item]][inds[j]], vmin=0, vmax=1)
                 axes[j].axis('off')
-                axes[j].set_title(f"#{inds[j]}")
+                axes[j].set_title(f"#{samples[j]}")
             subfigs[i].colorbar(img, ax=axes, shrink=0.8)
 
         if autosave:
@@ -216,6 +231,7 @@ class TrainerVTSM1(TrainerVTS):
             axes = [plt.gca()]
 
         for i, loss in enumerate(loss_items.keys()):
+
             axes[i].scatter(list(range(len(self.test_loss['t']['groundtruth']))),
                             self.test_loss['t'][loss_items[loss]], alpha=0.6)
             axes[i].set_title(loss)
