@@ -62,7 +62,7 @@ class MyDataset(Data.Dataset):
 
     def __getitem__(self, index):
         if self.img == 'y':
-            return self.data['x'][index], self.__transform__(self.data['y'][index])
+            return self.data['x'][index], self.__transform__(self.data['y'][index]), index
         elif self.img == 'x':
             return self.__transform__(self.data['x'][index]), self.data['y'][index], index
 
