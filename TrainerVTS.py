@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import numpy as np
+import matplotlib.ticker as ticker
 from scipy.stats import norm
 import matplotlib.pyplot as plt
 from TrainerTS import timer, MyDataset, split_loader, MyArgs, TrainerTeacherStudent
@@ -413,6 +414,8 @@ class TrainerVTS(TrainerTeacherStudent):
         ax = plt.gca()
         ax.add_patch(rect)
         #plt.axis('off')
+        plt.xticks([x * 128 for x in (range(self.latent_dim))], [x for x in (range(self.latent_dim))])
+        plt.yticks([x * 128 for x in (range(self.latent_dim))], [x for x in (range(self.latent_dim))])
         plt.xlabel('Trvs')
         plt.ylabel('Dims')
 
