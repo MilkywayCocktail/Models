@@ -189,10 +189,12 @@ class TrainerVTSM1(TrainerVTS):
         avg_kl_loss = np.mean(test_kl_epoch_loss)
         avg_recon_loss = np.mean(test_recon_epoch_loss)
         avg_latent_loss = np.mean(test_latent_epoch_loss)
-        for key in self.test_loss['t'].keys():
-            self.test_loss['t'][key] = np.array(self.test_loss['t'][key]).flatten()
+        for key in self.test_loss['t']['test'].values():
+            self.test_loss['t']['test'][key] = np.array(self.test_loss['t']['test'][key]).flatten()
+        for key in self.test_loss['t']['predict'].values():
+            self.test_loss['t']['predict'][key] = np.array(self.test_loss['t']['predict'][key]).reshape((-1, 128, 128))
 
-        print(f"Test finished. Average loss: total={avg_loss}, kl={avg_kl_loss}, recon={avg_recon_loss}, "
+        print(f"\nTest finished. Average loss: total={avg_loss}, kl={avg_kl_loss}, recon={avg_recon_loss}, "
               f"latent={avg_latent_loss}")
 
     def plot_teacher_test(self, select_num=8, autosave=False, notion=''):
