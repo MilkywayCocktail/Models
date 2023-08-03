@@ -193,6 +193,7 @@ class TrainerVTSM1(TrainerVTS):
             self.test_loss['t'][key] = np.array(self.test_loss['t'][key]).flatten()
         for key in self.plot_terms['t']['predict'].values():
             self.test_loss['t'][key] = np.array(self.test_loss['t'][key]).reshape((-1, 128, 128))
+        self.test_loss['t']['indices'] = np.array(self.test_loss['t']['indices']).flatten()
 
         print(f"\nTest finished. Average loss: total={avg_loss}, kl={avg_kl_loss}, recon={avg_recon_loss}, "
               f"latent={avg_latent_loss}")
