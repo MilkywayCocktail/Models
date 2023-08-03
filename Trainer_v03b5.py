@@ -190,7 +190,7 @@ class TrainerVTSM1(TrainerVTS):
         avg_recon_loss = np.mean(test_recon_epoch_loss)
         avg_latent_loss = np.mean(test_latent_epoch_loss)
         for key in self.test_loss['t'].keys():
-            self.test_loss['t'][key] = self.test_loss['t'][key].flatten()
+            self.test_loss['t'][key] = np.array(self.test_loss['t'][key]).flatten()
 
         print(f"Test finished. Average loss: total={avg_loss}, kl={avg_kl_loss}, recon={avg_recon_loss}, "
               f"latent={avg_latent_loss}")
