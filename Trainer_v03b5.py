@@ -168,11 +168,12 @@ class TrainerVTSM1(TrainerVTS):
                 data_y = data_y[np.newaxis, ...]
             with torch.no_grad():
                 for sample in range(loader.batch_size):
-                    latent, z = self.img_encoder(data_y[sample][np.newaxis, ...])
+                    image = data_y[sample][np.newaxis, ...]
+                    latent, z = self.img_encoder(image)
                     output = self.img_decoder(z)
                     latent_p, z_p = self.img_encoder(output)
                     re_output = self.img_decoder(z_p)
-                    loss, kl_loss, recon_loss, latent_loss = self.loss(output, data_y, latent, latent_p)
+                    loss, kl_loss, recon_loss, latent_loss = self.loss(output, image, latent, latent_p)
 
                     test_epoch_loss.append(loss.item())
                     test_kl_epoch_loss.append(kl_loss.item())

@@ -78,9 +78,9 @@ class TrainerVTS(TrainerTeacherStudent):
         logvar = vector[len(vector)//2:]
         return -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
 
-    def loss(self, y, gt, mu, logvar):
-        recon_loss = self.args['t'].criterion(y, gt) / self.batch_size
-        kl_loss = self.kl_loss(mu, logvar)
+    def loss(self, y, gt, latent):
+        recon_loss = self.args['t'].criterion(y, gt) / y.shape[0]
+        kl_loss = self.kl_loss(latent)
         loss = recon_loss + kl_loss * self.kl_weight
         return loss, kl_loss, recon_loss
 
@@ -102,10 +102,10 @@ class TrainerVTS(TrainerTeacherStudent):
             for idx, (data_x, data_y, index) in enumerate(self.train_loader, 0):
                 data_y = data_y.to(torch.float32).to(self.args['t'].device)
                 teacher_optimizer.zero_grad()
-                latent, z, mu, logvar = self.img_encoder(data_y)
+                latent, z, = self.img_encoder(data_y)
                 output = self.img_decoder(z)
 
-                loss, kl_loss, recon_loss = self.loss(output, data_y, mu, logvar)
+                loss, kl_loss, recon_loss = self.loss(output, data_y, latent)
 
                 loss.backward()
                 teacher_optimizer.step()
@@ -115,7 +115,8 @@ class TrainerVTS(TrainerTeacherStudent):
 
                 if idx % (len(self.train_loader) // 5) == 0:
                     print("\rTeacher: epoch={}/{}, {}/{} of train, recon_loss={}, kl_loss={}".format(
-                        epoch, self.args['t'].epochs, idx, len(self.train_loader), loss.item(), kl_loss.item()), end=ret)
+                        epoch, self.args['t'].epochs, idx, len(self.train_loader), loss.item(), kl_loss.item()),
+                        end=ret)
             self.train_loss['t']['train'].append(np.average(train_epoch_loss))
             self.train_loss['t']['train_kl'].append(np.average(kl_epoch_loss))
             self.train_loss['t']['train_recon'].append(np.average(recon_epoch_loss))
@@ -130,9 +131,9 @@ class TrainerVTS(TrainerTeacherStudent):
             for idx, (data_x, data_y, index) in enumerate(self.valid_loader, 0):
                 data_y = data_y.to(torch.float32).to(self.args['t'].device)
                 with torch.no_grad():
-                    latent, z, mu, logvar = self.img_encoder(data_y)
+                    latent, z, = self.img_encoder(data_y)
                     output = self.img_decoder(z)
-                    loss, kl_loss, recon_loss = self.loss(output, data_y, mu, logvar)
+                    loss, kl_loss, recon_loss = self.loss(output, data_y, latent)
 
                 valid_epoch_loss.append(loss.item())
                 valid_kl_epoch_loss.append(kl_loss.item())
@@ -162,9 +163,9 @@ class TrainerVTS(TrainerTeacherStudent):
             if loader.batch_size != 1:
                 data_y = data_y[0][np.newaxis, ...]
             with torch.no_grad():
-                latent, z, mu, logvar = self.img_encoder(data_y)
+                latent, z, = self.img_encoder(data_y)
                 output = self.img_decoder(z)
-                loss, kl_loss, recon_loss = self.loss(output, data_y, mu, logvar)
+                loss, kl_loss, recon_loss = self.loss(output, data_y, latent)
 
             self.test_loss['t']['loss'].append(loss.item())
             self.test_loss['t']['kl'].append(kl_loss.item())
@@ -302,7 +303,8 @@ class TrainerVTS(TrainerTeacherStudent):
                 print("\rStudent: {}/{}of test, student loss={}, distill loss={}, image loss={}".format(
                     idx, len(self.test_loader), student_loss.item(), distil_loss.item(), image_loss.item()), end='')
 
-    def traverse_latent_2dim(self, img_ind, dataset, mode='t', img='x', dim1=0, dim2=1, granularity=11, autosave=False, notion=''):
+    def traverse_latent_2dim(self, img_ind, dataset, mode='t', img='x',
+                             dim1=0, dim2=1, granularity=11, autosave=False, notion=''):
         self.__plot_settings__()
 
         self.img_encoder.eval()
@@ -324,9 +326,9 @@ class TrainerVTS(TrainerTeacherStudent):
             image = dataset[img_ind][np.newaxis, ...]
 
         if mode == 't':
-            latent, z, mu, logvar = self.img_encoder(torch.from_numpy(image).to(torch.float32).to(self.args['t'].device))
+            latent, z = self.img_encoder(torch.from_numpy(image).to(torch.float32).to(self.args['t'].device))
         elif mode == 's':
-            latent, z, mu, logvar = self.csi_encoder(torch.from_numpy(csi).to(torch.float32).to(self.args['s'].device))
+            latent, z = self.csi_encoder(torch.from_numpy(csi).to(torch.float32).to(self.args['s'].device))
 
         e = z.cpu().detach().numpy().squeeze()
 
@@ -382,11 +384,9 @@ class TrainerVTS(TrainerTeacherStudent):
             image = dataset[img_ind][np.newaxis, ...]
 
         if mode == 't':
-            latent, z, mu, logvar = self.img_encoder(
-                torch.from_numpy(image).to(torch.float32).to(self.args['t'].device))
+            latent, z = self.img_encoder(torch.from_numpy(image).to(torch.float32).to(self.args['t'].device))
         elif mode == 's':
-            latent, z, mu, logvar = self.csi_encoder(
-                torch.from_numpy(csi).to(torch.float32).to(self.args['s'].device))
+            latent, z = self.csi_encoder(torch.from_numpy(csi).to(torch.float32).to(self.args['s'].device))
 
         e = z.cpu().detach().numpy().squeeze()
 
@@ -412,7 +412,7 @@ class TrainerVTS(TrainerTeacherStudent):
             rect = plt.Rectangle((an, i * 128), 128, 128, fill=False, edgecolor='orange')
             ax = plt.gca()
             ax.add_patch(rect)
-        #plt.axis('off')
+        # plt.axis('off')
         plt.xticks([x * 128 for x in (range(self.latent_dim))], [x for x in (range(self.latent_dim))])
         plt.yticks([x * 128 for x in (range(self.latent_dim))], [x for x in (range(self.latent_dim))])
         plt.xlabel('Traversing')
