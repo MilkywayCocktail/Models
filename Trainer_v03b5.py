@@ -66,10 +66,10 @@ class TrainerVTSM1(TrainerVTS):
                        'indices': []}
         return t_test_loss
 
-    def loss(self, y, gt, mu, logvar, latent, latent_p):
+    def loss(self, y, gt, latent, latent_p):
         recon_loss = self.args['t'].criterion(y, gt) / self.batch_size
         latent_loss = self.args['s'].criterion(latent_p, latent) / self.batch_size
-        kl_loss = self.kl_loss(mu, logvar)
+        kl_loss = self.kl_loss(latent[:self.latent_dim/2], latent[self.latent_dim/2:])
         loss = recon_loss + kl_loss * self.kl_weight + latent_loss
         return loss, kl_loss, recon_loss, latent_loss
 
@@ -97,7 +97,7 @@ class TrainerVTSM1(TrainerVTS):
                 with torch.no_grad():
                     latent_p, z_p, mu_p, logvar_p = self.img_encoder(output)
 
-                loss, kl_loss, recon_loss, latent_loss = self.loss(output, data_y, mu, logvar, latent, latent_p)
+                loss, kl_loss, recon_loss, latent_loss = self.loss(output, data_y, latent, latent_p)
 
                 loss.backward()
                 teacher_optimizer.step()
@@ -129,7 +129,7 @@ class TrainerVTSM1(TrainerVTS):
                     latent, z, mu, logvar = self.img_encoder(data_y)
                     output = self.img_decoder(z)
                     latent_p, z_p, mu_p, logvar_p = self.img_encoder(output)
-                    loss, kl_loss, recon_loss, latent_loss = self.loss(output, data_y, mu, logvar, latent, latent_p)
+                    loss, kl_loss, recon_loss, latent_loss = self.loss(output, data_y, latent, latent_p)
 
                 valid_epoch_loss.append(loss.item())
                 valid_kl_epoch_loss.append(kl_loss.item())
@@ -162,25 +162,28 @@ class TrainerVTSM1(TrainerVTS):
 
         for idx, (data_x, data_y, index) in enumerate(loader, 0):
             data_y = data_y.to(torch.float32).to(self.args['t'].device)
+            if loader.batch_size == 1:
+                data_y = data_y[np.newaxis, ...]
             with torch.no_grad():
-                latent, z, mu, logvar = self.img_encoder(data_y)
-                output = self.img_decoder(z)
-                latent_p, z_p, mu_p, logvar_p = self.img_encoder(output)
-                re_output = self.img_decoder(z_p)
-                loss, kl_loss, recon_loss, latent_loss = self.loss(output, data_y, mu, logvar, latent, latent_p)
-            test_epoch_loss.append(loss.item())
-            test_kl_epoch_loss.append(kl_loss.item())
-            test_recon_epoch_loss.append(recon_loss.item())
-            test_latent_epoch_loss.append(latent_loss.item())
+                for sample in range(loader.batch_size):
+                    latent, z, mu, logvar = self.img_encoder(data_y[sample])
+                    output = self.img_decoder(z)
+                    latent_p, z_p, mu_p, logvar_p = self.img_encoder(output)
+                    re_output = self.img_decoder(z_p)
+                    loss, kl_loss, recon_loss, latent_loss = self.loss(output, data_y, latent, latent_p)
 
-            self.test_loss['t']['loss'].append(loss.item())
-            self.test_loss['t']['kl'].append(kl_loss.item())
-            self.test_loss['t']['recon'].append(recon_loss.item())
-            self.test_loss['t']['latent'].append(latent_loss.item())
-            self.test_loss['t']['predicts'].append(output.cpu().detach().numpy().squeeze())
-            self.test_loss['t']['re_predicts'].append(re_output.cpu().detach().numpy().squeeze())
-            self.test_loss['t']['groundtruth'].append(data_y.cpu().detach().numpy().squeeze())
-            self.test_loss['t']['indices'].append(index.cpu().detach().numpy().squeeze())
+                    test_epoch_loss.append(loss.item())
+                    test_kl_epoch_loss.append(kl_loss.item())
+                    test_recon_epoch_loss.append(recon_loss.item())
+                    test_latent_epoch_loss.append(latent_loss.item())
+                    self.test_loss['t']['loss'].append(loss.item())
+                    self.test_loss['t']['kl'].append(kl_loss.item())
+                    self.test_loss['t']['recon'].append(recon_loss.item())
+                    self.test_loss['t']['latent'].append(latent_loss.item())
+                    self.test_loss['t']['predicts'].append(output.cpu().detach().numpy().squeeze())
+                    self.test_loss['t']['re_predicts'].append(re_output.cpu().detach().numpy().squeeze())
+                    self.test_loss['t']['groundtruth'].append(data_y.cpu().detach().numpy().squeeze())
+                    self.test_loss['t']['indices'].append(index.cpu().detach().numpy().squeeze())
 
             if idx % (len(loader)//5) == 0:
                 print("\rTeacher: {}/{} of test, loss={}".format(idx, len(loader), loss.item()), end='')
@@ -189,12 +192,6 @@ class TrainerVTSM1(TrainerVTS):
         avg_kl_loss = np.mean(test_kl_epoch_loss)
         avg_recon_loss = np.mean(test_recon_epoch_loss)
         avg_latent_loss = np.mean(test_latent_epoch_loss)
-        for key in self.plot_terms['t']['test'].values():
-            self.test_loss['t'][key] = np.array(self.test_loss['t'][key]).flatten()
-        for key in self.plot_terms['t']['predict'].values():
-            self.test_loss['t'][key] = np.array(self.test_loss['t'][key]).reshape((-1, 128, 128))
-        self.test_loss['t']['indices'] = np.array(self.test_loss['t']['indices']).flatten()
-
         print(f"\nTest finished. Average loss: total={avg_loss}, kl={avg_kl_loss}, recon={avg_recon_loss}, "
               f"latent={avg_latent_loss}")
 
@@ -204,7 +201,7 @@ class TrainerVTSM1(TrainerVTS):
 
         # Depth Images
         inds = np.random.choice(list(range(len(self.test_loss['t']['indices']))), select_num)
-        samples = self.test_loss['t']['indices'][inds]
+        samples = np.array(self.test_loss['t']['indices'])[inds]
 
         fig = plt.figure(constrained_layout=True)
         fig.suptitle(f"Teacher Test Predicts @ep{self.train_loss['t']['epochs'][-1]}")
@@ -227,11 +224,14 @@ class TrainerVTSM1(TrainerVTS):
         loss_items = self.plot_terms['t']['test']
         fig = plt.figure(constrained_layout=True)
         fig.suptitle(f"Teacher Test Loss @ep{self.train_loss['t']['epochs'][-1]}")
-        if len(loss_items.keys()) > 1:
-            axes = fig.subplots(1, len(loss_items.keys()))
+        if len(loss_items.keys()) == 1:
+            axes = [plt.gca()]
+        elif len(loss_items.keys()) > 3:
+            axes = fig.subplots(2, np.ceil(len(loss_items.keys())).astype(int))
             axes = axes.flatten()
         else:
-            axes = [plt.gca()]
+            axes = fig.subplots(1, len(loss_items.keys()))
+            axes = axes.flatten()
 
         for i, loss in enumerate(loss_items.keys()):
 
