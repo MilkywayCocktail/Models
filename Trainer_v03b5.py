@@ -69,7 +69,7 @@ class TrainerVTSM1(TrainerVTS):
     def loss(self, y, gt, latent, latent_p):
         recon_loss = self.args['t'].criterion(y, gt) / self.batch_size
         latent_loss = self.args['s'].criterion(latent_p, latent) / self.batch_size
-        kl_loss = self.kl_loss(latent[:self.latent_dim/2], latent[self.latent_dim/2:])
+        kl_loss = self.kl_loss(latent[:self.latent_dim//2], latent[self.latent_dim//2:])
         loss = recon_loss + kl_loss * self.kl_weight + latent_loss
         return loss, kl_loss, recon_loss, latent_loss
 
