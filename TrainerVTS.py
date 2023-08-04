@@ -73,7 +73,9 @@ class TrainerVTS(TrainerTeacherStudent):
         return terms
 
     @staticmethod
-    def kl_loss(mu, logvar):
+    def kl_loss(vector):
+        mu = vector[:len(vector)//2]
+        logvar = vector[len(vector)//2:]
         return -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
 
     def loss(self, y, gt, mu, logvar):
