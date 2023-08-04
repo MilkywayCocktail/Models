@@ -103,7 +103,7 @@ class ImageEncoder(nn.Module):
         mu, logvar = x.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
         z = reparameterize(mu, logvar)
 
-        return x, z, mu, logvar
+        return x, z
 
 
 class ImageDecoder(nn.Module):
@@ -346,7 +346,7 @@ class CsiEncoder(nn.Module):
         mu, logvar = out.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
         z = reparameterize(mu, logvar)
 
-        return out, z, mu, logvar
+        return out, z
 
 
 if __name__ == "__main__":

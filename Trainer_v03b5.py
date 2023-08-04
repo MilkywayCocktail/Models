@@ -94,10 +94,10 @@ class TrainerVTSM1(TrainerVTS):
             for idx, (data_x, data_y, index) in enumerate(self.train_loader, 0):
                 data_y = data_y.to(torch.float32).to(self.args['t'].device)
                 teacher_optimizer.zero_grad()
-                latent, z, mu, logvar = self.img_encoder(data_y)
+                latent, z = self.img_encoder(data_y)
                 output = self.img_decoder(z)
                 with torch.no_grad():
-                    latent_p, z_p, mu_p, logvar_p = self.img_encoder(output)
+                    latent_p, z_p = self.img_encoder(output)
 
                 loss, kl_loss, recon_loss, latent_loss = self.loss(output, data_y, latent, latent_p)
 
@@ -128,9 +128,9 @@ class TrainerVTSM1(TrainerVTS):
             for idx, (data_x, data_y, index) in enumerate(self.valid_loader, 0):
                 data_y = data_y.to(torch.float32).to(self.args['t'].device)
                 with torch.no_grad():
-                    latent, z, mu, logvar = self.img_encoder(data_y)
+                    latent, z = self.img_encoder(data_y)
                     output = self.img_decoder(z)
-                    latent_p, z_p, mu_p, logvar_p = self.img_encoder(output)
+                    latent_p, z_p = self.img_encoder(output)
                     loss, kl_loss, recon_loss, latent_loss = self.loss(output, data_y, latent, latent_p)
 
                 valid_epoch_loss.append(loss.item())
@@ -168,9 +168,9 @@ class TrainerVTSM1(TrainerVTS):
                 data_y = data_y[np.newaxis, ...]
             with torch.no_grad():
                 for sample in range(loader.batch_size):
-                    latent, z, mu, logvar = self.img_encoder(data_y[sample])
+                    latent, z = self.img_encoder(data_y[sample][np.newaxis, ...])
                     output = self.img_decoder(z)
-                    latent_p, z_p, mu_p, logvar_p = self.img_encoder(output)
+                    latent_p, z_p = self.img_encoder(output)
                     re_output = self.img_decoder(z_p)
                     loss, kl_loss, recon_loss, latent_loss = self.loss(output, data_y, latent, latent_p)
 
