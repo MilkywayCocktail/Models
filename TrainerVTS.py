@@ -19,7 +19,6 @@ class TrainerVTS(TrainerTeacherStudent):
                  temperature=20,
                  alpha=0.3,
                  latent_dim=8,
-                 batch_size=64,
                  kl_weight=0.25
                  ):
         super(TrainerVTS, self).__init__(img_encoder=img_encoder, img_decoder=img_decoder, csi_encoder=csi_encoder,
@@ -30,7 +29,6 @@ class TrainerVTS(TrainerTeacherStudent):
                                          temperature=temperature,
                                          alpha=alpha,
                                          latent_dim=latent_dim)
-        self.batch_size = batch_size
         self.kl_weight = kl_weight
 
     @staticmethod

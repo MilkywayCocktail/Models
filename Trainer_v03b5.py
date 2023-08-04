@@ -185,7 +185,7 @@ class TrainerVTSM1(TrainerVTS):
                     self.test_loss['t']['latent'].append(latent_loss.item())
                     self.test_loss['t']['predicts'].append(output.cpu().detach().numpy().squeeze())
                     self.test_loss['t']['re_predicts'].append(re_output.cpu().detach().numpy().squeeze())
-                    self.test_loss['t']['groundtruth'].append(data_y.cpu().detach().numpy().squeeze())
+                    self.test_loss['t']['groundtruth'].append(image.cpu().detach().numpy().squeeze())
                     self.test_loss['t']['indices'].append(index.cpu().detach().numpy().squeeze())
 
             if idx % (len(loader)//5) == 0:
@@ -204,6 +204,7 @@ class TrainerVTSM1(TrainerVTS):
 
         # Depth Images
         inds = np.random.choice(list(range(len(self.test_loss['t']['indices']))), select_num)
+        inds = np.sort(inds)
         samples = np.array(self.test_loss['t']['indices'])[inds]
 
         fig = plt.figure(constrained_layout=True)
