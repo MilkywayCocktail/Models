@@ -501,11 +501,14 @@ class TrainerTeacherStudent:
         # Training & Validation Loss
         fig = plt.figure(constrained_layout=True)
         fig.suptitle(f"Teacher Training Status @ep{self.train_loss['t']['epochs'][-1]}")
-        if len(loss_items.keys()) > 1:
-            axes = fig.subplots(1, len(loss_items.keys()))
+        if len(loss_items.keys()) == 1:
+            axes = [plt.gca()]
+        elif len(loss_items.keys()) > 3:
+            axes = fig.subplots(2, np.ceil(len(loss_items.keys())/2).astype(int))
             axes = axes.flatten()
         else:
-            axes = [plt.gca()]
+            axes = fig.subplots(1, len(loss_items.keys()))
+            axes = axes.flatten()
 
         for i, loss in enumerate(loss_items.keys()):
             for j, learning_rate in enumerate(self.train_loss['t']['learning_rate']):

@@ -214,7 +214,7 @@ class TrainerVTSM1(TrainerVTS):
         for i, item in enumerate(predict_items.keys()):
             subfigs[i].suptitle(predict_items[item])
             axes = subfigs[i].subplots(nrows=1, ncols=select_num)
-            for j in range(len(axes)):
+            for j in range(select_num):
                 img = axes[j].imshow(self.test_loss['t'][predict_items[item]][inds[j]], vmin=0, vmax=1)
                 axes[j].axis('off')
                 axes[j].set_title(f"#{samples[j]}")
@@ -231,7 +231,7 @@ class TrainerVTSM1(TrainerVTS):
         if len(loss_items.keys()) == 1:
             axes = [plt.gca()]
         elif len(loss_items.keys()) > 3:
-            axes = fig.subplots(2, np.ceil(len(loss_items.keys())).astype(int))
+            axes = fig.subplots(2, np.ceil(len(loss_items.keys())/2).astype(int))
             axes = axes.flatten()
         else:
             axes = fig.subplots(1, len(loss_items.keys()))
