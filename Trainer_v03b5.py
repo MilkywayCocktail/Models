@@ -202,13 +202,13 @@ class TrainerVTSM1(TrainerVTS):
         self.__plot_settings__()
         predict_items = self.plot_terms['t']['predict']
 
-        # Depth Images
         if select_batch is None or select_batch >= len(self.test_loss['t']['indices']):
             select_batch = np.random.randint(len(self.test_loss['t']['indices']))
         inds = np.random.choice(list(range(len(self.test_loss['t']['indices'][select_batch]))), select_num)
         inds = np.sort(inds)
         samples = np.array(self.test_loss['t']['indices'][select_batch])[inds]
 
+        # Depth Images
         fig = plt.figure(constrained_layout=True)
         fig.suptitle(f"Teacher Test Predicts @ep{self.train_loss['t']['epochs'][-1]}")
         subfigs = fig.subfigures(nrows=3, ncols=1)
@@ -247,8 +247,8 @@ class TrainerVTSM1(TrainerVTS):
             axes[i].set_xlabel('#Sample')
             axes[i].set_ylabel('Loss')
             axes[i].grid()
-            for j in inds:
-                axes[i].scatter(samples[j], self.test_loss['t'][loss_items[loss]][j],
+            for ind in inds:
+                axes[i].scatter(samples[ind], self.test_loss['t'][loss_items[loss]][select_batch][ind],
                                 c='magenta', marker=(5, 1), linewidths=4)
 
         if autosave:

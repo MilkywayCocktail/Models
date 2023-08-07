@@ -501,7 +501,7 @@ class TrainerTeacherStudent:
             if idx % (len(loader) // 5) == 0:
                 print("\rStudent: {}/{}of test, student loss={}, distill loss={}, image loss={}".format(
                     idx, len(self.test_loader), straight_loss.item(), distil_loss.item(), image_loss.item()), end='')
-        
+
         avg_loss = np.mean(test_epoch_loss)
         avg_straight_loss = np.mean(test_straight_epoch_loss)
         avg_distil_loss = np.mean(test_distil_epoch_loss)
@@ -639,13 +639,17 @@ class TrainerTeacherStudent:
             plt.savefig(f"{self.current_title()}_T_test_{notion}.jpg")
         plt.show()
 
-    def plot_student_test(self, select_num=8, autosave=False, notion=''):
+    def plot_student_test(self, select_batch=None, select_num=8, autosave=False, notion=''):
         self.__plot_settings__()
         predict_items = self.plot_terms['s']['predict']
 
-        # Depth Images
-        inds = np.random.choice(list(range(len(self.test_loss['s']['groundtruth']))), select_num)
+        if select_batch is None or select_batch >= len(self.test_loss['t']['indices']):
+            select_batch = np.random.randint(len(self.test_loss['t']['indices']))
+        inds = np.random.choice(list(range(len(self.test_loss['t']['indices'][select_batch]))), select_num)
         inds = np.sort(inds)
+        samples = np.array(self.test_loss['t']['indices'][select_batch])[inds]
+
+        # Depth Images
         fig = plt.figure(constrained_layout=True)
         fig.suptitle(f"Student Test Predicts @ep{self.train_loss['s']['epochs'][-1]}")
         subfigs = fig.subfigures(nrows=2, ncols=1)
@@ -656,7 +660,7 @@ class TrainerTeacherStudent:
             for j in range(len(axes)):
                 img = axes[j].imshow(self.test_loss['s'][predict_items[item]][inds[j]], vmin=0, vmax=1)
                 axes[j].axis('off')
-                axes[j].set_title(f"#{inds[j]}")
+                axes[j].set_title(f"#{samples[j]}")
             subfigs[i].colorbar(img, ax=axes, shrink=0.8)
 
         subfigs[1].suptitle('Estimated')
@@ -700,8 +704,8 @@ class TrainerTeacherStudent:
             axes[i].set_xlabel('#Sample')
             axes[i].set_ylabel('Loss')
             axes[i].grid()
-            for j in inds:
-                axes[i].scatter(j, self.test_loss['s'][loss_items[loss]][j],
+            for ind in inds:
+                axes[i].scatter(samples[ind], self.test_loss['t'][loss_items[loss]][select_batch][ind],
                                 c='magenta', marker=(5, 1), linewidths=4)
         if autosave:
             plt.savefig(f"{self.current_title()}_S_test_{notion}.jpg")
