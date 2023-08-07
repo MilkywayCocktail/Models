@@ -456,6 +456,10 @@ class TrainerTeacherStudent:
         self.img_encoder.eval()
         self.img_decoder.eval()
         self.csi_encoder.eval()
+        test_epoch_loss = []
+        test_straight_epoch_loss = []
+        test_distil_epoch_loss = []
+        test_image_epoch_loss = []
 
         if mode == 'test':
             loader = self.test_loader
@@ -465,31 +469,45 @@ class TrainerTeacherStudent:
         for idx, (data_x, data_y, index) in enumerate(loader, 0):
             data_x = data_x.to(torch.float32).to(self.args['s'].device)
             data_y = data_y.to(torch.float32).to(self.args['s'].device)
-            if loader.batch_size != 1:
-                data_x = data_x[0][np.newaxis, ...]
-                data_y = data_y[0][np.newaxis, ...]
+            if loader.batch_size == 1:
+                data_x = data_x[np.newaxis, ...]
+                data_y = data_y[np.newaxis, ...]
             with torch.no_grad():
-                teacher_preds = self.img_encoder(data_y)
-                student_preds = self.csi_encoder(data_x)
-                image_preds = self.img_decoder(student_preds)
-            student_loss = self.args['s'].criterion(student_preds, teacher_preds)
-            image_loss = self.img_loss(image_preds, data_y)
-            distil_loss = self.div_loss(self.logsoftmax(student_preds / self.temperature),
-                                        nn.functional.softmax(teacher_preds / self.temperature, -1))
-            loss = self.alpha * student_loss + (1 - self.alpha) * distil_loss
+                for sample in range(loader.batch_size):
+                    image = data_y[sample][np.newaxis, ...]
+                    csi = data_x[sample][np.newaxis, ...]
+                    teacher_preds = self.img_encoder(image)
+                    student_preds = self.csi_encoder(csi)
+                    image_preds = self.img_decoder(student_preds)
+                    straight_loss = self.args['s'].criterion(student_preds, teacher_preds)
+                    image_loss = self.img_loss(image_preds, image)
+                    distil_loss = self.div_loss(self.logsoftmax(student_preds / self.temperature),
+                                                nn.functional.softmax(teacher_preds / self.temperature, -1))
+                    loss = self.alpha * straight_loss + (1 - self.alpha) * distil_loss
 
-            self.test_loss['s']['loss'].append(image_loss.item())
-            self.test_loss['s']['latent_straight'].append(student_loss.item())
-            self.test_loss['s']['latent_distil'].append(loss.item())
-            self.test_loss['s']['image'].append(image_loss.item())
-            self.test_loss['s']['predicts_latent'].append(student_preds.cpu().detach().numpy().squeeze())
-            self.test_loss['s']['predicts_t_latent'].append(teacher_preds.cpu().detach().numpy().squeeze())
-            self.test_loss['s']['predicts'].append(image_preds.cpu().detach().numpy().squeeze())
-            self.test_loss['s']['groundtruth'].append(data_y.cpu().detach().numpy().squeeze())
+                    test_epoch_loss.append(loss.item())
+                    test_straight_epoch_loss.append(straight_loss.item())
+                    test_distil_epoch_loss.append(distil_loss.item())
+                    test_image_epoch_loss.append(image_loss.item())
+                    self.test_loss['s']['loss'].append(image_loss.item())
+                    self.test_loss['s']['latent_straight'].append(straight_loss.item())
+                    self.test_loss['s']['latent_distil'].append(loss.item())
+                    self.test_loss['s']['image'].append(image_loss.item())
+                    self.test_loss['s']['predicts_latent'].append(student_preds.cpu().detach().numpy().squeeze())
+                    self.test_loss['s']['predicts_t_latent'].append(teacher_preds.cpu().detach().numpy().squeeze())
+                    self.test_loss['s']['predicts'].append(image_preds.cpu().detach().numpy().squeeze())
+                    self.test_loss['s']['groundtruth'].append(data_y.cpu().detach().numpy().squeeze())
 
             if idx % (len(loader) // 5) == 0:
                 print("\rStudent: {}/{}of test, student loss={}, distill loss={}, image loss={}".format(
-                    idx, len(self.test_loader), student_loss.item(), distil_loss.item(), image_loss.item()), end='')
+                    idx, len(self.test_loader), straight_loss.item(), distil_loss.item(), image_loss.item()), end='')
+        
+        avg_loss = np.mean(test_epoch_loss)
+        avg_straight_loss = np.mean(test_straight_epoch_loss)
+        avg_distil_loss = np.mean(test_distil_epoch_loss)
+        avg_image_loss = np.mean(test_image_epoch_loss)
+        print(f"\nTest finished. Average loss: total={avg_loss}, straight={avg_straight_loss}, "
+              f"distil={avg_distil_loss}, image={avg_image_loss}")
 
     def plot_teacher_loss(self, double_y=False, autosave=False, notion=''):
         self.__plot_settings__()
