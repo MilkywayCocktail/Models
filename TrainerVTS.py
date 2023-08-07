@@ -313,7 +313,7 @@ class TrainerVTS(TrainerTeacherStudent):
             img_ind = np.random.randint(len(dataset))
 
         try:
-            data_x, data_y = dataset.__getitem__(img_ind)
+            data_x, data_y, index = dataset.__getitem__(img_ind)
             if img == 'x':
                 image = data_x[np.newaxis, ...]
             elif img == 'y':
@@ -371,7 +371,7 @@ class TrainerVTS(TrainerTeacherStudent):
             img_ind = np.random.randint(len(dataset))
 
         try:
-            data_x, data_y = dataset.__getitem__(img_ind)
+            data_x, data_y, index = dataset.__getitem__(img_ind)
             if img == 'x':
                 image = data_x[np.newaxis, ...]
             elif img == 'y':

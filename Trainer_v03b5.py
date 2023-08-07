@@ -248,7 +248,7 @@ class TrainerVTSM1(TrainerVTS):
             axes[i].set_ylabel('Loss')
             axes[i].grid()
             for j in inds:
-                axes[i].scatter(j, self.test_loss['t'][loss_items[loss]][j],
+                axes[i].scatter(samples[j], self.test_loss['t'][loss_items[loss]][j],
                                 c='magenta', marker=(5, 1), linewidths=4)
 
         if autosave:
