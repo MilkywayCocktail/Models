@@ -195,9 +195,9 @@ class TrainerVTS(TrainerTeacherStudent):
                 data_x = data_x.to(torch.float32).to(self.args['s'].device)
                 data_y = data_y.to(torch.float32).to(self.args['s'].device)
 
-                student_preds, s_z, mu, logvar = self.csi_encoder(data_x)
+                student_preds, s_z = self.csi_encoder(data_x)
                 with torch.no_grad():
-                    teacher_preds, t_z, t_mu, t_logvar = self.img_encoder(data_y)
+                    teacher_preds, t_z = self.img_encoder(data_y)
                     image_preds = self.img_decoder(s_z)
 
                 image_loss = self.img_loss(image_preds, data_y)
@@ -238,8 +238,8 @@ class TrainerVTS(TrainerTeacherStudent):
                 data_x = data_x.to(torch.float32).to(self.args['s'].device)
                 data_y = data_y.to(torch.float32).to(self.args['s'].device)
                 with torch.no_grad():
-                    teacher_preds, t_z, t_mu, t_logvar = self.img_encoder(data_y)
-                    student_preds, s_z, mu, logvar = self.csi_encoder(data_x)
+                    teacher_preds, t_z = self.img_encoder(data_y)
+                    student_preds, s_z = self.csi_encoder(data_x)
                     image_preds = self.img_decoder(s_z)
                     image_loss = self.img_loss(image_preds, data_y)
                     student_loss = self.args['s'].criterion(student_preds, teacher_preds)
@@ -279,8 +279,8 @@ class TrainerVTS(TrainerTeacherStudent):
                 data_x = data_x[0][np.newaxis, ...]
                 data_y = data_y[0][np.newaxis, ...]
             with torch.no_grad():
-                teacher_preds, t_z, t_mu, t_logvar = self.img_encoder(data_y)
-                student_preds, s_z, mu, logvar = self.csi_encoder(data_x)
+                teacher_preds, t_z = self.img_encoder(data_y)
+                student_preds, s_z = self.csi_encoder(data_x)
                 image_preds = self.img_decoder(s_z)
             student_loss = self.args['s'].criterion(student_preds, teacher_preds)
             image_loss = self.img_loss(image_preds, data_y)
