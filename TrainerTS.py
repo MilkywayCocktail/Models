@@ -705,8 +705,8 @@ class TrainerTeacherStudent:
             axes[i].set_xlabel('#Sample')
             axes[i].set_ylabel('Loss')
             axes[i].grid()
-            for ind in inds:
-                axes[i].scatter(samples[ind], self.test_loss['t'][loss_items[loss]][ind],
+            for j in range(select_num):
+                axes[i].scatter(samples[j], self.test_loss['t'][loss_items[loss]][inds[j]],
                                 c='magenta', marker=(5, 1), linewidths=4)
         if autosave:
             plt.savefig(f"{self.current_title()}_S_test_{notion}.jpg")
