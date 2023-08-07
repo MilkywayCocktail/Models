@@ -168,6 +168,7 @@ class TrainerVTSM1(TrainerVTS):
                 data_y = data_y[np.newaxis, ...]
             with torch.no_grad():
                 for sample in range(loader.batch_size):
+                    ind = index[sample]
                     image = data_y[sample][np.newaxis, ...]
                     latent, z = self.img_encoder(image)
                     output = self.img_decoder(z)
@@ -186,7 +187,7 @@ class TrainerVTSM1(TrainerVTS):
                     self.test_loss['t']['predicts'].append(output.cpu().detach().numpy().squeeze())
                     self.test_loss['t']['re_predicts'].append(re_output.cpu().detach().numpy().squeeze())
                     self.test_loss['t']['groundtruth'].append(image.cpu().detach().numpy().squeeze())
-                    self.test_loss['t']['indices'].append(index.cpu().detach().numpy().squeeze())
+                    self.test_loss['t']['indices'].append(ind.cpu().detach().numpy().squeeze())
 
             if idx % (len(loader)//5) == 0:
                 print("\rTeacher: {}/{} of test, loss={}".format(idx, len(loader), loss.item()), end='')
@@ -248,7 +249,7 @@ class TrainerVTSM1(TrainerVTS):
             axes[i].set_ylabel('Loss')
             axes[i].grid()
             for ind in inds:
-                axes[i].scatter(samples[ind], self.test_loss['t'][loss_items[loss]][select_batch][ind],
+                axes[i].scatter(samples[ind], self.test_loss['t'][loss_items[loss]][ind],
                                 c='magenta', marker=(5, 1), linewidths=4)
 
         if autosave:

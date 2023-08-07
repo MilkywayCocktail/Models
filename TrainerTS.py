@@ -227,7 +227,8 @@ class TrainerTeacherStudent:
                        'predicts_t_latent': [],
                        'predicts_latent': [],
                        'predicts': [],
-                       'groundtruth': []
+                       'groundtruth': [],
+                       'indices': []
                        }
         return s_test_loss
 
@@ -474,6 +475,7 @@ class TrainerTeacherStudent:
                 data_y = data_y[np.newaxis, ...]
             with torch.no_grad():
                 for sample in range(loader.batch_size):
+                    ind = index[sample]
                     image = data_y[sample][np.newaxis, ...]
                     csi = data_x[sample][np.newaxis, ...]
                     teacher_preds = self.img_encoder(image)
@@ -497,6 +499,7 @@ class TrainerTeacherStudent:
                     self.test_loss['s']['predicts_t_latent'].append(teacher_preds.cpu().detach().numpy().squeeze())
                     self.test_loss['s']['predicts'].append(image_preds.cpu().detach().numpy().squeeze())
                     self.test_loss['s']['groundtruth'].append(data_y.cpu().detach().numpy().squeeze())
+                    self.test_loss['s']['indices'].append(ind.cpu().detach().numpy().squeeze())
 
             if idx % (len(loader) // 5) == 0:
                 print("\rStudent: {}/{}of test, student loss={}, distill loss={}, image loss={}".format(
@@ -705,7 +708,7 @@ class TrainerTeacherStudent:
             axes[i].set_ylabel('Loss')
             axes[i].grid()
             for ind in inds:
-                axes[i].scatter(samples[ind], self.test_loss['t'][loss_items[loss]][select_batch][ind],
+                axes[i].scatter(samples[ind], self.test_loss['t'][loss_items[loss]][ind],
                                 c='magenta', marker=(5, 1), linewidths=4)
         if autosave:
             plt.savefig(f"{self.current_title()}_S_test_{notion}.jpg")
