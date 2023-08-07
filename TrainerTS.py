@@ -646,9 +646,9 @@ class TrainerTeacherStudent:
         self.__plot_settings__()
         predict_items = self.plot_terms['s']['predict']
 
-        inds = np.random.choice(list(range(len(self.test_loss['t']['indices']))), select_num)
+        inds = np.random.choice(list(range(len(self.test_loss['s']['indices']))), select_num)
         inds = np.sort(inds)
-        samples = np.array(self.test_loss['t']['indices'])[inds]
+        samples = np.array(self.test_loss['s']['indices'])[inds]
 
         # Depth Images
         fig = plt.figure(constrained_layout=True)
@@ -658,7 +658,7 @@ class TrainerTeacherStudent:
         for i, item in enumerate(predict_items.keys()):
             subfigs[i].suptitle(predict_items[item])
             axes = subfigs[i].subplots(nrows=1, ncols=select_num)
-            for j in range(len(axes)):
+            for j in range(select_num):
                 img = axes[j].imshow(self.test_loss['s'][predict_items[item]][inds[j]], vmin=0, vmax=1)
                 axes[j].axis('off')
                 axes[j].set_title(f"#{samples[j]}")
@@ -675,14 +675,14 @@ class TrainerTeacherStudent:
         fig.suptitle(f"Student Test Latents @ep{self.train_loss['s']['epochs'][-1]}")
         axes = fig.subplots(nrows=2, ncols=np.ceil(select_num/2).astype(int))
         axes = axes.flatten()
-        for a in range(len(axes)):
+        for a in range(select_num):
             axes[a].bar(range(len(self.test_loss['s']['predicts_t_latent'][inds[a]])),
                         self.test_loss['s']['predicts_t_latent'][inds[a]],
                         width=1, fc='blue', alpha=0.8, label='Teacher')
             axes[a].bar(range(len(self.test_loss['s']['predicts_t_latent'][inds[a]])),
                         self.test_loss['s']['predicts_latent'][inds[a]],
                         width=1, fc='orange', alpha=0.8, label='student')
-            axes[a].set_title(f"#{inds[a]}")
+            axes[a].set_title(f"#{samples[a]}")
             axes[a].grid()
 
         axes[0].legend()
@@ -706,7 +706,7 @@ class TrainerTeacherStudent:
             axes[i].set_ylabel('Loss')
             axes[i].grid()
             for j in range(select_num):
-                axes[i].scatter(samples[j], self.test_loss['t'][loss_items[loss]][inds[j]],
+                axes[i].scatter(inds[j], self.test_loss['t'][loss_items[loss]][inds[j]],
                                 c='magenta', marker=(5, 1), linewidths=4)
         if autosave:
             plt.savefig(f"{self.current_title()}_S_test_{notion}.jpg")
