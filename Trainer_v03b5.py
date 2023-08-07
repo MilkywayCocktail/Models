@@ -198,14 +198,16 @@ class TrainerVTSM1(TrainerVTS):
         print(f"\nTest finished. Average loss: total={avg_loss}, kl={avg_kl_loss}, recon={avg_recon_loss}, "
               f"latent={avg_latent_loss}")
 
-    def plot_teacher_test(self, select_num=8, autosave=False, notion=''):
+    def plot_teacher_test(self, select_batch=None, select_num=8, autosave=False, notion=''):
         self.__plot_settings__()
         predict_items = self.plot_terms['t']['predict']
 
         # Depth Images
-        inds = np.random.choice(list(range(len(self.test_loss['t']['indices']))), select_num)
+        if select_batch is None or select_batch >= len(self.test_loss['t']['indices']):
+            select_batch = np.random.randint(len(self.test_loss['t']['indices']))
+        inds = np.random.choice(list(range(len(self.test_loss['t']['indices'][select_batch]))), select_num)
         inds = np.sort(inds)
-        samples = np.array(self.test_loss['t']['indices'])[inds]
+        samples = np.array(self.test_loss['t']['indices'][select_batch])[inds]
 
         fig = plt.figure(constrained_layout=True)
         fig.suptitle(f"Teacher Test Predicts @ep{self.train_loss['t']['epochs'][-1]}")
