@@ -35,38 +35,32 @@ class TrainerVTS(TrainerTeacherStudent):
     def __gen_teacher_train__():
         t_train_loss = {'learning_rate': [],
                         'epochs': [0],
-                        'train': [],
-                        'valid': [],
-                        'train_kl': [],
-                        'valid_kl': [],
-                        'train_recon': [],
-                        'valid_recon': [],
+                        'LOSS': [],
+                        'KL': [],
+                        'RECON': [],
                         }
 
         return t_train_loss
 
     @staticmethod
     def __gen_teacher_test__():
-        t_test_loss = {'loss': [],
-                       'recon': [],
-                       'kl': [],
-                       'predicts': [],
-                       'groundtruth': []}
+        t_test_loss = {'LOSS': [],
+                       'RECON': [],
+                       'KL': [],
+                       'PRED': [],
+                       'GT': [],
+                       'IND': []}
         return t_test_loss
 
     @staticmethod
     def __teacher_plot_terms__():
-        terms = {'train': {'Total Loss': ['train', 'valid'],
-                           'KL Loss': ['train_kl', 'valid_kl'],
-                           'Recon Loss': ['train_recon', 'valid_recon']
-                           },
-                 'predict': {'Ground Truth': 'groundtruth',
-                             'Estimated': 'predicts'
-                             },
-                 'test': {'Loss': 'loss',
-                          'KL Loss': 'kl',
-                          'Recon Loss': 'recon'
-                          }
+        terms = {'loss': {'LOSS': 'Loss',
+                          'KL': 'KL Loss',
+                          'RECON': 'Reconstruction Loss'
+                          },
+                 'predict': ('GT', 'PRED', 'IND'),
+                 'test': {'GT': 'Ground Truth',
+                          'PRED': 'Estimated'}
                  }
         return terms
 
@@ -80,226 +74,40 @@ class TrainerVTS(TrainerTeacherStudent):
         recon_loss = self.args['t'].criterion(y, gt) / y.shape[0]
         kl_loss = self.kl_loss(latent)
         loss = recon_loss + kl_loss * self.kl_weight
-        return loss, kl_loss, recon_loss
+        return {'LOSS': loss, 'KL': kl_loss, 'RECON': recon_loss}
 
-    @timer
-    def train_teacher(self, autosave=False, notion='', ret=''):
-        self.logger(mode='t')
-        teacher_optimizer = self.args['t'].optimizer([{'params': self.img_encoder.parameters()},
-                                                      {'params': self.img_decoder.parameters()}],
-                                                     lr=self.args['t'].learning_rate)
+    def calculate_loss(self, mode, x, y, i=None):
+        if mode == 't':
+            latent, z = self.img_encoder(y)
+            output = self.img_decoder(latent)
+            loss = self.loss(output, y, z)
+            self.temp_loss = {'LOSS': loss}
+            return {'GT': y,
+                    'PRED': output,
+                    'IND': i}
 
-        for epoch in range(self.args['t'].epochs):
-
-            # =====================train============================
-            self.img_encoder.train()
-            self.img_decoder.train()
-            train_epoch_loss = []
-            kl_epoch_loss = []
-            recon_epoch_loss = []
-            for idx, (data_x, data_y, index) in enumerate(self.train_loader, 0):
-                data_y = data_y.to(torch.float32).to(self.args['t'].device)
-                teacher_optimizer.zero_grad()
-                latent, z, = self.img_encoder(data_y)
-                output = self.img_decoder(z)
-
-                loss, kl_loss, recon_loss = self.loss(output, data_y, latent)
-
-                loss.backward()
-                teacher_optimizer.step()
-                train_epoch_loss.append(loss.item())
-                kl_epoch_loss.append(kl_loss.item())
-                recon_epoch_loss.append(recon_loss.item())
-
-                if idx % (len(self.train_loader) // 5) == 0:
-                    print("\rTeacher: epoch={}/{}, {}/{} of train, recon_loss={}, kl_loss={}".format(
-                        epoch, self.args['t'].epochs, idx, len(self.train_loader), loss.item(), kl_loss.item()),
-                        end=ret)
-            self.train_loss['t']['train'].append(np.average(train_epoch_loss))
-            self.train_loss['t']['train_kl'].append(np.average(kl_epoch_loss))
-            self.train_loss['t']['train_recon'].append(np.average(recon_epoch_loss))
-
-            # =====================valid============================
-            self.img_encoder.eval()
-            self.img_decoder.eval()
-            valid_epoch_loss = []
-            valid_kl_epoch_loss = []
-            valid_recon_epoch_loss = []
-
-            for idx, (data_x, data_y, index) in enumerate(self.valid_loader, 0):
-                data_y = data_y.to(torch.float32).to(self.args['t'].device)
-                with torch.no_grad():
-                    latent, z, = self.img_encoder(data_y)
-                    output = self.img_decoder(z)
-                    loss, kl_loss, recon_loss = self.loss(output, data_y, latent)
-
-                valid_epoch_loss.append(loss.item())
-                valid_kl_epoch_loss.append(kl_loss.item())
-                valid_recon_epoch_loss.append(recon_loss.item())
-            self.train_loss['t']['valid'].append(np.average(valid_epoch_loss))
-            self.train_loss['t']['valid_kl'].append(np.average(valid_kl_epoch_loss))
-            self.train_loss['t']['valid_recon'].append(np.average(valid_recon_epoch_loss))
-
-        if autosave:
-            torch.save(self.img_encoder.state_dict(),
-                       f"../saved/{self.img_encoder}{self.current_title()}_{notion}.pth")
-            torch.save(self.img_decoder.state_dict(),
-                       f"../saved/{self.img_decoder}{self.current_title()}_{notion}.pth")
-
-    def test_teacher(self, mode='test'):
-        self.test_loss['t'] = self.__gen_teacher_test__()
-        self.img_encoder.eval()
-        self.img_decoder.eval()
-
-        if mode == 'test':
-            loader = self.test_loader
-        elif mode == 'train':
-            loader = self.train_loader
-
-        for idx, (data_x, data_y, index) in enumerate(loader, 0):
-            data_y = data_y.to(torch.float32).to(self.args['t'].device)
-            if loader.batch_size != 1:
-                data_y = data_y[0][np.newaxis, ...]
+        elif mode == 's':
+            s_latent, s_z = self.csi_encoder(x)
             with torch.no_grad():
-                latent, z, = self.img_encoder(data_y)
-                output = self.img_decoder(z)
-                loss, kl_loss, recon_loss = self.loss(output, data_y, latent)
+                t_latent, t_z = self.img_encoder(y)
+                s_output = self.img_decoder(s_latent)
+                t_output = self.img_decoder(t_latent)
+                image_loss = self.img_loss(s_output, y)
 
-            self.test_loss['t']['loss'].append(loss.item())
-            self.test_loss['t']['kl'].append(kl_loss.item())
-            self.test_loss['t']['recon'].append(recon_loss.item())
-            self.test_loss['t']['predicts'].append(output.cpu().detach().numpy().squeeze())
-            self.test_loss['t']['groundtruth'].append(data_y.cpu().detach().numpy().squeeze())
-
-            if idx % (len(loader)//5) == 0:
-                print("\rTeacher: {}/{} of test, loss={}".format(idx, len(loader), loss.item()), end='')
-
-    @timer
-    def train_student(self, autosave=False, notion=''):
-        self.logger(mode='s')
-        student_optimizer = self.args['s'].optimizer(self.csi_encoder.parameters(),
-                                                     lr=self.args['s'].learning_rate)
-
-        for epoch in range(self.args['s'].epochs):
-
-            # =====================train============================
-            self.img_encoder.eval()
-            self.img_decoder.eval()
-            self.csi_encoder.train()
-            train_epoch_loss = []
-            straight_epoch_loss = []
-            distil_epoch_loss = []
-            image_epoch_loss = []
-
-            for idx, (data_x, data_y, index) in enumerate(self.train_loader, 0):
-                data_x = data_x.to(torch.float32).to(self.args['s'].device)
-                data_y = data_y.to(torch.float32).to(self.args['s'].device)
-
-                student_preds, s_z = self.csi_encoder(data_x)
-                with torch.no_grad():
-                    teacher_preds, t_z = self.img_encoder(data_y)
-                    image_preds = self.img_decoder(s_z)
-
-                image_loss = self.img_loss(image_preds, data_y)
-                student_loss = self.args['s'].criterion(student_preds, teacher_preds)
-                distil_loss = self.div_loss(self.logsoftmax(student_preds / self.temperature),
-                                            nn.functional.softmax(teacher_preds / self.temperature, -1))
-                loss = self.alpha * student_loss + (1 - self.alpha) * distil_loss
-
-                student_optimizer.zero_grad()
-                loss.backward()
-                student_optimizer.step()
-
-                train_epoch_loss.append(loss.item())
-                straight_epoch_loss.append(student_loss.item())
-                distil_epoch_loss.append(distil_loss.item())
-                image_epoch_loss.append(image_loss.item())
-
-                if idx % (len(self.train_loader) // 5) == 0:
-                    print("\rStudent: epoch={}/{},{}/{}of train, student loss={}, distill loss={}".format(
-                        epoch, self.args['s'].epochs, idx, len(self.train_loader),
-                        loss.item(), distil_loss.item()), end='')
-
-            self.train_loss['s']['train'].append(np.average(train_epoch_loss))
-            self.train_loss['s']['train_straight'].append(np.average(straight_epoch_loss))
-            self.train_loss['s']['train_distil'].append(np.average(distil_epoch_loss))
-            self.train_loss['s']['train_image'].append(np.average(image_epoch_loss))
-
-            # =====================valid============================
-            self.csi_encoder.eval()
-            self.img_encoder.eval()
-            self.img_decoder.eval()
-            valid_epoch_loss = []
-            straight_epoch_loss = []
-            distil_epoch_loss = []
-            image_epoch_loss = []
-
-            for idx, (data_x, data_y, index) in enumerate(self.valid_loader, 0):
-                data_x = data_x.to(torch.float32).to(self.args['s'].device)
-                data_y = data_y.to(torch.float32).to(self.args['s'].device)
-                with torch.no_grad():
-                    teacher_preds, t_z = self.img_encoder(data_y)
-                    student_preds, s_z = self.csi_encoder(data_x)
-                    image_preds = self.img_decoder(s_z)
-                    image_loss = self.img_loss(image_preds, data_y)
-                    student_loss = self.args['s'].criterion(student_preds, teacher_preds)
-                    distil_loss = self.div_loss(self.logsoftmax(student_preds / self.temperature),
-                                                nn.functional.softmax(teacher_preds / self.temperature, -1))
-                    loss = self.alpha * student_loss + (1 - self.alpha) * distil_loss
-
-                valid_epoch_loss.append(loss.item())
-                straight_epoch_loss.append(student_loss.item())
-                distil_epoch_loss.append(distil_loss.item())
-                image_epoch_loss.append(image_loss.item())
-
-            self.train_loss['s']['valid'].append(np.average(valid_epoch_loss))
-            self.train_loss['s']['valid_straight'].append(np.average(straight_epoch_loss))
-            self.train_loss['s']['valid_distil'].append(np.average(distil_epoch_loss))
-            self.train_loss['s']['valid_image'].append(np.average(image_epoch_loss))
-
-        if autosave:
-            torch.save(self.csi_encoder.state_dict(),
-                       f"../saved/{self.csi_encoder}{self.current_title()}_{notion}.pth")
-
-    def test_student(self, mode='test'):
-        self.test_loss['s'] = self.__gen_student_test__()
-        self.img_encoder.eval()
-        self.img_decoder.eval()
-        self.csi_encoder.eval()
-
-        if mode == 'test':
-            loader = self.test_loader
-        elif mode == 'train':
-            loader = self.train_loader
-
-        for idx, (data_x, data_y, index) in enumerate(loader, 0):
-            data_x = data_x.to(torch.float32).to(self.args['s'].device)
-            data_y = data_y.to(torch.float32).to(self.args['s'].device)
-            if loader.batch_size != 1:
-                data_x = data_x[0][np.newaxis, ...]
-                data_y = data_y[0][np.newaxis, ...]
-            with torch.no_grad():
-                teacher_preds, t_z = self.img_encoder(data_y)
-                student_preds, s_z = self.csi_encoder(data_x)
-                image_preds = self.img_decoder(s_z)
-            student_loss = self.args['s'].criterion(student_preds, teacher_preds)
-            image_loss = self.img_loss(image_preds, data_y)
-            distil_loss = self.div_loss(self.logsoftmax(student_preds / self.temperature),
-                                        nn.functional.softmax(teacher_preds / self.temperature, -1))
-            loss = self.alpha * student_loss + (1 - self.alpha) * distil_loss
-
-            self.test_loss['s']['loss'].append(image_loss.item())
-            self.test_loss['s']['latent_straight'].append(student_loss.item())
-            self.test_loss['s']['latent_distil'].append(loss.item())
-            self.test_loss['s']['image'].append(image_loss.item())
-            self.test_loss['s']['predicts_latent'].append(student_preds.cpu().detach().numpy().squeeze())
-            self.test_loss['s']['predicts_t_latent'].append(teacher_preds.cpu().detach().numpy().squeeze())
-            self.test_loss['s']['predicts'].append(image_preds.cpu().detach().numpy().squeeze())
-            self.test_loss['s']['groundtruth'].append(data_y.cpu().detach().numpy().squeeze())
-
-            if idx % (len(loader) // 5) == 0:
-                print("\rStudent: {}/{}of test, student loss={}, distill loss={}, image loss={}".format(
-                    idx, len(self.test_loader), student_loss.item(), distil_loss.item(), image_loss.item()), end='')
+            straight_loss = self.args['s'].criterion(s_latent, t_latent)
+            distil_loss = self.div_loss(self.logsoftmax(s_latent / self.temperature),
+                                        nn.functional.softmax(t_latent / self.temperature, -1))
+            loss = self.alpha * straight_loss + (1 - self.alpha) * distil_loss
+            self.temp_loss = {'LOSS': loss,
+                              'STRA': straight_loss,
+                              'DIST': distil_loss,
+                              'IMG': image_loss}
+            return {'GT': y,
+                    'T_LATENT': t_latent,
+                    'LATENT': s_latent,
+                    'T_PRED': t_output,
+                    'PRED': s_output,
+                    'IND': i}
 
     def traverse_latent_2dim(self, img_ind, dataset, mode='t', img='x',
                              dim1=0, dim2=1, granularity=11, autosave=False, notion=''):
