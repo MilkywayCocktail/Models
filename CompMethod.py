@@ -21,10 +21,10 @@ Notes
 
 
 class ResidualBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, padding):
+    def __init__(self, in_channels, out_channels):
         super(ResidualBlock, self).__init__()
         self.conv1 = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=padding),
+            nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1, padding_mode='reflect'),
             # nn.BatchNorm2d(out_channels),
             # nn.ReLU()
             )
@@ -64,17 +64,18 @@ class DropIn(nn.Module):
 
     def forward(self, x):
         i = torch.randperm(x.shape[-1])[:self.num_select]
-        return x[i]
+        return x[..., i]
 
 
 class Wi2Vi(nn.Module):
     def __init__(self):
         super(Wi2Vi, self).__init__()
 
+        # 56X29X18 (3x3xamp&phase)
         self.Dropin = DropIn(17)
         self.Encoder = nn.Sequential(
-            # 56x17x18?
-            nn.Conv2d(1, 64, kernel_size=3, stride=1, padding=0),
+            # 56x17x18
+            nn.Conv2d(18, 64, kernel_size=3, stride=1, padding=0),
             nn.InstanceNorm2d(64),
             nn.ReLU(),
             # 56x15x64
@@ -90,7 +91,7 @@ class Wi2Vi(nn.Module):
             nn.InstanceNorm2d(512),
             nn.ReLU(),
             # 5x1x512
-            nn.Conv2d(256, 512, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1),
             nn.InstanceNorm2d(512),
             nn.ReLU(),
             # 5x1x512
@@ -121,30 +122,30 @@ class Wi2Vi(nn.Module):
 
         self.Decoder = nn.Sequential(
             # 8x6x128
-            nn.ReflectionPad2d(1),
+            # nn.ReflectionPad2d(1),
             # 10x8x128
-            ResidualBlock(128, 128, 0),
+            ResidualBlock(128, 128),
             # 8x6x128
-            ResidualBlock(128, 128, 1),
+            ResidualBlock(128, 128),
             # 8x6x128
-            ResidualBlock(128, 128, 1),
+            ResidualBlock(128, 128),
             # 8x6x128
-            nn.functional.interpolate((16, 12)),
+            Interpolate(size=(16, 12)),
             nn.Conv2d(128, 64, kernel_size=3, stride=1, padding=0),
             # 14x10x64
-            nn.functional.interpolate((28, 20)),
+            Interpolate(size=(28, 20)),
             nn.Conv2d(64, 32, kernel_size=3, stride=1, padding=0),
             # 26x18x32
-            nn.functional.interpolate((52, 36)),
+            Interpolate(size=(52, 36)),
             nn.Conv2d(32, 16, kernel_size=3, stride=1, padding=0),
             # 50x34x16
-            nn.functional.interpolate((100, 68)),
+            Interpolate(size=(100, 68)),
             nn.Conv2d(16, 8, kernel_size=3, stride=1, padding=0),
             # 98x66x8
-            nn.functional.interpolate((196, 132)),
+            Interpolate(size=(196, 132)),
             nn.Conv2d(8, 4, kernel_size=3, stride=1, padding=0),
             # 194x130x4
-            nn.functional.interpolate((388, 260)),
+            Interpolate(size=(388, 260)),
             nn.Conv2d(4, 2, kernel_size=3, stride=1, padding=0),
             # 386x258x2
             nn.Conv2d(2, 1, kernel_size=5, stride=1, padding=0),
@@ -154,10 +155,17 @@ class Wi2Vi(nn.Module):
         )
 
     def forward(self, x):
-        x = self.DropIn(x)
+        x = self.Dropin(x)
         x = self.Encoder(x)
         x = self.Translator_A(x.view(-1, 2560))
         x = self.Translator_B(x.view(-1, 1, 36, 27))
         x = self.Decoder(x)
 
         return x[..., 31:351, 7:247]
+
+
+if __name__ == "__main__":
+    m1 = Wi2Vi()
+    summary(m1, input_size=(18, 56, 29))
+    # m2 = ResidualBlock(in_channels=128, out_channels=128)
+    # summary(m2, input_size=(128, 10, 8))

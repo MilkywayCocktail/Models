@@ -194,7 +194,7 @@ class ImageDecoderInterp(ImageDecoder):
         self.fclayers = nn.Sequential(
             nn.Linear(self.latent_dim, 4096),
             nn.ReLU(),
-            nn.Linear(4096, 256),
+            nn.Linear(4096, 512),
             nn.ReLU()
         )
 
@@ -350,11 +350,11 @@ class CsiEncoder(nn.Module):
 
 
 if __name__ == "__main__":
-    m1 = ImageEncoder(batchnorm=False, latent_dim=256)
-    summary(m1, input_size=(1, 128, 128))
+    #m1 = ImageEncoder(batchnorm=False, latent_dim=256)
+    #summary(m1, input_size=(1, 128, 128))
     # m2 = ImageDecoder(batchnorm=False)
     # summary(m1, input_size=(1, 16))
     # m3 = CsiEncoder(batchnorm=False)
     # summary(m1, input_size=(2, 90, 100))
-    # m4 = ImageDecoder(latent_dim=256)
-    # summary(m4, input_size=(1, 512))
+    m4 = ImageDecoderInterp(latent_dim=16)
+    summary(m4, input_size=(1, 16))
