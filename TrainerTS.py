@@ -351,7 +351,7 @@ class TrainerTeacherStudent:
 
                 if idx % (len(self.train_loader) // 5) == 0:
                     print(f"\rTeacher: epoch={epoch}/{self.args['t'].epochs}, batch={idx}/{len(self.train_loader)},"
-                          f"loss={np.average(EPOCH_LOSS['LOSS'])}", end='')
+                          f"loss={self.temp_loss['LOSS'].item()}", end='')
             for key in LOSS_TERMS:
                 self.train_loss['t'][key].append(np.average(EPOCH_LOSS[key]))
 
@@ -404,7 +404,7 @@ class TrainerTeacherStudent:
 
                 if idx % (len(self.train_loader) // 5) == 0:
                     print(f"\rStudent: epoch={epoch}/{self.args['t'].epochs}, batch={idx}/{len(self.train_loader)},"
-                          f"loss={np.average(EPOCH_LOSS['LOSS'])}", end='')
+                          f"loss={self.temp_loss['LOSS'].item()}", end='')
 
             for key in LOSS_TERMS:
                 self.train_loss['s'][key].append(np.average(EPOCH_LOSS[key]))
@@ -458,10 +458,10 @@ class TrainerTeacherStudent:
                     for key in PLOT_TERMS:
                         self.test_loss['t'][key].append(PREDS[key].cpu().detach().numpy().squeeze())
                     for key in LOSS_TERMS:
-                        self.test_loss['t'][key].append(EPOCH_LOSS[key])
+                        self.test_loss['t'][key] = EPOCH_LOSS[key]
 
             if idx % (len(loader)//5) == 0:
-                print(f"\rTeacher: test={idx}/{len(loader)}, loss={np.average(EPOCH_LOSS['LOSS'])}", end='')
+                print(f"\rTeacher: test={idx}/{len(loader)}, loss={self.temp_loss['LOSS'].item()}", end='')
 
         for key in LOSS_TERMS:
             EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
@@ -495,12 +495,13 @@ class TrainerTeacherStudent:
                         EPOCH_LOSS[key].append(self.temp_loss[key].item())
 
                     for key in PLOT_TERMS:
-                        self.test_loss['t'][key].append(PREDS[key].cpu().detach().numpy().squeeze())
-                    for key in LOSS_TERMS:
-                        self.test_loss['s'][key].append(EPOCH_LOSS[key])
+                        self.test_loss['s'][key].append(PREDS[key].cpu().detach().numpy().squeeze())
+
+            for key in LOSS_TERMS:
+                self.test_loss['s'][key] = EPOCH_LOSS[key]
 
             if idx % (len(loader) // 5) == 0:
-                print(f"\rStudent: test={idx}/{len(loader)}, loss={np.average(EPOCH_LOSS['LOSS'])}", end='')
+                print(f"\rStudent: test={idx}/{len(loader)}, loss={self.temp_loss['LOSS'].item()}", end='')
 
         for key in LOSS_TERMS:
             EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
