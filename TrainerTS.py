@@ -351,7 +351,7 @@ class TrainerTeacherStudent:
 
                 if idx % (len(self.train_loader) // 5) == 0:
                     print(f"\rTeacher: epoch={epoch}/{self.args['t'].epochs}, batch={idx}/{len(self.train_loader)},"
-                          f"loss={EPOCH_LOSS['LOSS']}", end='')
+                          f"loss={np.average(EPOCH_LOSS['LOSS'])}", end='')
             for key in LOSS_TERMS:
                 self.train_loss['t'][key].append(np.average(EPOCH_LOSS[key]))
 
@@ -404,7 +404,7 @@ class TrainerTeacherStudent:
 
                 if idx % (len(self.train_loader) // 5) == 0:
                     print(f"\rStudent: epoch={epoch}/{self.args['t'].epochs}, batch={idx}/{len(self.train_loader)},"
-                          f"loss={EPOCH_LOSS}", end='')
+                          f"loss={np.average(EPOCH_LOSS['LOSS'])}", end='')
 
             for key in LOSS_TERMS:
                 self.train_loss['s'][key].append(np.average(EPOCH_LOSS[key]))
@@ -446,12 +446,10 @@ class TrainerTeacherStudent:
 
         for idx, (data_x, data_y, index) in enumerate(loader, 0):
             data_y = data_y.to(torch.float32).to(self.args['t'].device)
-            if loader.batch_size == 1:
-                data_y = data_y[np.newaxis, ...]
             with torch.no_grad():
                 for sample in range(loader.batch_size):
-                    ind = index[sample]
-                    gt = data_y[sample]
+                    ind = index[sample][np.newaxis, ...]
+                    gt = data_y[sample][np.newaxis, ...]
                     PREDS = self.calculate_loss('t', None, gt, ind)
 
                     for key in LOSS_TERMS:
@@ -464,7 +462,7 @@ class TrainerTeacherStudent:
                         self.test_loss['t'][key].append(EPOCH_LOSS[key])
 
             if idx % (len(loader)//5) == 0:
-                print(f"\rTeacher: test={idx}/{len(loader)}, loss={EPOCH_LOSS}", end='')
+                print(f"\rTeacher: test={idx}/{len(loader)}, loss={np.average(EPOCH_LOSS['LOSS'])}", end='')
 
         for key in LOSS_TERMS:
             EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
@@ -487,14 +485,11 @@ class TrainerTeacherStudent:
         for idx, (data_x, data_y, index) in enumerate(loader, 0):
             data_x = data_x.to(torch.float32).to(self.args['s'].device)
             data_y = data_y.to(torch.float32).to(self.args['s'].device)
-            if loader.batch_size == 1:
-                data_x = data_x[np.newaxis, ...]
-                data_y = data_y[np.newaxis, ...]
             with torch.no_grad():
                 for sample in range(loader.batch_size):
-                    ind = index[sample]
-                    csi = data_x[sample]
-                    gt = data_y[sample]
+                    ind = index[sample][np.newaxis, ...]
+                    csi = data_x[sample][np.newaxis, ...]
+                    gt = data_y[sample][np.newaxis, ...]
                     PREDS = self.calculate_loss('s', csi, gt, ind)
 
                     for key in LOSS_TERMS:
@@ -507,7 +502,7 @@ class TrainerTeacherStudent:
                         self.test_loss['s'][key].append(EPOCH_LOSS[key])
 
             if idx % (len(loader) // 5) == 0:
-                print(f"\rStudent: test={idx}/{len(loader)}, loss={EPOCH_LOSS}", end='')
+                print(f"\rStudent: test={idx}/{len(loader)}, loss={np.average(EPOCH_LOSS['LOSS'])}", end='')
 
         for key in LOSS_TERMS:
             EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
