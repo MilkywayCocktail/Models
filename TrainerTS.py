@@ -351,7 +351,7 @@ class TrainerTeacherStudent:
 
                 if idx % (len(self.train_loader) // 5) == 0:
                     print(f"\rTeacher: epoch={epoch}/{self.args['t'].epochs}, batch={idx}/{len(self.train_loader)},"
-                          f"loss={EPOCH_LOSS}", end='')
+                          f"loss={EPOCH_LOSS['LOSS']}", end='')
             for key in LOSS_TERMS:
                 self.train_loss['t'][key].append(np.average(EPOCH_LOSS[key]))
 
@@ -360,7 +360,7 @@ class TrainerTeacherStudent:
             self.img_decoder.eval()
             EPOCH_LOSS = {key: [] for key in LOSS_TERMS}
 
-            for idx, (data_x, data_y), index in enumerate(self.valid_loader, 0):
+            for idx, (data_x, data_y, index) in enumerate(self.valid_loader, 0):
                 data_y = data_y.to(torch.float32).to(self.args['t'].device)
                 with torch.no_grad():
                     PREDS = self.calculate_loss('t', None, data_y)
