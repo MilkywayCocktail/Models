@@ -26,7 +26,7 @@ class TrainerVTSM1(TrainerVTS):
                           'RECON': 'Reconstruction Loss',
                           'CYCLE': 'Cycle Consistency Loss'
                           },
-                 'predict': ('GT', 'PRED', 'RE_PRED'),
+                 'predict': ('GT', 'PRED', 'RE_PRED', 'IND'),
                  'test': {'GT': 'Ground Truth',
                           'PRED': 'Estimated',
                           'RE_PRED': 'Re-Estimated'}
