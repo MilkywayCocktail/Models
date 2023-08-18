@@ -456,8 +456,7 @@ class TrainerTeacherStudent:
                         EPOCH_LOSS[key].append(self.temp_loss[key].item())
 
                     for key in PLOT_TERMS:
-                        self.test_loss['t'][key].append(PREDS[key] if key == 'IND' else
-                                                        PREDS[key].cpu().detach().numpy().squeeze())
+                        self.test_loss['t'][key].append(PREDS[key].cpu().detach().numpy().squeeze())
                     for key in LOSS_TERMS:
                         self.test_loss['t'][key].append(EPOCH_LOSS[key])
 
@@ -496,8 +495,7 @@ class TrainerTeacherStudent:
                         EPOCH_LOSS[key].append(self.temp_loss[key].item())
 
                     for key in PLOT_TERMS:
-                        self.test_loss['t'][key].append(PREDS[key] if key == 'IND' else
-                                                        PREDS[key].cpu().detach().numpy().squeeze())
+                        self.test_loss['t'][key].append(PREDS[key].cpu().detach().numpy().squeeze())
                     for key in LOSS_TERMS:
                         self.test_loss['s'][key].append(EPOCH_LOSS[key])
 
