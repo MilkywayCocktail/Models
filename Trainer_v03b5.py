@@ -72,6 +72,7 @@ class TrainerVTSM1(TrainerVTS):
             output = self.img_decoder(z)
             with torch.no_grad():
                 latent_r, z_r = self.img_encoder(output)
+                re_output = self.img_decoder(z_r)
             loss, kl_loss, recon_loss, latent_loss = self.loss(output, y, latent, latent_r)
             self.temp_loss = {'LOSS': loss,
                               'KL': kl_loss,
@@ -79,6 +80,7 @@ class TrainerVTSM1(TrainerVTS):
                               'CYCLE': latent_loss}
             return {'GT': y,
                     'PRED': output,
+                    'RE_PRED': re_output,
                     'IND': i}
 
         elif mode == 's':
@@ -102,4 +104,5 @@ class TrainerVTSM1(TrainerVTS):
                     'LATENT': s_latent,
                     'T_PRED': t_output,
                     'PRED': s_output,
+
                     'IND': i}
