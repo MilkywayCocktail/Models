@@ -522,7 +522,7 @@ class TrainerTeacherStudent:
 
         # Training & Validation Loss
         fig = plt.figure(constrained_layout=True)
-        fig.suptitle(title)
+        fig.suptitle(title[mode])
         if len(PLOT_ITEMS.keys()) == 1:
             axes = [plt.gca()]
         elif len(PLOT_ITEMS.keys()) > 3:
@@ -556,7 +556,7 @@ class TrainerTeacherStudent:
             axes[i].legend()
 
         if autosave:
-            plt.savefig(filename)
+            plt.savefig(filename[mode])
         plt.show()
 
     def plot_test(self, mode, select_ind=None, select_num=8, autosave=False, notion=''):
