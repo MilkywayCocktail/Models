@@ -344,7 +344,6 @@ class TrainerTeacherStudent:
                 teacher_optimizer.zero_grad()
 
                 PREDS = self.calculate_loss('t', None, data_y)
-                print(self.temp_loss)
                 self.temp_loss['LOSS'].backward()
                 teacher_optimizer.step()
                 for key in LOSS_TERMS:
