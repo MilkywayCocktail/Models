@@ -104,5 +104,4 @@ class TrainerVTSM1(TrainerVTS):
                     'LATENT': s_latent,
                     'T_PRED': t_output,
                     'PRED': s_output,
-
                     'IND': i}

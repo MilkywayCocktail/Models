@@ -514,7 +514,7 @@ class TrainerTeacherStudent:
         PLOT_ITEMS = self.plot_terms[mode]['loss']
         stage_color = self.colors(self.train_loss[mode]['learning_rate'])
         line_color = ['b', 'orange']
-        epoch = self.test_loss[mode]['epochs'][-1]
+        epoch = self.train_loss[mode]['epochs'][-1]
 
         title = {'t': f"Teacher Training Status @ep{epoch}",
                  's': f"Student Training Status @ep{epoch}"}
@@ -564,7 +564,7 @@ class TrainerTeacherStudent:
         self.__plot_settings__()
         PLOT_ITEMS = self.plot_terms[mode]['test']
         LOSS_ITEMS = self.plot_terms[mode]['loss']
-        epoch = self.test_loss[mode]['epochs'][-1]
+        epoch = self.train_loss[mode]['epochs'][-1]
 
         title = {'t': {'PRED': f"Teacher Test Predicts @ep{epoch}",
                        'LOSS': f"Teacher Test Loss @ep{epoch}"},
