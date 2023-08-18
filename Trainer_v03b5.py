@@ -69,7 +69,7 @@ class TrainerVTSM1(TrainerVTS):
     def calculate_loss(self, mode, x, y, i=None):
         if mode == 't':
             latent, z = self.img_encoder(y)
-            output = self.img_decoder(latent)
+            output = self.img_decoder(z)
             with torch.no_grad():
                 latent_r, z_r = self.img_encoder(output)
             loss, kl_loss, recon_loss, latent_loss = self.loss(output, y, latent, latent_r)
@@ -82,8 +82,8 @@ class TrainerVTSM1(TrainerVTS):
             s_latent, s_z = self.csi_encoder(x)
             with torch.no_grad():
                 t_latent, t_z = self.img_encoder(y)
-                s_output = self.img_decoder(s_latent)
-                t_output = self.img_decoder(t_latent)
+                s_output = self.img_decoder(s_z)
+                t_output = self.img_decoder(t_z)
                 image_loss = self.img_loss(s_output, y)
 
             straight_loss = self.args['s'].criterion(s_latent, t_latent)
