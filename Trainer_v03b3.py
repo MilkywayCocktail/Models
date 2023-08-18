@@ -142,5 +142,5 @@ class ImageDecoderM1(ImageDecoder):
 
 
 if __name__ == "__main__":
-    m1 = ImageDecoderM1(batchnorm=False, latent_dim=8)
-    summary(m1, input_size=(1, 8))
+    m1 = ImageDecoderM1(batchnorm=False, latent_dim=16)
+    summary(m1, input_size=(1, 16))
