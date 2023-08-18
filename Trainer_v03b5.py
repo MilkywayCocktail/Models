@@ -64,7 +64,7 @@ class TrainerVTSM1(TrainerVTS):
         latent_loss = self.args['s'].criterion(latent_p, latent) / y.shape[0]
         kl_loss = self.kl_loss(latent)
         loss = recon_loss + kl_loss * self.kl_weight + latent_loss
-        return loss, kl_loss, recon_loss, latent_loss
+        return {'LOSS': loss, 'KL': kl_loss, 'RECON': recon_loss, 'CYCLE': latent_loss}
 
     def calculate_loss(self, mode, x, y, i=None):
         if mode == 't':
