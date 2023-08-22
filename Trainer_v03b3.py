@@ -77,7 +77,7 @@ class ImageEncoderV03b3(ImageEncoder):
 
 class ImageDecoderV03b3(ImageDecoder):
     def __init__(self, batchnorm=False, latent_dim=8, active_func=nn.Sigmoid()):
-        super(ImageDecoderM1, self).__init__(batchnorm, latent_dim, active_func)
+        super(ImageDecoderV03b3, self).__init__(batchnorm, latent_dim, active_func)
 
         self.fclayers = nn.Sequential(
             nn.Linear(self.latent_dim, 4096),
@@ -142,5 +142,5 @@ class ImageDecoderV03b3(ImageDecoder):
 
 
 if __name__ == "__main__":
-    m1 = ImageDecoderM1(batchnorm=False, latent_dim=16)
+    m1 = ImageDecoderV03b3(batchnorm=False, latent_dim=16)
     summary(m1, input_size=(1, 16))
