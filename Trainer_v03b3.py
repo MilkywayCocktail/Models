@@ -10,9 +10,9 @@ from Trainer_v03b2 import *
 # ImageDecoder: in = 1 * latent_dim, out = 128 * 128
 # CSIEncoder: in = 2 * 90 * 100, out = 1 * 256 (Unused)
 
-class ImageEncoderM1(ImageEncoder):
+class ImageEncoderV03b3(ImageEncoder):
     def __init__(self, bottleneck='fc', batchnorm=False, latent_dim=8):
-        super(ImageEncoderM1, self).__init__(bottleneck, batchnorm, latent_dim)
+        super(ImageEncoderV03b3, self).__init__(bottleneck, batchnorm, latent_dim)
 
         self.layer1 = nn.Sequential(
             nn.Conv2d(1, 128, kernel_size=3, stride=2, padding=1),
@@ -75,7 +75,7 @@ class ImageEncoderM1(ImageEncoder):
         return 'Model_v03b3_ImgEn_' + self.bottleneck.capitalize()
 
 
-class ImageDecoderM1(ImageDecoder):
+class ImageDecoderV03b3(ImageDecoder):
     def __init__(self, batchnorm=False, latent_dim=8, active_func=nn.Sigmoid()):
         super(ImageDecoderM1, self).__init__(batchnorm, latent_dim, active_func)
 
