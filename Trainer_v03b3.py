@@ -1,5 +1,5 @@
 from Trainer_v03b2 import *
-
+from TrainerVTS import *
 
 # ------------------------------------- #
 # Model v03b3
