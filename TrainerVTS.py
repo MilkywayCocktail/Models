@@ -81,7 +81,9 @@ class TrainerVTS(TrainerTeacherStudent):
             latent, z = self.img_encoder(y)
             output = self.img_decoder(z)
             loss, kl_loss, recon_loss = self.loss(output, y, latent)
-            self.temp_loss = {'LOSS': loss}
+            self.temp_loss = {'LOSS': loss,
+                              'KL': kl_loss,
+                              'RECON': recon_loss}
             return {'GT': y,
                     'PRED': output,
                     'IND': i}
