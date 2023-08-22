@@ -80,7 +80,7 @@ class TrainerVTS(TrainerTeacherStudent):
         if mode == 't':
             latent, z = self.img_encoder(y)
             output = self.img_decoder(z)
-            loss = self.loss(output, y, latent)
+            loss, kl_loss, recon_loss = self.loss(output, y, latent)
             self.temp_loss = {'LOSS': loss}
             return {'GT': y,
                     'PRED': output,
