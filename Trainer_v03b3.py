@@ -127,7 +127,7 @@ class ImageDecoderM1(ImageDecoder):
         )
 
     def __str__(self):
-        return 'Model_v03b3_ImgDe_'
+        return 'Model_v03b3_ImgDe'
 
     def forward(self, z):
         z = self.fclayers(z)

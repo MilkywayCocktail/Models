@@ -371,9 +371,9 @@ class TrainerTeacherStudent:
 
         if autosave:
             torch.save(self.img_encoder.state_dict(),
-                       f"../saved/{self.img_encoder}{self.current_title()}_{notion}.pth")
+                       f"../saved/{notion}_{self.img_encoder}_{self.current_title()}.pth")
             torch.save(self.img_decoder.state_dict(),
-                       f"../saved/{self.img_decoder}{self.current_title()}_{notion}.pth")
+                       f"../saved/{notion}_{self.img_decoder}_{self.current_title()}.pth")
 
     @timer
     def train_student(self, autosave=False, notion=''):
@@ -429,7 +429,7 @@ class TrainerTeacherStudent:
 
         if autosave:
             torch.save(self.csi_encoder.state_dict(),
-                       f"../saved/{self.csi_encoder}{self.current_title()}_{notion}.pth")
+                       f"../saved/{notion}_{self.csi_encoder}_{self.current_title()}.pth")
 
     def test_teacher(self, mode='test'):
         self.test_loss['t'] = self.__gen_teacher_test__()
@@ -517,8 +517,8 @@ class TrainerTeacherStudent:
 
         title = {'t': f"Teacher Training Status @ep{epoch}",
                  's': f"Student Training Status @ep{epoch}"}
-        filename = {'t': f"{self.current_title()}_T_train_{notion}.jpg",
-                    's': f"{self.current_title()}_S_train_{notion}.jpg"}
+        filename = {'t': f"{notion}_T_train_{self.current_title()}.jpg",
+                    's': f"{notion}_S_train_{self.current_title()}.jpg"}
 
         # Training & Validation Loss
         fig = plt.figure(constrained_layout=True)
@@ -570,11 +570,11 @@ class TrainerTeacherStudent:
                  's': {'PRED': f"Student Test Predicts @ep{epoch}",
                        'LOSS': f"Student Test Loss @ep{epoch}",
                        'LATENT': f"Student Test Latents @ep{epoch}"}}
-        filename = {'t': {'PRED': f"{self.current_title()}_T_predict_{notion}.jpg",
-                          'LOSS': f"{self.current_title()}_T_test_{notion}.jpg"},
-                    's': {'PRED': f"{self.current_title()}_S_predict_{notion}.jpg",
-                          'LOSS': f"{self.current_title()}_S_test_{notion}.jpg",
-                          'LATENT': f"{self.current_title()}_S_latent_{notion}.jpg"}}
+        filename = {'t': {'PRED': f"{notion}_T_predict_{self.current_title()}.jpg",
+                          'LOSS': f"{notion}_T_test_{self.current_title()}.jpg"},
+                    's': {'PRED': f"{notion}_S_predict_{self.current_title()}.jpg",
+                          'LOSS': f"{notion}_S_test_{self.current_title()}.jpg",
+                          'LATENT': f"{notion}_S_latent_{self.current_title()}.jpg"}}
 
         if select_ind:
             inds = select_ind
@@ -705,7 +705,7 @@ class TrainerTeacherStudent:
         plt.ylabel(str(dim2))
 
         if autosave:
-            plt.savefig(f"{self.current_title()}_T_traverse_{dim1}{dim2}_{notion}.jpg")
+            plt.savefig(f"{notion}_T_traverse_{dim1}{dim2}_{self.current_title()}.jpg")
         plt.show()
 
     def save_all_params(self, notion=''):

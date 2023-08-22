@@ -3,6 +3,9 @@ import torch.nn as nn
 from torchinfo import summary
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib import cm
+import time
+import os
 
 '''
 Notes
@@ -73,7 +76,7 @@ class Wi2Vi(nn.Module):
 
         # 56X29X18 (3x3xamp&phase)
         self.Dropin = DropIn(17)
-        self.Encoder = nn.Sequential(
+        self.EncoderOriginal = nn.Sequential(
             # 56x17x18
             nn.Conv2d(18, 64, kernel_size=3, stride=1, padding=0),
             nn.InstanceNorm2d(64),
@@ -97,8 +100,33 @@ class Wi2Vi(nn.Module):
             # 5x1x512
         )
 
+        self.Encoder = nn.Sequential(
+            # 30x17x6
+            nn.Conv2d(6, 64, kernel_size=3, stride=1, padding=0),
+            nn.InstanceNorm2d(64),
+            nn.ReLU(),
+            # 28x15x64
+            nn.Conv2d(64, 128, kernel_size=5, stride=2, padding=1),
+            nn.InstanceNorm2d(128),
+            nn.ReLU(),
+            # 13x7x128
+            nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=0),
+            nn.InstanceNorm2d(256),
+            nn.ReLU(),
+            # 11x5x256
+            nn.Conv2d(256, 512, kernel_size=5, stride=2, padding=1),
+            nn.InstanceNorm2d(512),
+            nn.ReLU(),
+            # 5x2x512
+            nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1),
+            nn.InstanceNorm2d(512),
+            nn.ReLU(),
+            # 5x2x512
+        )
+
         self.Translator_A = nn.Sequential(
-            nn.Linear(2560, 972),
+            # Please fill in the product of the output shape of Encoder.
+            nn.Linear(5120, 972),
             nn.LeakyReLU()
         )
 
@@ -162,6 +190,314 @@ class Wi2Vi(nn.Module):
         x = self.Decoder(x)
 
         return x[..., 31:351, 7:247]
+
+    def __str__(self):
+        return 'Wi2Vi'
+
+
+def timer(func):
+    from functools import wraps
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        start = time.time()
+        result = func(*args, **kwargs)
+        end = time.time()
+        print("\nTotal training time:", end - start, "sec")
+        return result
+
+    return wrapper
+
+
+class CompTrainer:
+    def __init__(self, train_loader, valid_loader, test_loader, model, args):
+        self.train_loader = train_loader
+        self.valid_loader = valid_loader
+        self.test_loader = test_loader
+
+        self.model = model
+        self.args = args
+
+        self.train_loss = self.__gen_train_loss__()
+        self.valid_loss = self.__gen_train_loss__()
+        self.test_loss = self.__gen_test__()
+        self.plot_terms = self.__plot_terms__()
+
+        self.temp_loss = {}
+
+    @staticmethod
+    def __gen_train_loss__():
+        train_loss = {'learning_rate': [],
+                      'epochs': [0],
+                      'LOSS': []}
+        return train_loss
+
+    @staticmethod
+    def __gen_test__():
+        t_test_loss = {'loss': [],
+                       'PRED': [],
+                       'GT': [],
+                       'IND': []
+                       }
+        return t_test_loss
+
+    @staticmethod
+    def __plot_terms__():
+        terms = {'loss': {'LOSS': 'Loss'},
+                 'predict': ('GT', 'PRED', 'IND'),
+                 'test': {'GT': 'Ground Truth',
+                          'PRED': 'Estimated'
+                          }
+                 }
+        return terms
+
+    @staticmethod
+    def __plot_settings__():
+        plt.rcParams['figure.figsize'] = (20, 10)
+        plt.rcParams["figure.titlesize"] = 35
+        plt.rcParams['lines.markersize'] = 10
+        plt.rcParams['axes.titlesize'] = 30
+        plt.rcParams['axes.labelsize'] = 30
+        plt.rcParams['xtick.labelsize'] = 20
+        plt.rcParams['ytick.labelsize'] = 20
+
+    @staticmethod
+    def colors(arrays):
+        arr = -np.log(arrays)
+        norm = plt.Normalize(arr.min(), arr.max())
+        map_vir = cm.get_cmap(name='viridis')
+        c = map_vir(norm(arr))
+        return c
+
+    def logger(self):
+        """
+        Logs learning rate and number of epochs before training.
+        :return:
+        """
+        objs = (self.train_loss, self.valid_loss)
+        for obj in objs:
+
+            # First round
+            if not obj['learning_rate']:
+                obj['learning_rate'].append(self.args.learning_rate)
+                obj['epochs'].append(self.args.epochs)
+
+            else:
+                # Not changing learning rate
+                if self.args.learning_rate == obj['learning_rate'][-1]:
+                    obj['epochs'][-1] += self.args.epochs
+
+                # Changing learning rate
+                if self.args.learning_rate != obj['learning_rate'][-1]:
+                    last_end = self.train_loss['epochs'][-1]
+                    obj['learning_rate'].append(self.args.learning_rate)
+                    obj['epochs'].append(last_end + self.args.epochs)
+
+    def current_title(self):
+        return f"e{self.train_loss['epochs'][-1]}"
+
+    def calculate_loss(self, x, y, i=None):
+        output = self.model(x)
+        loss = self.args.criterion(output, y)
+        self.temp_loss = {'LOSS': loss}
+        return {'GT': y,
+                'PRED': output,
+                'IND': i}
+
+    @timer
+    def train(self, autosave=False, notion=''):
+        self.logger()
+        optimizer = self.args.optimizer([{'params': self.model.parameters()}],
+                                        lr=self.args.learning_rate)
+        LOSS_TERMS = self.plot_terms['loss'].keys()
+
+        for epoch in range(self.args.epochs):
+
+            # =====================train============================
+            self.model.train()
+            EPOCH_LOSS = {key: [] for key in LOSS_TERMS}
+            for idx, (data_x, data_y, index) in enumerate(self.train_loader, 0):
+                data_y = data_y.to(torch.float32).to(self.args['t'].device)
+                optimizer.zero_grad()
+
+                PREDS = self.calculate_loss(data_x, data_y)
+                self.temp_loss['LOSS'].backward()
+                optimizer.step()
+                for key in LOSS_TERMS:
+                    EPOCH_LOSS[key].append(self.temp_loss[key].item())
+
+                if idx % (len(self.train_loader) // 5) == 0:
+                    print(f"\rCompModel: epoch={epoch}/{self.args.epochs}, batch={idx}/{len(self.train_loader)},"
+                          f"loss={self.temp_loss['LOSS'].item()}", end='')
+            for key in LOSS_TERMS:
+                self.train_loss[key].append(np.average(EPOCH_LOSS[key]))
+
+            # =====================valid============================
+            self.model.eval()
+            EPOCH_LOSS = {key: [] for key in LOSS_TERMS}
+
+            for idx, (data_x, data_y, index) in enumerate(self.valid_loader, 0):
+                data_y = data_y.to(torch.float32).to(self.args.device)
+                with torch.no_grad():
+                    PREDS = self.calculate_loss(data_x, data_y)
+                for key in LOSS_TERMS:
+                    EPOCH_LOSS[key].append(self.temp_loss[key].item())
+            for key in LOSS_TERMS:
+                self.valid_loss[key].append(np.average(EPOCH_LOSS[key]))
+
+        if autosave:
+            torch.save(self.model.state_dict(),
+                       f"../saved/{self.model}_{self.current_title()}_{notion}.pth")
+
+    def test(self, mode='test'):
+        self.test_loss['t'] = self.__gen_test__()
+        self.model.eval()
+        LOSS_TERMS = self.plot_terms['loss'].keys()
+        PLOT_TERMS = self.plot_terms['predict']
+        EPOCH_LOSS = {key: [] for key in LOSS_TERMS}
+
+        if mode == 'test':
+            loader = self.test_loader
+        elif mode == 'train':
+            loader = self.train_loader
+
+        for idx, (data_x, data_y, index) in enumerate(loader, 0):
+            data_y = data_y.to(torch.float32).to(self.args.device)
+            with torch.no_grad():
+                for sample in range(loader.batch_size):
+                    ind = index[sample][np.newaxis, ...]
+                    csi = data_x[sample][np.newaxis, ...]
+                    gt = data_y[sample][np.newaxis, ...]
+                    PREDS = self.calculate_loss(csi, gt, ind)
+
+                    for key in LOSS_TERMS:
+                        EPOCH_LOSS[key].append(self.temp_loss[key].item())
+
+                    for key in PLOT_TERMS:
+                        self.test_loss[key].append(PREDS[key].cpu().detach().numpy().squeeze())
+                    for key in LOSS_TERMS:
+                        self.test_loss[key] = EPOCH_LOSS[key]
+
+            if idx % (len(loader)//5) == 0:
+                print(f"\rCompModel: test={idx}/{len(loader)}, loss={self.temp_loss['LOSS'].item()}", end='')
+
+        for key in LOSS_TERMS:
+            EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
+        print(f"\nTest finished. Average loss={EPOCH_LOSS}")
+
+    def plot_train_loss(self, double_y=False, autosave=False, notion=''):
+        self.__plot_settings__()
+
+        PLOT_ITEMS = self.plot_terms['loss']
+        stage_color = self.colors(self.train_loss['learning_rate'])
+        line_color = ['b', 'orange']
+        epoch = self.train_loss['epochs'][-1]
+
+        title = f"{self.model} Training Status @ep{epoch}"
+
+        filename = f"{notion}_{self.model}_train_{self.current_title()}.jpg"
+
+        # Training & Validation Loss
+        fig = plt.figure(constrained_layout=True)
+        fig.suptitle(title)
+        if len(PLOT_ITEMS.keys()) == 1:
+            axes = [plt.gca()]
+        elif len(PLOT_ITEMS.keys()) > 3:
+            axes = fig.subplots(2, np.ceil(len(PLOT_ITEMS.keys())/2).astype(int))
+            axes = axes.flatten()
+        else:
+            axes = fig.subplots(1, len(PLOT_ITEMS.keys()))
+            axes = axes.flatten()
+
+        for i, loss in enumerate(PLOT_ITEMS.keys()):
+            for j, learning_rate in enumerate(self.train_loss['learning_rate']):
+                axes[i].axvline(self.train_loss['epochs'][j],
+                                linestyle='--',
+                                color=stage_color[j],
+                                label=f'lr={learning_rate}')
+
+            axes[i].plot(list(range(len(self.valid_loss[loss]))),
+                         self.valid_loss[loss],
+                         line_color[1], label='Valid')
+            if double_y:
+                ax_r = axes[i].twinx()
+            else:
+                ax_r = axes[i]
+            ax_r.plot(list(range(len(self.train_loss[loss]))),
+                      self.train_loss[loss],
+                      line_color[0], label='Train')
+            axes[i].set_title(PLOT_ITEMS[loss])
+            axes[i].set_xlabel('#Epoch')
+            axes[i].set_ylabel('Loss')
+            axes[i].grid()
+            axes[i].legend()
+
+        if autosave:
+            plt.savefig(filename)
+        plt.show()
+
+    def plot_test(self, select_ind=None, select_num=8, autosave=False, notion=''):
+        self.__plot_settings__()
+        PLOT_ITEMS = self.plot_terms['test']
+        LOSS_ITEMS = self.plot_terms['loss']
+        epoch = self.train_loss['epochs'][-1]
+
+        title = {'PRED': f"{self.model} Test Predicts @ep{epoch}",
+                 'LOSS': f"{self.model} Test Loss @ep{epoch}"}
+        filename = {'PRED': f"{notion}_{self.model}_predict_{self.current_title()}.jpg",
+                    'LOSS': f"{notion}_{self.model}_test_{self.current_title()}.jpg"}
+
+        if select_ind:
+            inds = select_ind
+        else:
+            inds = np.random.choice(list(range(len(self.test_loss['IND']))), select_num, replace=False)
+        inds = np.sort(inds)
+        samples = np.array(self.test_loss['IND'])[inds]
+
+        # Depth Images
+        fig = plt.figure(constrained_layout=True)
+        fig.suptitle(title['PRED'])
+        subfigs = fig.subfigures(nrows=len(PLOT_ITEMS.keys()), ncols=1)
+
+        for i, item in enumerate(PLOT_ITEMS.keys()):
+            subfigs[i].suptitle(PLOT_ITEMS[item])
+            axes = subfigs[i].subplots(nrows=1, ncols=select_num)
+            for j in range(len(axes)):
+                img = axes[j].imshow(self.test_loss[item][inds[j]], vmin=0, vmax=1)
+                axes[j].axis('off')
+                axes[j].set_title(f"#{samples[j]}")
+            subfigs[i].colorbar(img, ax=axes, shrink=0.8)
+
+        if autosave:
+            plt.savefig(filename['PRED'])
+        plt.show()
+
+        # Test Loss
+        fig = plt.figure(constrained_layout=True)
+        fig.suptitle(title['LOSS'])
+        if len(LOSS_ITEMS.keys()) == 1:
+            axes = [plt.gca()]
+        elif len(LOSS_ITEMS.keys()) > 3:
+            axes = fig.subplots(2, np.ceil(len(LOSS_ITEMS.keys())/2).astype(int))
+            axes = axes.flatten()
+        else:
+            axes = fig.subplots(1, len(LOSS_ITEMS.keys()))
+            axes = axes.flatten()
+
+        for i, item in enumerate(LOSS_ITEMS.keys()):
+            axes[i].scatter(list(range(len(self.test_loss[item]))),
+                            self.test_loss[item], alpha=0.6)
+            axes[i].set_title(LOSS_ITEMS[item])
+            axes[i].set_xlabel('#Sample')
+            axes[i].set_ylabel('Loss')
+            axes[i].grid()
+            for j in range(select_num):
+                axes[i].scatter(inds[j], self.test_loss[item][inds[j]],
+                                c='magenta', marker=(5, 1), linewidths=4)
+
+        if autosave:
+            plt.savefig(filename['LOSS'])
+        plt.show()
 
 
 if __name__ == "__main__":

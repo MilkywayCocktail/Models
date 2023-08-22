@@ -225,5 +225,5 @@ class TrainerVTS(TrainerTeacherStudent):
         plt.ylabel('Dimensions')
 
         if autosave:
-            plt.savefig(f"{self.current_title()}_T_traverse_{self.latent_dim}_{notion}.jpg")
+            plt.savefig(f"{notion}_T_traverse_{self.latent_dim}_{self.current_title()}.jpg")
         plt.show()
