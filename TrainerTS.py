@@ -225,9 +225,9 @@ class TrainerTeacherStudent:
                        'DIST': [],
                        'IMG': [],
                        'T_LATENT': [],
-                       'LATENT': [],
+                       'S_LATENT': [],
                        'T_PRED': [],
-                       'PRED': [],
+                       'S_PRED': [],
                        'GT': [],
                        'IND': []
                        }
@@ -249,10 +249,10 @@ class TrainerTeacherStudent:
                           'STRA': 'Straight',
                           'DIST': 'Distilation',
                           'IMG': 'Image'},
-                 'predict': ('GT', 'PRED', 'T_PRED', 'T_LATENT', 'S_LATENT', 'IND'),
+                 'predict': ('GT', 'S_PRED', 'T_PRED', 'T_LATENT', 'S_LATENT', 'IND'),
                  'test': {'GT': 'Ground Truth',
                           'T_PRED': 'Teacher Estimate',
-                          'PRED': 'Estimated'}
+                          'S_PRED': 'Estimated'}
                  }
         return terms
 
@@ -320,9 +320,9 @@ class TrainerTeacherStudent:
                               'IMG': image_loss}
             return {'GT': y,
                     'T_LATENT': t_latent,
-                    'LATENT': s_latent,
+                    'S_LATENT': s_latent,
                     'T_PRED': t_output,
-                    'PRED': s_output,
+                    'S_PRED': s_output,
                     'IND': i}
 
     @timer

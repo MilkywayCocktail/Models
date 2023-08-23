@@ -106,9 +106,9 @@ class TrainerVTS(TrainerTeacherStudent):
                               'IMG': image_loss}
             return {'GT': y,
                     'T_LATENT': t_latent,
-                    'LATENT': s_latent,
+                    'S_LATENT': s_latent,
                     'T_PRED': t_output,
-                    'PRED': s_output,
+                    'S_PRED': s_output,
                     'IND': i}
 
     def traverse_latent_2dim(self, img_ind, dataset, mode='t', img='x',
