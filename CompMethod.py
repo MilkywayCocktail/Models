@@ -20,6 +20,8 @@ Notes
 
 5) Wi2Vi lr=2e-3 and lower; epoch=1000; batch size=32
 
+6) Wi2Vi outputs 320x240 images
+
 '''
 
 
@@ -178,7 +180,7 @@ class Wi2Vi(nn.Module):
             # 386x258x2
             nn.Conv2d(2, 1, kernel_size=5, stride=1, padding=0),
             nn.InstanceNorm2d(32),
-            nn.ReLU()
+            nn.Sigmoid()
             # 382x254x1
         )
 
@@ -210,7 +212,7 @@ def timer(func):
 
 
 class CompTrainer:
-    def __init__(self, train_loader, valid_loader, test_loader, model, args):
+    def __init__(self, model, args, train_loader, valid_loader, test_loader):
         self.train_loader = train_loader
         self.valid_loader = valid_loader
         self.test_loader = test_loader
@@ -498,6 +500,18 @@ class CompTrainer:
         if autosave:
             plt.savefig(filename['LOSS'])
         plt.show()
+
+    def scheduler(self, turns=10, lr_decay=False, decay_rate=0.4, test_mode='train', autosave=False, notion=''):
+
+        for i in range(turns):
+            self.train()
+            self.test(mode=test_mode)
+            self.plot_test(autosave=autosave, notion=notion)
+            self.plot_train_loss(autosave=autosave, notion=notion)
+            if lr_decay:
+                self.args.learning_rate *= decay_rate
+
+        print("\nSchedule Completed!")
 
 
 if __name__ == "__main__":
