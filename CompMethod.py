@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 import time
 import os
+from TrainerTS import MyDataset, MyArgs
 
 '''
 Notes
