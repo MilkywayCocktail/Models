@@ -639,7 +639,7 @@ class TrainerTeacherStudent:
                             self.test_loss[mode]['T_LATENT'][inds[j]],
                             width=1, fc='blue', alpha=0.8, label='Teacher')
                 axes[j].bar(range(self.latent_dim),
-                            self.test_loss[mode]['LATENT'][inds[j]],
+                            self.test_loss[mode]['S_LATENT'][inds[j]],
                             width=1, fc='orange', alpha=0.8, label='Student')
                 axes[j].set_title(f"#{samples[j]}")
                 axes[j].grid()
