@@ -21,11 +21,12 @@ def reparameterize(mu, logvar):
 
 
 class ImageEncoder(nn.Module):
-    def __init__(self, bottleneck='fc', batchnorm=False, latent_dim=8):
+    def __init__(self, bottleneck='fc', batchnorm=False, latent_dim=8, active_func=nn.Tanh()):
         super(ImageEncoder, self).__init__()
 
         self.bottleneck = bottleneck
         self.latent_dim = latent_dim
+        self.active_func = active_func
 
         self.layer1 = nn.Sequential(
             nn.Conv2d(1, 16, kernel_size=3, stride=2, padding=1),
@@ -80,8 +81,7 @@ class ImageEncoder(nn.Module):
             nn.Linear(4 * 4 * 256, 4096),
             nn.ReLU(),
             nn.Linear(4096, 2 * self.latent_dim),
-            # nn.Sigmoid()
-            # nn.Tanh()
+            self.active_func(),
         )
 
     def __str__(self):
