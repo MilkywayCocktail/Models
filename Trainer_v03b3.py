@@ -12,8 +12,8 @@ from TrainerVTS import *
 
 
 class ImageEncoderV03b3(ImageEncoder):
-    def __init__(self, bottleneck='fc', batchnorm=False, latent_dim=8):
-        super(ImageEncoderV03b3, self).__init__(bottleneck, batchnorm, latent_dim)
+    def __init__(self, bottleneck='fc', batchnorm=False, latent_dim=8, active_func=nn.Tanh()):
+        super(ImageEncoderV03b3, self).__init__(bottleneck, batchnorm, latent_dim, active_func)
 
         self.layer1 = nn.Sequential(
             nn.Conv2d(1, 128, kernel_size=3, stride=2, padding=1),
@@ -68,8 +68,7 @@ class ImageEncoderV03b3(ImageEncoder):
             nn.Linear(4 * 4 * 256, 4096),
             nn.ReLU(),
             nn.Linear(4096, 2 * self.latent_dim),
-            # nn.Sigmoid()
-            # nn.Tanh()
+            self.active_func()
         )
 
     def __str__(self):
