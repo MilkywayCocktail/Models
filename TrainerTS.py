@@ -205,7 +205,7 @@ class TrainerTeacherStudent:
                         'LOSS': [],
                         'STRA': [],
                         'DIST': [],
-                        'IMAGE': [],
+                        'IMG': [],
                         }
         return s_train_loss
 

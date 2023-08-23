@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from Trainer_v03b3 import ImageEncoderM1, ImageDecoderM1
+from Trainer_v03b3 import ImageEncoderV03b3, ImageDecoderV03b3
 from Trainer_v03b2 import *
 from TrainerTS import timer, MyDataset, split_loader, MyArgs, bn, Interpolate
 from TrainerVTS import TrainerVTS
