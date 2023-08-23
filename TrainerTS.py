@@ -546,8 +546,8 @@ class TrainerTeacherStudent:
                 ax_r = axes[i].twinx()
             else:
                 ax_r = axes[i]
-            ax_r.plot(list(range(len(self.train_loss['t'][loss]))),
-                      self.train_loss['t'][loss],
+            ax_r.plot(list(range(len(self.train_loss[mode][loss]))),
+                      self.train_loss[mode][loss],
                       line_color[0], label='Train')
             axes[i].set_title(PLOT_ITEMS[loss])
             axes[i].set_xlabel('#Epoch')
@@ -592,7 +592,7 @@ class TrainerTeacherStudent:
             subfigs[i].suptitle(PLOT_ITEMS[item])
             axes = subfigs[i].subplots(nrows=1, ncols=select_num)
             for j in range(len(axes)):
-                img = axes[j].imshow(self.test_loss['t'][item][inds[j]], vmin=0, vmax=1)
+                img = axes[j].imshow(self.test_loss[mode][item][inds[j]], vmin=0, vmax=1)
                 axes[j].axis('off')
                 axes[j].set_title(f"#{samples[j]}")
             subfigs[i].colorbar(img, ax=axes, shrink=0.8)
