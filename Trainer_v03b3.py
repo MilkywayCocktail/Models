@@ -10,6 +10,7 @@ from TrainerVTS import *
 # ImageDecoder: in = 1 * latent_dim, out = 128 * 128
 # CSIEncoder: in = 2 * 90 * 100, out = 1 * 256 (Unused)
 
+
 class ImageEncoderV03b3(ImageEncoder):
     def __init__(self, bottleneck='fc', batchnorm=False, latent_dim=8):
         super(ImageEncoderV03b3, self).__init__(bottleneck, batchnorm, latent_dim)
