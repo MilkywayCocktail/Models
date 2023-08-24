@@ -46,18 +46,22 @@ class Interpolate(nn.Module):
 
 
 class MyDataset(Data.Dataset):
-    def __init__(self, x_path, y_path, img_size=(128, 128), transform=None, img='y', img_type=np.float32, number=0):
+    def __init__(self, x_path, y_path, img_size=(128, 128), transform=None, img='y', int_image=True, number=0):
         self.seeds = None
         self.img_size = img_size
         self.transform = transform
         self.img = img
-        self.img_type = img_type
+        self.int_image = int_image
         self.data = self.__load_data__(x_path, y_path, number=number)
         print('loaded')
 
     def __transform__(self, sample):
-        if self.transform:
-            return self.transform(Image.fromarray((np.array(sample)).squeeze(), mode='L'))
+        if self.transform and self.int_image:
+            return self.transform(Image.fromarray((np.array(sample * 255).astype(np.uint8)).squeeze(), mode='L'))
+        elif self.transform and not self.int_image:
+            return self.transform(Image.fromarray(np.array(sample).squeeze(), mode='L'))
+        elif not self.transform and self.int_image:
+            return np.array(sample * 255).astype(np.uint8)
         else:
             return sample
 
