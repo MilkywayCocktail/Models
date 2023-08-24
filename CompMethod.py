@@ -369,6 +369,7 @@ class CompTrainer:
         for idx, (data_x, data_y, index) in enumerate(loader, 0):
             data_x = data_x.to(torch.float32).to(self.args.device)
             data_y = data_y.to(torch.float32).to(self.args.device)
+            ind = ind.to(torch.float32).to(self.args.device)
             with torch.no_grad():
                 for sample in range(loader.batch_size):
                     ind = index[sample][np.newaxis, ...]
