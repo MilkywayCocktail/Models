@@ -455,7 +455,7 @@ class TrainerTeacherStudent:
             data_y = data_y.to(torch.float32).to(self.args['t'].device)
             with torch.no_grad():
                 for sample in range(loader.batch_size):
-                    ind = index[sample][np.newaxis, ...]
+                    ind = index[sample]
                     gt = data_y[sample][np.newaxis, ...]
                     PREDS = self.calculate_loss('t', None, gt, ind)
 
@@ -493,7 +493,7 @@ class TrainerTeacherStudent:
             data_y = data_y.to(torch.float32).to(self.args['s'].device)
             with torch.no_grad():
                 for sample in range(loader.batch_size):
-                    ind = index[sample][np.newaxis, ...]
+                    ind = index[sample]
                     csi = data_x[sample][np.newaxis, ...]
                     gt = data_y[sample][np.newaxis, ...]
                     PREDS = self.calculate_loss('s', csi, gt, ind)

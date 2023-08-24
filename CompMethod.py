@@ -237,7 +237,7 @@ class CompTrainer:
 
     @staticmethod
     def __gen_test__():
-        t_test_loss = {'loss': [],
+        t_test_loss = {'LOSS': [],
                        'PRED': [],
                        'GT': [],
                        'IND': []
@@ -369,10 +369,9 @@ class CompTrainer:
         for idx, (data_x, data_y, index) in enumerate(loader, 0):
             data_x = data_x.to(torch.float32).to(self.args.device)
             data_y = data_y.to(torch.float32).to(self.args.device)
-            ind = ind.to(torch.float32).to(self.args.device)
             with torch.no_grad():
                 for sample in range(loader.batch_size):
-                    ind = index[sample][np.newaxis, ...]
+                    ind = index[sample]
                     csi = data_x[sample][np.newaxis, ...]
                     gt = data_y[sample][np.newaxis, ...]
                     PREDS = self.calculate_loss(csi, gt, ind)
