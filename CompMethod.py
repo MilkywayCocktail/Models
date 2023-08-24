@@ -53,6 +53,11 @@ class ResidualBlock(nn.Module):
 
 class Interpolate(nn.Module):
     def __init__(self, size, mode='bilinear'):
+        """
+        Interpolation layer
+        :param size: (height, width)
+        :param mode: interpolation mode
+        """
         super(Interpolate, self).__init__()
         self.interp = nn.functional.interpolate
         self.size = size
@@ -161,22 +166,22 @@ class Wi2Vi(nn.Module):
             # 8x6x128
             ResidualBlock(128, 128),
             # 8x6x128
-            Interpolate(size=(16, 12)),
+            Interpolate(size=(12, 16)),
             nn.Conv2d(128, 64, kernel_size=3, stride=1, padding=0),
             # 14x10x64
-            Interpolate(size=(28, 20)),
+            Interpolate(size=(20, 28)),
             nn.Conv2d(64, 32, kernel_size=3, stride=1, padding=0),
             # 26x18x32
-            Interpolate(size=(52, 36)),
+            Interpolate(size=(36, 52)),
             nn.Conv2d(32, 16, kernel_size=3, stride=1, padding=0),
             # 50x34x16
-            Interpolate(size=(100, 68)),
+            Interpolate(size=(68, 100)),
             nn.Conv2d(16, 8, kernel_size=3, stride=1, padding=0),
             # 98x66x8
-            Interpolate(size=(196, 132)),
+            Interpolate(size=(132, 196)),
             nn.Conv2d(8, 4, kernel_size=3, stride=1, padding=0),
             # 194x130x4
-            Interpolate(size=(388, 260)),
+            Interpolate(size=(260, 388)),
             nn.Conv2d(4, 2, kernel_size=3, stride=1, padding=0),
             # 386x258x2
             nn.Conv2d(2, 1, kernel_size=5, stride=1, padding=0),
@@ -192,7 +197,7 @@ class Wi2Vi(nn.Module):
         x = self.Translator_B(x.view(-1, 1, 27, 36))
         x = self.Decoder(x)
 
-        return x[..., 31:351, 7:247]
+        return x[..., 7:247, 31:351]
 
     def __str__(self):
         return 'Wi2Vi'
@@ -237,12 +242,12 @@ class CompTrainer:
 
     @staticmethod
     def __gen_test__():
-        t_test_loss = {'LOSS': [],
-                       'PRED': [],
-                       'GT': [],
-                       'IND': []
+        test_loss = {'LOSS': [],
+                     'PRED': [],
+                     'GT': [],
+                     'IND': []
                        }
-        return t_test_loss
+        return test_loss
 
     @staticmethod
     def __plot_terms__():
@@ -520,6 +525,5 @@ class CompTrainer:
 
 if __name__ == "__main__":
     m1 = Wi2Vi()
-    summary(m1, input_size=(18, 56, 29))
-    # m2 = ResidualBlock(in_channels=128, out_channels=128)
-    # summary(m2, input_size=(128, 10, 8))
+    summary(m1, input_size=(6, 30, 100))
+
