@@ -341,6 +341,7 @@ class CompTrainer:
             EPOCH_LOSS = {key: [] for key in LOSS_TERMS}
 
             for idx, (data_x, data_y, index) in enumerate(self.valid_loader, 0):
+                data_x = data_x.to(torch.float32).to(self.args.device)
                 data_y = data_y.to(torch.float32).to(self.args.device)
                 with torch.no_grad():
                     PREDS = self.calculate_loss(data_x, data_y)
