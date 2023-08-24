@@ -189,7 +189,7 @@ class Wi2Vi(nn.Module):
         x = self.Dropin(x)
         x = self.Encoder(x)
         x = self.Translator_A(x.view(-1, 5120))
-        x = self.Translator_B(x.view(-1, 1, 36, 27))
+        x = self.Translator_B(x.view(-1, 1, 27, 36))
         x = self.Decoder(x)
 
         return x[..., 31:351, 7:247]
