@@ -246,7 +246,7 @@ class CompTrainer:
                      'PRED': [],
                      'GT': [],
                      'IND': []
-                       }
+                     }
         return test_loss
 
     @staticmethod
@@ -360,7 +360,7 @@ class CompTrainer:
                        f"../saved/{self.model}_{self.current_title()}_{notion}.pth")
 
     def test(self, mode='test'):
-        self.test_loss['t'] = self.__gen_test__()
+        self.test_loss = self.__gen_test__()
         self.model.eval()
         LOSS_TERMS = self.plot_terms['loss'].keys()
         PLOT_TERMS = self.plot_terms['predict']
