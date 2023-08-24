@@ -443,7 +443,7 @@ class CompTrainer:
         plt.show()
 
     def plot_test(self, select_ind=None, select_num=8, autosave=False, notion=''):
-        self.__plot_settings__()
+        # self.__plot_settings__()
         PLOT_ITEMS = self.plot_terms['test']
         LOSS_ITEMS = self.plot_terms['loss']
         epoch = self.train_loss['epochs'][-1]
