@@ -188,7 +188,7 @@ class Wi2Vi(nn.Module):
     def forward(self, x):
         x = self.Dropin(x)
         x = self.Encoder(x)
-        x = self.Translator_A(x.view(-1, 2560))
+        x = self.Translator_A(x.view(-1, 5120))
         x = self.Translator_B(x.view(-1, 1, 36, 27))
         x = self.Decoder(x)
 
