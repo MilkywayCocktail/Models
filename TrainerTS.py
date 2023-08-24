@@ -55,15 +55,17 @@ class MyDataset(Data.Dataset):
         self.data = self.__load_data__(x_path, y_path, number=number)
         print('loaded')
 
-    def __transform__(self, sample):
-        if self.transform and self.int_image:
-            return self.transform(Image.fromarray((np.array(sample * 255).astype(np.uint8)).squeeze(), mode='L'))
-        elif self.transform and not self.int_image:
-            return self.transform(Image.fromarray(np.array(sample).squeeze(), mode='L'))
-        elif not self.transform and self.int_image:
+    def __convert__(self, sample):
+        if self.int_image:
             return np.array(sample * 255).astype(np.uint8)
         else:
             return sample
+
+    def __transform__(self, sample):
+        if self.transform:
+            return self.transform(Image.fromarray((self.__convert__(sample)).squeeze(), mode='L'))
+        else:
+            return self.__convert__(sample)
 
     def __getitem__(self, index):
         if self.img == 'y':
