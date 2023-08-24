@@ -716,17 +716,17 @@ class TrainerTeacherStudent:
         plt.show()
 
     def save_all_params(self, notion=''):
-        save_path = '/'
+        save_path = f"/{notion}"
 
         if not os.path.exists(save_path):
             os.makedirs(save_path)
 
         torch.save(self.img_encoder.state_dict(),
-                   f"../saved/{self.img_encoder}{self.current_title()}_{notion}.pth")
+                   f"../saved/{notion}_{self.img_encoder}_{self.current_title()}.pth")
         torch.save(self.img_decoder.state_dict(),
-                   f"../saved/{self.img_decoder}{self.current_title()}_{notion}.pth")
+                   f"../saved/{notion}_{self.img_decoder}_{self.current_title()}.pth")
         torch.save(self.csi_encoder.state_dict(),
-                   f"../saved/{self.csi_encoder}{self.current_title()}_{notion}.pth")
+                   f"../saved/{notion}_{self.csi_encoder}_{self.current_title()}.pth")
 
     def scheduler(self, t_turns=10, s_turns=10, lr_decay=False, decay_rate=0.4, test_mode='train', autosave=False, notion=''):
 

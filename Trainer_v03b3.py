@@ -72,7 +72,7 @@ class ImageEncoderV03b3(ImageEncoder):
         )
 
     def __str__(self):
-        return 'Model_v03b3_ImgEn_' + self.bottleneck.capitalize()
+        return 'ImgEnV03b3' + self.bottleneck.capitalize()
 
 
 class ImageDecoderV03b3(ImageDecoder):
@@ -127,7 +127,7 @@ class ImageDecoderV03b3(ImageDecoder):
         )
 
     def __str__(self):
-        return 'Model_v03b3_ImgDe'
+        return 'ImgDeV03b3'
 
     def forward(self, z):
         z = self.fclayers(z)

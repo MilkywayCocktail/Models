@@ -203,6 +203,59 @@ class Wi2Vi(nn.Module):
         return 'Wi2Vi'
 
 
+class AutoEncoder(nn.Module):
+    def __init__(self, latent_dim=8, active_func=nn.Sigmoid()):
+        super(AutoEncoder, self).__init__()
+        self.latent_dim = latent_dim
+        self.active_func = active_func
+
+        self.EnCNN = nn.Sequential(
+            nn.Conv2d(1, 16, kernel_size=3, stride=(3, 1), padding=0),
+            nn.LeakyReLU(inplace=True),
+            nn.Conv2d(16, 32, kernel_size=3, stride=(2, 2), padding=0),
+            nn.LeakyReLU(inplace=True),
+            nn.Conv2d(32, 64, kernel_size=3, stride=(1, 1), padding=0),
+            nn.LeakyReLU(inplace=True),
+            nn.Conv2d(64, 128, kernel_size=3, stride=(1, 1), padding=0),
+            nn.LeakyReLU(inplace=True),
+            nn.Conv2d(128, 256, kernel_size=3, stride=(1, 1), padding=0),
+            nn.LeakyReLU(inplace=True),
+        )
+        self.EnLSTM = nn.LSTM(512, self.latent_dim, 2, batch_first=True, dropout=0.1)
+        self.DeFC = nn.Sequential(
+            nn.Linear(self.latent_dim, 4096),
+            nn.ReLU(),
+            nn.Linear(4096, 2048),
+            nn.ReLU(),
+        )
+        self.DeCNN = nn.Sequential(
+            nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
+            nn.LeakyReLU(inplace=True),
+            nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
+            nn.LeakyReLU(inplace=True),
+            nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
+            nn.LeakyReLU(inplace=True),
+            nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
+            nn.LeakyReLU(inplace=True),
+            nn.ConvTranspose2d(128, 1, kernel_size=4, stride=2, padding=1),
+            self.active_func
+        )
+
+    def __str__(self):
+        return f"AutoEncoder{self.latent_dim}"
+
+    def forward(self, x):
+        x = torch.chunk(x.view(-1, 2, 90, 100), 2, dim=1)
+        x1 = self.EnCNN(x[0])
+        x2 = self.EnCNN(x[1])
+
+        z = torch.cat([x1, x2], dim=1)
+        z, (final_hidden_state, final_cell_state) = self.EnLSTM.forward(z.view(-1, 512, 8 * 42).transpose(1, 2))
+        out = self.DeFC(z[:, -1, :])
+        out = self.DeCNN(out.view(-1, 128, 4, 4))
+        return out
+
+
 def timer(func):
     from functools import wraps
 
@@ -522,8 +575,19 @@ class CompTrainer:
 
         print("\nSchedule Completed!")
 
+    def save_all_params(self, notion=''):
+        save_path = f"/{notion}"
+
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
+
+        torch.save(self.model.state_dict(),
+                   f"../saved/{notion}_{self.model}_{self.current_title()}.pth")
+
 
 if __name__ == "__main__":
-    m1 = Wi2Vi()
-    summary(m1, input_size=(6, 30, 100))
+    # m1 = Wi2Vi()
+    # summary(m1, input_size=(6, 30, 100))
+    m2 = AutoEncoder()
+    summary(m2, input_size=(2, 90, 100))
 

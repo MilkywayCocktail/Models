@@ -85,7 +85,7 @@ class ImageEncoder(nn.Module):
         )
 
     def __str__(self):
-        return 'Model_v03b2_ImgEn_' + self.bottleneck.capitalize()
+        return 'ImgEnv03b2' + self.bottleneck.capitalize()
 
     def forward(self, x):
         x = self.layer1(x)
@@ -169,7 +169,7 @@ class ImageDecoder(nn.Module):
         )
 
     def __str__(self):
-        return 'Model_v03b2_ImgDe_'
+        return 'ImgDeV03b2'
 
     def forward(self, z):
         z = self.fclayers(z)
@@ -234,7 +234,7 @@ class ImageDecoderInterp(ImageDecoder):
         )
 
     def __str__(self):
-        return 'Model_v03b2_ImgDe_'
+        return 'ImgDeV03b2Interp'
 
     def forward(self, z):
         z = self.fclayers(z)
@@ -309,19 +309,20 @@ class CsiEncoder(nn.Module):
             nn.AvgPool1d(kernel_size=8 * 42, stride=1, padding=0)
         )
 
-        self.fclayers = nn.Sequential(
-            nn.Linear(256 * 8 * 42, 4096),
-            nn.ReLU(),
-            nn.Linear(4096, 256),
-            nn.ReLU()
-        )
+        # Takes up too much memory!
+        # self.fclayers = nn.Sequential(
+        #    nn.Linear(256 * 8 * 42, 4096),
+        #    nn.ReLU(),
+        #    nn.Linear(4096, 256),
+        #    nn.ReLU()
+        # )
 
         self.lstm = nn.Sequential(
             nn.LSTM(512, 2 * self.latent_dim, 2, batch_first=True, dropout=0.1),
         )
 
     def __str__(self):
-        return 'Model_v03b2_CsiEn_' + self.bottleneck.capitalize()
+        return 'CsiEnV03b2' + self.bottleneck.capitalize()
 
     def forward(self, x):
         x = torch.chunk(x.view(-1, 2, 90, 100), 2, dim=1)
@@ -354,7 +355,7 @@ if __name__ == "__main__":
     #summary(m1, input_size=(1, 128, 128))
     # m2 = ImageDecoder(batchnorm=False)
     # summary(m1, input_size=(1, 16))
-    # m3 = CsiEncoder(batchnorm=False)
-    # summary(m1, input_size=(2, 90, 100))
-    m4 = ImageDecoderInterp(latent_dim=16)
-    summary(m4, input_size=(1, 16))
+    m3 = CsiEncoder(batchnorm=False)
+    summary(m3, input_size=(2, 90, 100))
+    # m4 = ImageDecoderInterp(latent_dim=16)
+    # summary(m4, input_size=(1, 16))
