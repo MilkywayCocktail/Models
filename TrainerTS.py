@@ -46,7 +46,7 @@ class Interpolate(nn.Module):
 
 
 class MyDataset(Data.Dataset):
-    def __init__(self, x_path, y_path, img_size=(128, 128), transform=None, img='y', int_image=True, number=0):
+    def __init__(self, x_path, y_path, img_size=(128, 128), transform=None, img='y', int_image=False, number=0):
         self.seeds = None
         self.img_size = img_size
         self.transform = transform
