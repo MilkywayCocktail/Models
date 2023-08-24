@@ -10,12 +10,20 @@ l = list(range(len(y)))
 keys = ['A', 'B', 'C']
 
 dics = {key:[] for key in keys}
-print(dics.items())
+#print(dics.items())
 
 dic2 = {'A':2, 'B':3, 'C':4}
 dics = {**dics, **dic2}
 
-print(f"\r123445", end='')
-print(f"\raabbc")
+#print(f"\r123445", end='')
+#print(f"\raabbc")
 
-print(0.4 ** 10)
+#print(0.4 ** 10)
+
+a = np.ones(4)
+b = a * 2
+c = a * 3
+e = np.array([a, b, c])
+print(e.shape)
+print(e.reshape((6, 2)).T)
+#print(e)
