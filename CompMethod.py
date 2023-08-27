@@ -53,6 +53,11 @@ class ResidualBlock(nn.Module):
 
 class Interpolate(nn.Module):
     def __init__(self, size, mode='bilinear'):
+        """
+        Interpolation layer
+        :param size: (height, width)
+        :param mode: interpolation mode
+        """
         super(Interpolate, self).__init__()
         self.interp = nn.functional.interpolate
         self.size = size
@@ -161,22 +166,22 @@ class Wi2Vi(nn.Module):
             # 8x6x128
             ResidualBlock(128, 128),
             # 8x6x128
-            Interpolate(size=(16, 12)),
+            Interpolate(size=(12, 16)),
             nn.Conv2d(128, 64, kernel_size=3, stride=1, padding=0),
             # 14x10x64
-            Interpolate(size=(28, 20)),
+            Interpolate(size=(20, 28)),
             nn.Conv2d(64, 32, kernel_size=3, stride=1, padding=0),
             # 26x18x32
-            Interpolate(size=(52, 36)),
+            Interpolate(size=(36, 52)),
             nn.Conv2d(32, 16, kernel_size=3, stride=1, padding=0),
             # 50x34x16
-            Interpolate(size=(100, 68)),
+            Interpolate(size=(68, 100)),
             nn.Conv2d(16, 8, kernel_size=3, stride=1, padding=0),
             # 98x66x8
-            Interpolate(size=(196, 132)),
+            Interpolate(size=(132, 196)),
             nn.Conv2d(8, 4, kernel_size=3, stride=1, padding=0),
             # 194x130x4
-            Interpolate(size=(388, 260)),
+            Interpolate(size=(260, 388)),
             nn.Conv2d(4, 2, kernel_size=3, stride=1, padding=0),
             # 386x258x2
             nn.Conv2d(2, 1, kernel_size=5, stride=1, padding=0),
@@ -188,14 +193,67 @@ class Wi2Vi(nn.Module):
     def forward(self, x):
         x = self.Dropin(x)
         x = self.Encoder(x)
-        x = self.Translator_A(x.view(-1, 2560))
-        x = self.Translator_B(x.view(-1, 1, 36, 27))
+        x = self.Translator_A(x.view(-1, 5120))
+        x = self.Translator_B(x.view(-1, 1, 27, 36))
         x = self.Decoder(x)
 
-        return x[..., 31:351, 7:247]
+        return x[..., 7:247, 31:351]
 
     def __str__(self):
         return 'Wi2Vi'
+
+
+class AutoEncoder(nn.Module):
+    def __init__(self, latent_dim=8, active_func=nn.Sigmoid()):
+        super(AutoEncoder, self).__init__()
+        self.latent_dim = latent_dim
+        self.active_func = active_func
+
+        self.EnCNN = nn.Sequential(
+            nn.Conv2d(1, 16, kernel_size=3, stride=(3, 1), padding=0),
+            nn.LeakyReLU(inplace=True),
+            nn.Conv2d(16, 32, kernel_size=3, stride=(2, 2), padding=0),
+            nn.LeakyReLU(inplace=True),
+            nn.Conv2d(32, 64, kernel_size=3, stride=(1, 1), padding=0),
+            nn.LeakyReLU(inplace=True),
+            nn.Conv2d(64, 128, kernel_size=3, stride=(1, 1), padding=0),
+            nn.LeakyReLU(inplace=True),
+            nn.Conv2d(128, 256, kernel_size=3, stride=(1, 1), padding=0),
+            nn.LeakyReLU(inplace=True),
+        )
+        self.EnLSTM = nn.LSTM(512, self.latent_dim, 2, batch_first=True, dropout=0.1)
+        self.DeFC = nn.Sequential(
+            nn.Linear(self.latent_dim, 4096),
+            nn.ReLU(),
+            nn.Linear(4096, 2048),
+            nn.ReLU(),
+        )
+        self.DeCNN = nn.Sequential(
+            nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
+            nn.LeakyReLU(inplace=True),
+            nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
+            nn.LeakyReLU(inplace=True),
+            nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
+            nn.LeakyReLU(inplace=True),
+            nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
+            nn.LeakyReLU(inplace=True),
+            nn.ConvTranspose2d(128, 1, kernel_size=4, stride=2, padding=1),
+            self.active_func
+        )
+
+    def __str__(self):
+        return f"AutoEncoder{self.latent_dim}"
+
+    def forward(self, x):
+        x = torch.chunk(x.view(-1, 2, 90, 100), 2, dim=1)
+        x1 = self.EnCNN(x[0])
+        x2 = self.EnCNN(x[1])
+
+        z = torch.cat([x1, x2], dim=1)
+        z, (final_hidden_state, final_cell_state) = self.EnLSTM.forward(z.view(-1, 512, 8 * 42).transpose(1, 2))
+        out = self.DeFC(z[:, -1, :])
+        out = self.DeCNN(out.view(-1, 128, 4, 4))
+        return out
 
 
 def timer(func):
@@ -237,12 +295,12 @@ class CompTrainer:
 
     @staticmethod
     def __gen_test__():
-        t_test_loss = {'loss': [],
-                       'PRED': [],
-                       'GT': [],
-                       'IND': []
-                       }
-        return t_test_loss
+        test_loss = {'LOSS': [],
+                     'PRED': [],
+                     'GT': [],
+                     'IND': []
+                     }
+        return test_loss
 
     @staticmethod
     def __plot_terms__():
@@ -341,6 +399,7 @@ class CompTrainer:
             EPOCH_LOSS = {key: [] for key in LOSS_TERMS}
 
             for idx, (data_x, data_y, index) in enumerate(self.valid_loader, 0):
+                data_x = data_x.to(torch.float32).to(self.args.device)
                 data_y = data_y.to(torch.float32).to(self.args.device)
                 with torch.no_grad():
                     PREDS = self.calculate_loss(data_x, data_y)
@@ -354,7 +413,7 @@ class CompTrainer:
                        f"../saved/{self.model}_{self.current_title()}_{notion}.pth")
 
     def test(self, mode='test'):
-        self.test_loss['t'] = self.__gen_test__()
+        self.test_loss = self.__gen_test__()
         self.model.eval()
         LOSS_TERMS = self.plot_terms['loss'].keys()
         PLOT_TERMS = self.plot_terms['predict']
@@ -370,7 +429,7 @@ class CompTrainer:
             data_y = data_y.to(torch.float32).to(self.args.device)
             with torch.no_grad():
                 for sample in range(loader.batch_size):
-                    ind = index[sample][np.newaxis, ...]
+                    ind = index[sample]
                     csi = data_x[sample][np.newaxis, ...]
                     gt = data_y[sample][np.newaxis, ...]
                     PREDS = self.calculate_loss(csi, gt, ind)
@@ -445,7 +504,7 @@ class CompTrainer:
         plt.show()
 
     def plot_test(self, select_ind=None, select_num=8, autosave=False, notion=''):
-        self.__plot_settings__()
+        # self.__plot_settings__()
         PLOT_ITEMS = self.plot_terms['test']
         LOSS_ITEMS = self.plot_terms['loss']
         epoch = self.train_loss['epochs'][-1]
@@ -522,9 +581,19 @@ class CompTrainer:
 
         print("\nSchedule Completed!")
 
+    def save_all_params(self, notion=''):
+        save_path = f"/{notion}"
+
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
+
+        torch.save(self.model.state_dict(),
+                   f"../saved/{notion}_{self.model}_{self.current_title()}.pth")
+
 
 if __name__ == "__main__":
-    m1 = Wi2Vi()
-    summary(m1, input_size=(18, 56, 29))
-    # m2 = ResidualBlock(in_channels=128, out_channels=128)
-    # summary(m2, input_size=(128, 10, 8))
+    # m1 = Wi2Vi()
+    # summary(m1, input_size=(6, 30, 100))
+    m2 = AutoEncoder()
+    summary(m2, input_size=(2, 90, 100))
+
