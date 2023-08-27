@@ -350,11 +350,11 @@ class CsiEncoder(nn.Module):
 
 
 if __name__ == "__main__":
-    #m1 = ImageEncoder(batchnorm=False, latent_dim=256)
-    #summary(m1, input_size=(1, 128, 128))
+    # m1 = ImageEncoder(batchnorm=False, latent_dim=256)
+    # summary(m1, input_size=(1, 128, 128))
     # m2 = ImageDecoder(batchnorm=False)
-    # summary(m1, input_size=(1, 16))
+    # summary(m2, input_size=(1, 16))
     # m3 = CsiEncoder(batchnorm=False)
-    # summary(m1, input_size=(2, 90, 100))
+    # summary(m3, input_size=(2, 90, 100))
     m4 = ImageDecoderInterp(latent_dim=16)
     summary(m4, input_size=(1, 16))

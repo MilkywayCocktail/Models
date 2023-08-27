@@ -397,10 +397,11 @@ class CompTrainer:
         stage_color = self.colors(self.train_loss['learning_rate'])
         line_color = ['b', 'orange']
         epoch = self.train_loss['epochs'][-1]
+        save_path = f'../saved/{notion}/'
 
         title = f"{self.model} Training Status @ep{epoch}"
 
-        filename = f"{notion}_{self.model}_train_{self.current_title()}.jpg"
+        filename = f"{save_path}{notion}_{self.model}_train_{self.current_title()}.jpg"
 
         # Training & Validation Loss
         fig = plt.figure(constrained_layout=True)
@@ -438,6 +439,8 @@ class CompTrainer:
             axes[i].legend()
 
         if autosave:
+            if not os.path.exists(save_path):
+                os.makedirs(save_path)
             plt.savefig(filename)
         plt.show()
 
@@ -446,11 +449,12 @@ class CompTrainer:
         PLOT_ITEMS = self.plot_terms['test']
         LOSS_ITEMS = self.plot_terms['loss']
         epoch = self.train_loss['epochs'][-1]
+        save_path = f'../saved/{notion}/'
 
         title = {'PRED': f"{self.model} Test Predicts @ep{epoch}",
                  'LOSS': f"{self.model} Test Loss @ep{epoch}"}
-        filename = {'PRED': f"{notion}_{self.model}_predict_{self.current_title()}.jpg",
-                    'LOSS': f"{notion}_{self.model}_test_{self.current_title()}.jpg"}
+        filename = {'PRED': f"{save_path}{notion}_{self.model}_predict_{self.current_title()}.jpg",
+                    'LOSS': f"{save_path}{notion}_{self.model}_test_{self.current_title()}.jpg"}
 
         if select_ind:
             inds = select_ind
@@ -474,6 +478,8 @@ class CompTrainer:
             subfigs[i].colorbar(img, ax=axes, shrink=0.8)
 
         if autosave:
+            if not os.path.exists(save_path):
+                os.makedirs(save_path)
             plt.savefig(filename['PRED'])
         plt.show()
 

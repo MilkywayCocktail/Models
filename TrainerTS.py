@@ -514,11 +514,12 @@ class TrainerTeacherStudent:
         stage_color = self.colors(self.train_loss[mode]['learning_rate'])
         line_color = ['b', 'orange']
         epoch = self.train_loss[mode]['epochs'][-1]
+        save_path = f'../saved/{notion}/'
 
         title = {'t': f"Teacher Training Status @ep{epoch}",
                  's': f"Student Training Status @ep{epoch}"}
-        filename = {'t': f"{notion}_T_train_{self.current_title()}.jpg",
-                    's': f"{notion}_S_train_{self.current_title()}.jpg"}
+        filename = {'t': f"{save_path}{notion}_T_train_{self.current_title()}.jpg",
+                    's': f"{save_path}{notion}_S_train_{self.current_title()}.jpg"}
 
         # Training & Validation Loss
         fig = plt.figure(constrained_layout=True)
@@ -556,6 +557,8 @@ class TrainerTeacherStudent:
             axes[i].legend()
 
         if autosave:
+            if not os.path.exists(save_path):
+                os.makedirs(save_path)
             plt.savefig(filename[mode])
         plt.show()
 
@@ -564,17 +567,18 @@ class TrainerTeacherStudent:
         PLOT_ITEMS = self.plot_terms[mode]['test']
         LOSS_ITEMS = self.plot_terms[mode]['loss']
         epoch = self.train_loss[mode]['epochs'][-1]
+        save_path = f'../saved/{notion}/'
 
         title = {'t': {'PRED': f"Teacher Test Predicts @ep{epoch}",
                        'LOSS': f"Teacher Test Loss @ep{epoch}"},
                  's': {'PRED': f"Student Test Predicts @ep{epoch}",
                        'LOSS': f"Student Test Loss @ep{epoch}",
                        'LATENT': f"Student Test Latents @ep{epoch}"}}
-        filename = {'t': {'PRED': f"{notion}_T_predict_{self.current_title()}.jpg",
-                          'LOSS': f"{notion}_T_test_{self.current_title()}.jpg"},
-                    's': {'PRED': f"{notion}_S_predict_{self.current_title()}.jpg",
-                          'LOSS': f"{notion}_S_test_{self.current_title()}.jpg",
-                          'LATENT': f"{notion}_S_latent_{self.current_title()}.jpg"}}
+        filename = {'t': {'PRED': f"{save_path}{notion}_T_predict_{self.current_title()}.jpg",
+                          'LOSS': f"{save_path}{notion}_T_test_{self.current_title()}.jpg"},
+                    's': {'PRED': f"{save_path}{notion}_S_predict_{self.current_title()}.jpg",
+                          'LOSS': f"{save_path}{notion}_S_test_{self.current_title()}.jpg",
+                          'LATENT': f"{save_path}{notion}_S_latent_{self.current_title()}.jpg"}}
 
         if select_ind:
             inds = select_ind
@@ -598,6 +602,8 @@ class TrainerTeacherStudent:
             subfigs[i].colorbar(img, ax=axes, shrink=0.8)
 
         if autosave:
+            if not os.path.exists(save_path):
+                os.makedirs(save_path)
             plt.savefig(filename[mode]['PRED'])
         plt.show()
 
@@ -705,21 +711,26 @@ class TrainerTeacherStudent:
         plt.ylabel(str(dim2))
 
         if autosave:
-            plt.savefig(f"{notion}_T_traverse_{dim1}{dim2}_{self.current_title()}.jpg")
+            save_path = f'../saved/{notion}/'
+
+            if not os.path.exists(save_path):
+                os.makedirs(save_path)
+
+            plt.savefig(f"{save_path}{notion}_T_traverse_{dim1}{dim2}_{self.current_title()}.jpg")
         plt.show()
 
     def save_all_params(self, notion=''):
-        save_path = '/'
+        save_path = f'../saved/{notion}/'
 
         if not os.path.exists(save_path):
             os.makedirs(save_path)
 
         torch.save(self.img_encoder.state_dict(),
-                   f"../saved/{self.img_encoder}{self.current_title()}_{notion}.pth")
+                   f"{save_path}{self.img_encoder}{self.current_title()}_{notion}.pth")
         torch.save(self.img_decoder.state_dict(),
-                   f"../saved/{self.img_decoder}{self.current_title()}_{notion}.pth")
+                   f"{save_path}{self.img_decoder}{self.current_title()}_{notion}.pth")
         torch.save(self.csi_encoder.state_dict(),
-                   f"../saved/{self.csi_encoder}{self.current_title()}_{notion}.pth")
+                   f"{save_path}{self.csi_encoder}{self.current_title()}_{notion}.pth")
 
     def scheduler(self, t_turns=10, s_turns=10, lr_decay=False, decay_rate=0.4, test_mode='train', autosave=False, notion=''):
 
