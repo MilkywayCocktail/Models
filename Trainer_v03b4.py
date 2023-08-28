@@ -68,7 +68,7 @@ class ImageEncoderV03b4(ImageEncoder):
             nn.Linear(4 * 4 * 256, 4096),
             nn.ReLU(),
             nn.Linear(4096, self.latent_dim),
-            # nn.Tanh()
+            self.active_func
         )
 
     def __str__(self):
