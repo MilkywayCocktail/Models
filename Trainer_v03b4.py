@@ -12,7 +12,7 @@ from TrainerTS import timer, MyDataset, split_loader, MyArgs, TrainerTeacherStud
 # CSIEncoder: in = 2 * 90 * 100, out = 1 * 256 (Unused)
 
 class ImageEncoderV03b4(ImageEncoder):
-    def __init__(self, bottleneck='fc', batchnorm=False, latent_dim=8):
+    def __init__(self, bottleneck='fc', batchnorm=False, latent_dim=8, active_func=nn.Tanh()):
         super(ImageEncoderV03b4, self).__init__(bottleneck, batchnorm, latent_dim, active_func)
 
         self.layer1 = nn.Sequential(
