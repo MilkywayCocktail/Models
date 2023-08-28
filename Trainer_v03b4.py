@@ -11,9 +11,9 @@ from TrainerTS import timer, MyDataset, split_loader, MyArgs, TrainerTeacherStud
 # ImageDecoder: in = 1 * latent_dim, out = 128 * 128
 # CSIEncoder: in = 2 * 90 * 100, out = 1 * 256 (Unused)
 
-class ImageEncoderM1(ImageEncoder):
+class ImageEncoderV03b4(ImageEncoder):
     def __init__(self, bottleneck='fc', batchnorm=False, latent_dim=8):
-        super(ImageEncoderM1, self).__init__(bottleneck, batchnorm, latent_dim)
+        super(ImageEncoderV03b4, self).__init__(bottleneck, batchnorm, latent_dim)
 
         self.layer1 = nn.Sequential(
             nn.Conv2d(1, 128, kernel_size=3, stride=2, padding=1),
@@ -72,12 +72,12 @@ class ImageEncoderM1(ImageEncoder):
         )
 
     def __str__(self):
-        return 'Model_v03b4_ImgEn_' + self.bottleneck.capitalize()
+        return 'ImgEnV03b4' + self.bottleneck.capitalize()
 
 
-class ImageDecoderM1(ImageDecoder):
+class ImageDecoderV03b4(ImageDecoder):
     def __init__(self, batchnorm=False, latent_dim=8, active_func=nn.Sigmoid()):
-        super(ImageDecoderM1, self).__init__(batchnorm, latent_dim, active_func)
+        super(ImageDecoderV03b4, self).__init__(batchnorm, latent_dim, active_func)
 
         self.fclayers = nn.Sequential(
             nn.Linear(self.latent_dim, 4096),
@@ -127,7 +127,7 @@ class ImageDecoderM1(ImageDecoder):
         )
 
     def __str__(self):
-        return 'Model_v03b4_ImgDe_'
+        return 'ImgDeV03b4'
 
     def forward(self, z):
         z = self.fclayers(z)
