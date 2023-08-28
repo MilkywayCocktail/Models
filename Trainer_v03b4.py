@@ -13,7 +13,7 @@ from TrainerTS import timer, MyDataset, split_loader, MyArgs, TrainerTeacherStud
 
 class ImageEncoderV03b4(ImageEncoder):
     def __init__(self, bottleneck='fc', batchnorm=False, latent_dim=8):
-        super(ImageEncoderV03b4, self).__init__(bottleneck, batchnorm, latent_dim)
+        super(ImageEncoderV03b4, self).__init__(bottleneck, batchnorm, latent_dim, active_func)
 
         self.layer1 = nn.Sequential(
             nn.Conv2d(1, 128, kernel_size=3, stride=2, padding=1),
