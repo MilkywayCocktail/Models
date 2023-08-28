@@ -81,7 +81,7 @@ class ImageEncoder(nn.Module):
         )
 
     def __str__(self):
-        return 'v03b1_ImgEn_' + self.bottleneck.capitalize()
+        return 'ImgEnV03b1' + self.bottleneck.capitalize()
 
     def forward(self, x):
         x = self.layer1(x)
@@ -162,7 +162,7 @@ class ImageDecoder(nn.Module):
         )
 
     def __str__(self):
-        return 'v03b1_ImgDe_' + self.fc
+        return 'ImgDeV03b1' + self.fc
 
     def forward(self, x):
 
@@ -227,7 +227,7 @@ class ImageDecoderInterp(ImageDecoder):
         )
 
     def __str__(self):
-        return 'v03b1_ImgDeI_' + self.fc
+        return 'ImgDeV03b1Interp' + self.fc
 
     def forward(self, x):
 
@@ -313,7 +313,7 @@ class CsiEncoder(nn.Module):
         )
 
     def __str__(self):
-        return 'v03b1_CsiEn_' + self.bottleneck.capitalize()
+        return 'CsiEnV03b1' + self.bottleneck.capitalize()
 
     def forward(self, x):
         x = torch.chunk(x.view(-1, 2, 90, 100), 2, dim=1)
