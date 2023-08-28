@@ -309,7 +309,7 @@ class CsiEncoder(nn.Module):
         )
 
         self.lstm = nn.Sequential(
-            nn.LSTM(512, 2 * self.latent_dim, 2, batch_first=True, dropout=0.1)
+            nn.LSTM(512, self.latent_dim, 2, batch_first=True, dropout=0.1)
         )
 
     def __str__(self):
@@ -345,5 +345,5 @@ class CsiEncoder(nn.Module):
 
 
 if __name__ == "__main__":
-    m1 = ImageEncoder(batchnorm=False, latent_dim=8)
-    summary(m1, input_size=(1, 128, 128))
+    m1 = CsiEncoder(batchnorm=False, latent_dim=16)
+    summary(m1, input_size=(2, 90, 100))
