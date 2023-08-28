@@ -726,11 +726,11 @@ class TrainerTeacherStudent:
             os.makedirs(save_path)
 
         torch.save(self.img_encoder.state_dict(),
-                   f"{save_path}{self.img_encoder}{self.current_title()}_{notion}.pth")
+                   f"{save_path}{notion}_{self.img_encoder}{self.current_title()}.pth")
         torch.save(self.img_decoder.state_dict(),
-                   f"{save_path}{self.img_decoder}{self.current_title()}_{notion}.pth")
+                   f"{save_path}{notion}_{self.img_decoder}{self.current_title()}.pth")
         torch.save(self.csi_encoder.state_dict(),
-                   f"{save_path}{self.csi_encoder}{self.current_title()}_{notion}.pth")
+                   f"{save_path}{notion}_{self.csi_encoder}{self.current_title()}.pth")
 
     def scheduler(self, t_turns=10, s_turns=10, lr_decay=False, decay_rate=0.4, test_mode='train', autosave=False, notion=''):
 
