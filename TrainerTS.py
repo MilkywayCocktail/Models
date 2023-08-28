@@ -732,22 +732,24 @@ class TrainerTeacherStudent:
         torch.save(self.csi_encoder.state_dict(),
                    f"{save_path}{notion}_{self.csi_encoder}{self.current_title()}.pth")
 
-    def scheduler(self, t_turns=10, s_turns=10, lr_decay=False, decay_rate=0.4, test_mode='train', autosave=False, notion=''):
+    def scheduler(self, train_t=True, train_s=True, t_turns=10, s_turns=10, lr_decay=False, decay_rate=0.4, test_mode='train', autosave=False, notion=''):
 
-        for i in range(t_turns):
-            self.train_teacher()
-            self.test_teacher(mode=test_mode)
-            self.plot_test(mode='t', autosave=autosave, notion=notion)
-            self.plot_train_loss(mode='t', autosave=autosave, notion=notion)
-            if lr_decay:
-                self.args['t'].learning_rate *= decay_rate
+        if train_t:
+            for i in range(t_turns):
+                self.train_teacher()
+                self.test_teacher(mode=test_mode)
+                self.plot_test(mode='t', autosave=autosave, notion=notion)
+                self.plot_train_loss(mode='t', autosave=autosave, notion=notion)
+                if lr_decay:
+                    self.args['t'].learning_rate *= decay_rate
 
-        for i in range(s_turns):
-            self.train_student()
-            self.test_student(mode=test_mode)
-            self.plot_test(mode='s', autosave=autosave, notion=notion)
-            self.plot_train_loss(mode='s', autosave=autosave, notion=notion)
-            if lr_decay:
-                self.args['s'].learning_rate *= decay_rate
+        if train_s:
+            for i in range(s_turns):
+                self.train_student()
+                self.test_student(mode=test_mode)
+                self.plot_test(mode='s', autosave=autosave, notion=notion)
+                self.plot_train_loss(mode='s', autosave=autosave, notion=notion)
+                if lr_decay:
+                    self.args['s'].learning_rate *= decay_rate
 
         print("\nSchedule Completed!")
