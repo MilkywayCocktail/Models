@@ -67,7 +67,7 @@ class ImageEncoderV03b4(ImageEncoder):
         self.fclayers = nn.Sequential(
             nn.Linear(4 * 4 * 256, 4096),
             nn.ReLU(),
-            nn.Linear(4096, 2 * self.latent_dim),
+            nn.Linear(4096, self.latent_dim),
             # nn.Tanh()
         )
 
@@ -142,5 +142,5 @@ class ImageDecoderV03b4(ImageDecoder):
 
 
 if __name__ == "__main__":
-    m1 = ImageDecoderM1(batchnorm=False, latent_dim=8)
-    summary(m1, input_size=(1, 8))
+    m1 = ImageEncoderV03b4(batchnorm=False, latent_dim=16)
+    summary(m1, input_size=(1, 128, 128))
