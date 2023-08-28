@@ -641,10 +641,10 @@ class TrainerTeacherStudent:
             axes = fig.subplots(nrows=2, ncols=np.ceil(select_num / 2).astype(int))
             axes = axes.flatten()
             for j in range(select_num):
-                axes[j].bar(range(2 * self.latent_dim),
+                axes[j].bar(range(len(self.test_loss[mode]['T_LATENT'][inds[0]])),
                             self.test_loss[mode]['T_LATENT'][inds[j]],
                             width=1, fc='blue', alpha=0.8, label='Teacher')
-                axes[j].bar(range(2 * self.latent_dim),
+                axes[j].bar(range(len(self.test_loss[mode]['S_LATENT'][inds[0]])),
                             self.test_loss[mode]['S_LATENT'][inds[j]],
                             width=1, fc='orange', alpha=0.8, label='Student')
                 axes[j].set_title(f"#{samples[j]}")
