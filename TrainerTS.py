@@ -128,12 +128,12 @@ class MnistDataset(MyDataset):
             return {'x': x, 'y': y}
 
 
-def split_loader(dataset, train_size, valid_size, test_size, batch_size):
+def split_loader(dataset, train_size, valid_size, test_size, batch_size, shuffle=True):
     train_dataset, valid_dataset, test_dataset = Data.random_split(dataset, [train_size, valid_size, test_size])
     print(len(train_dataset), len(valid_dataset), len(test_dataset))
-    train_loader = Data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
-    valid_loader = Data.DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
-    test_loader = Data.DataLoader(test_dataset, batch_size=1, shuffle=True)
+    train_loader = Data.DataLoader(train_dataset, batch_size=batch_size, shuffle=shuffle, drop_last=True)
+    valid_loader = Data.DataLoader(valid_dataset, batch_size=batch_size, shuffle=shuffle, drop_last=True)
+    test_loader = Data.DataLoader(test_dataset, batch_size=1, shuffle=shuffle)
     return train_loader, valid_loader, test_loader
 
 
