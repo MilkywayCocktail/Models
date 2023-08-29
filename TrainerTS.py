@@ -57,7 +57,7 @@ class MyDataset(Data.Dataset):
 
     def __convert2int(self, sample):
         if self.int_img:
-            return np.uint8(np.array(sample * 255))
+            return np.array(sample * 255).astype(np.uint8)
         else:
             return sample
 
@@ -69,9 +69,9 @@ class MyDataset(Data.Dataset):
 
     def __getitem__(self, index):
         if self.img == 'y':
-            return self.data['x'][index], self.__transform__(self.data['y'][index]), index
+            return self.data['x'][index], self.__transform__(self.__convert2int(self.data['y'][index])), index
         elif self.img == 'x':
-            return self.__transform__(self.data['x'][index]), self.data['y'][index], index
+            return self.__transform__(self.__convert2int(self.data['x'][index])), self.data['y'][index], index
 
     def __len__(self):
         return self.data['x'].shape[0]
