@@ -57,7 +57,7 @@ class MyDataset(Data.Dataset):
 
     def __convert__(self, sample):
         if self.int_img:
-            return np.array(sample * 255).astype(np.uint8)
+            return np.uint8(np.array(sample * 255))
         else:
             return np.array(sample)
 
