@@ -309,6 +309,8 @@ class CsiEncoder(nn.Module):
             # nn.ReLU()
         )
 
+        self.last_fc = nn.Linear(16, 16)
+
         self.lstm = nn.Sequential(
             nn.LSTM(512, self.latent_dim, 2, batch_first=True, dropout=0.1)
         )
@@ -341,6 +343,9 @@ class CsiEncoder(nn.Module):
 
         elif self.bottleneck == 'last':
             out = out[:, -1, :]
+
+        elif self.bottleneck == 'last_fc':
+            out = self.last_fc(out[:, -1, :])
 
         return out
 
