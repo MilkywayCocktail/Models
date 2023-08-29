@@ -63,7 +63,7 @@ class MyDataset(Data.Dataset):
 
     def __transform__(self, sample):
         if self.transform:
-            return self.transform(Image.fromarray(self.__convert__(sample)), mode='L')
+            return self.transform(Image.fromarray((self.__convert__(sample)).squeeze(), mode='L'))
         else:
             return self.__convert__(sample)
 
