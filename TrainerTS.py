@@ -59,11 +59,11 @@ class MyDataset(Data.Dataset):
         if self.int_img:
             return np.array(sample * 255).astype(np.uint8)
         else:
-            return sample
+            return np.array(sample)
 
     def __transform__(self, sample):
         if self.transform:
-            return self.transform(Image.fromarray(sample).squeeze(), mode='L')
+            return self.transform(Image.fromarray(sample), mode='L')
         else:
             return sample
 
