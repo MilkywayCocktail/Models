@@ -409,8 +409,11 @@ class CompTrainer:
                 self.valid_loss[key].append(np.average(EPOCH_LOSS[key]))
 
         if autosave:
+            save_path = f'../saved/{notion}/'
+            if not os.path.exists(save_path):
+                os.makedirs(save_path)
             torch.save(self.model.state_dict(),
-                       f"../saved/{self.model}_{self.current_title()}_{notion}.pth")
+                       f"{save_path}{notion}_{self.model}_{self.current_title()}.pth")
 
     def test(self, mode='test'):
         self.test_loss = self.__gen_test__()
@@ -588,7 +591,7 @@ class CompTrainer:
             os.makedirs(save_path)
 
         torch.save(self.model.state_dict(),
-                   f"{save_path}_{self.model}_{self.current_title()}.pth")
+                   f"{save_path}{notion}_{self.model}_{self.current_title()}.pth")
 
 
 if __name__ == "__main__":

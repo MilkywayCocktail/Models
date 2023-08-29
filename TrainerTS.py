@@ -377,10 +377,13 @@ class TrainerTeacherStudent:
                 self.valid_loss['t'][key].append(np.average(EPOCH_LOSS[key]))
 
         if autosave:
+            save_path = f'../saved/{notion}/'
+            if not os.path.exists(save_path):
+                os.makedirs(save_path)
             torch.save(self.img_encoder.state_dict(),
-                       f"../saved/{notion}_{self.img_encoder}_{self.current_title()}.pth")
+                       f"{save_path}{notion}_{self.img_encoder}_{self.current_title()}.pth")
             torch.save(self.img_decoder.state_dict(),
-                       f"../saved/{notion}_{self.img_decoder}_{self.current_title()}.pth")
+                       f"{save_path}{notion}_{self.img_decoder}_{self.current_title()}.pth")
 
     @timer
     def train_student(self, autosave=False, notion=''):
@@ -435,8 +438,11 @@ class TrainerTeacherStudent:
                 self.valid_loss['s'][key].append(np.average(EPOCH_LOSS[key]))
 
         if autosave:
+            save_path = f'../saved/{notion}/'
+            if not os.path.exists(save_path):
+                os.makedirs(save_path)
             torch.save(self.csi_encoder.state_dict(),
-                       f"../saved/{notion}_{self.csi_encoder}_{self.current_title()}.pth")
+                       f"{save_path}{notion}_{self.csi_encoder}_{self.current_title()}.pth")
 
     def test_teacher(self, mode='test'):
         self.test_loss['t'] = self.__gen_teacher_test__()
