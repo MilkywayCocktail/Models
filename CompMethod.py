@@ -582,13 +582,13 @@ class CompTrainer:
         print("\nSchedule Completed!")
 
     def save_all_params(self, notion=''):
-        save_path = f"/{notion}"
+        save_path = f'../saved/{notion}/'
 
         if not os.path.exists(save_path):
             os.makedirs(save_path)
 
         torch.save(self.model.state_dict(),
-                   f"../saved/{notion}_{self.model}_{self.current_title()}.pth")
+                   f"{save_path}_{self.model}_{self.current_title()}.pth")
 
 
 if __name__ == "__main__":
