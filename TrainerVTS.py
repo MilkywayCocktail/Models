@@ -15,7 +15,7 @@ class TrainerVTS(TrainerTeacherStudent):
                  teacher_args, student_args,
                  train_loader, valid_loader, test_loader,
                  div_loss=nn.KLDivLoss(reduction='batchmean'),
-                 img_loss=nn.MSELoss(),
+                 img_loss=nn.MSELoss(reduction='sum'),
                  temperature=20,
                  alpha=0.3,
                  latent_dim=8,
