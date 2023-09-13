@@ -1,4 +1,4 @@
-from Trainer_v03b2 import *
+from Model_VTS import *
 from TrainerVTS import *
 
 # ------------------------------------- #

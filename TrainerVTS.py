@@ -4,13 +4,13 @@ import numpy as np
 import matplotlib.ticker as ticker
 from scipy.stats import norm
 import matplotlib.pyplot as plt
-from TrainerTS import timer, MyDataset, split_loader, MyArgs, TrainerTeacherStudent
+from TrainerTS import timer, MyDataset, split_loader, MyArgs, TrainerTS
 
 # ------------------------------------- #
 # Trainer of VAE Teacher-student network
 
 
-class TrainerVTS(TrainerTeacherStudent):
+class TrainerVTS(TrainerTS):
     def __init__(self, img_encoder, img_decoder, csi_encoder,
                  teacher_args, student_args,
                  train_loader, valid_loader, test_loader,

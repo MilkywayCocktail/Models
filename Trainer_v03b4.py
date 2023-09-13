@@ -1,5 +1,5 @@
-from Trainer_v03b1 import *
-from TrainerTS import timer, MyDataset, split_loader, MyArgs, TrainerTeacherStudent, bn, Interpolate
+from Model_TS import *
+from TrainerTS import timer, MyDataset, split_loader, MyArgs, TrainerTS, bn, Interpolate
 
 
 # ------------------------------------- #
