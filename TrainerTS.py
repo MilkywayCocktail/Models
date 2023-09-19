@@ -191,7 +191,7 @@ class MnistDataset(MyDataset):
             return {'x': x, 'y': y}
 
 
-def split_loader(dataset, train_size, valid_size, test_size, batch_size, shuffle=True):
+def split_loader(dataset, train_size, valid_size, test_size, batch_size, random=True, shuffle=True):
     """
     Split the dataset into train, validation and test.
     :param dataset: loaded dataset
@@ -199,10 +199,19 @@ def split_loader(dataset, train_size, valid_size, test_size, batch_size, shuffle
     :param valid_size: number of validation samples
     :param test_size: number of test samples
     :param batch_size: batch size
+    :param random: whether to split the dataset randomly. Default is True
     :param shuffle: whether to shuffle samples. Default is True
     :return: train dataloader, validation dataloader, test dataloader
     """
-    train_dataset, valid_dataset, test_dataset = Data.random_split(dataset, [train_size, valid_size, test_size])
+
+    if random:
+        train_dataset, valid_dataset, test_dataset = Data.random_split(dataset, [train_size, valid_size, test_size])
+    else:
+        train_dataset = torch.utils.data.Subset(dataset, range(train_size))
+        valid_dataset = torch.utils.data.Subset(dataset, range(train_size, train_size + valid_size))
+        test_dataset = torch.utils.data.Subset(dataset,
+                                               range(train_size + valid_size, train_size + valid_size + test_size))
+
     print(len(train_dataset), len(valid_dataset), len(test_dataset))
     train_loader = Data.DataLoader(train_dataset, batch_size=batch_size, shuffle=shuffle, drop_last=True)
     valid_loader = Data.DataLoader(valid_dataset, batch_size=batch_size, shuffle=shuffle, drop_last=True)

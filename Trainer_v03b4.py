@@ -1,4 +1,4 @@
-from Model_TS import *
+from ModelTS import *
 from TrainerTS import timer, MyDataset, split_loader, MyArgs, TrainerTS, bn, Interpolate
 
 
