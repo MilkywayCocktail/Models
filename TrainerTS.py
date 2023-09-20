@@ -191,7 +191,7 @@ class MnistDataset(MyDataset):
             return {'x': x, 'y': y}
 
 
-def split_loader(dataset, train_size, valid_size, test_size, batch_size, random=True, shuffle=True):
+def split_loader(dataset, train_size, valid_size, test_size, batch_size, random=True, shuffle=True, generator=None):
     """
     Split the dataset into train, validation and test.
     :param dataset: loaded dataset
@@ -201,11 +201,13 @@ def split_loader(dataset, train_size, valid_size, test_size, batch_size, random=
     :param batch_size: batch size
     :param random: whether to split the dataset randomly. Default is True
     :param shuffle: whether to shuffle samples. Default is True
+    :param generator: random seed generator for random split. Default is None
     :return: train dataloader, validation dataloader, test dataloader
     """
 
     if random:
-        train_dataset, valid_dataset, test_dataset = Data.random_split(dataset, [train_size, valid_size, test_size])
+        train_dataset, valid_dataset, test_dataset = Data.random_split(dataset, [train_size, valid_size, test_size],
+                                                                       generator=generator)
     else:
         train_dataset = torch.utils.data.Subset(dataset, range(train_size))
         valid_dataset = torch.utils.data.Subset(dataset, range(train_size, train_size + valid_size))
