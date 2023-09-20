@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from Trainer_v03b3 import ImageEncoderV03b3, ImageDecoderV03b3
-from Model_VTS import *
+from ModelVTS import *
 from TrainerTS import timer, MyDataset, split_loader, MyArgs, bn, Interpolate
 from TrainerVTS import TrainerVTS
 
