@@ -339,3 +339,105 @@ class TrainerVTSMask(TrainerVTS):
                     'T_PRED': t_output,
                     'S_PRED': s_output,
                     'IND': i}
+
+    @timer
+    def train_teacher(self, autosave=False, notion=''):
+        """
+        Trains the teacher.
+        :param autosave: whether to save model parameters. Default is False
+        :param notion: additional notes in save name
+        :return: trained teacher
+        """
+        self.logger(mode='t')
+        teacher_optimizer = self.args['t'].optimizer([{'params': self.img_encoder.parameters()},
+                                                      {'params': self.img_decoder.parameters()}],
+                                                     lr=self.args['t'].learning_rate)
+        LOSS_TERMS = self.plot_terms['t']['loss'].keys()
+
+        for epoch in range(self.args['t'].epochs):
+
+            # =====================train============================
+            self.img_encoder.train()
+            self.img_decoder.train()
+            self.msk_decoder.train()
+            EPOCH_LOSS = {key: [] for key in LOSS_TERMS}
+            for idx, (data_x, data_y, index) in enumerate(self.train_loader, 0):
+                data_y = data_y.to(torch.float32).to(self.args['t'].device)
+                teacher_optimizer.zero_grad()
+
+                PREDS = self.calculate_loss('t', None, data_y)
+                self.temp_loss['LOSS'].backward()
+                teacher_optimizer.step()
+                for key in LOSS_TERMS:
+                    EPOCH_LOSS[key].append(self.temp_loss[key].item())
+
+                if idx % (len(self.train_loader) // 5) == 0:
+                    print(f"\rTeacher: epoch={epoch}/{self.args['t'].epochs}, batch={idx}/{len(self.train_loader)},"
+                          f"loss={self.temp_loss['LOSS'].item()}", end='')
+            for key in LOSS_TERMS:
+                self.train_loss['t'][key].append(np.average(EPOCH_LOSS[key]))
+
+            # =====================valid============================
+            self.img_encoder.eval()
+            self.img_decoder.eval()
+            EPOCH_LOSS = {key: [] for key in LOSS_TERMS}
+
+            for idx, (data_x, data_y, index) in enumerate(self.valid_loader, 0):
+                data_y = data_y.to(torch.float32).to(self.args['t'].device)
+                with torch.no_grad():
+                    PREDS = self.calculate_loss('t', None, data_y)
+                for key in LOSS_TERMS:
+                    EPOCH_LOSS[key].append(self.temp_loss[key].item())
+            for key in LOSS_TERMS:
+                self.valid_loss['t'][key].append(np.average(EPOCH_LOSS[key]))
+
+        if autosave:
+            save_path = f'../saved/{notion}/'
+            if not os.path.exists(save_path):
+                os.makedirs(save_path)
+            torch.save(self.img_encoder.state_dict(),
+                       f"{save_path}{notion}_{self.img_encoder}_{self.current_title()}.pth")
+            torch.save(self.img_decoder.state_dict(),
+                       f"{save_path}{notion}_{self.img_decoder}_{self.current_title()}.pth")
+
+    def test_teacher(self, mode='test'):
+        """
+        Tests the teacher and saves estimates.
+        :param mode: 'test' or 'train' (selects data loader). Default is 'test'
+        :return: test results
+        """
+        self.test_loss['t'] = self.__gen_teacher_test__()
+        self.img_encoder.eval()
+        self.img_decoder.eval()
+        self.msk_decoder.eval()
+        LOSS_TERMS = self.plot_terms['t']['loss'].keys()
+        PLOT_TERMS = self.plot_terms['t']['predict']
+        EPOCH_LOSS = {key: [] for key in LOSS_TERMS}
+
+        if mode == 'test':
+            loader = self.test_loader
+        elif mode == 'train':
+            loader = self.train_loader
+
+        for idx, (data_x, data_y, index) in enumerate(loader, 0):
+            data_y = data_y.to(torch.float32).to(self.args['t'].device)
+            with torch.no_grad():
+                for sample in range(loader.batch_size):
+                    ind = index[sample][np.newaxis, ...]
+                    gt = data_y[sample][np.newaxis, ...]
+                    PREDS = self.calculate_loss('t', None, gt, ind)
+
+                    for key in LOSS_TERMS:
+                        EPOCH_LOSS[key].append(self.temp_loss[key].item())
+
+                    for key in PLOT_TERMS:
+                        self.test_loss['t'][key].append(PREDS[key].cpu().detach().numpy().squeeze())
+                    for key in LOSS_TERMS:
+                        self.test_loss['t'][key] = EPOCH_LOSS[key]
+
+            if idx % (len(loader)//5) == 0:
+                print(f"\rTeacher: test={idx}/{len(loader)}, loss={self.temp_loss['LOSS'].item()}", end='')
+
+        for key in LOSS_TERMS:
+            EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
+        print(f"\nTest finished. Average loss={EPOCH_LOSS}")

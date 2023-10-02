@@ -669,5 +669,5 @@ if __name__ == "__main__":
     # summary(m2, input_size=(1, 16))
     # m3 = CsiEncoder(batchnorm=False)
     # summary(m3, input_size=(2, 90, 100))
-    m4 = ImageEncoderV03c2(latent_dim=16)
-    summary(m4, input_size=(1, 128, 128))
+    m4 = ImageDecoderV03c2(latent_dim=16)
+    summary(m4, input_size=(1, 16))
