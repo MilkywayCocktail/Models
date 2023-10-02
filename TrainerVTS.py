@@ -289,7 +289,8 @@ class TrainerVTSMask(TrainerVTS):
                  'predict': ('GT', 'PRED', 'MASK', 'IND'),
                  'test': {'GT': 'Ground Truth',
                           'PRED': 'Estimated',
-                          'MASK': "Est Mask"}
+                 #         'MASK': "Est Mask"
+                          }
                  }
         return terms
 
