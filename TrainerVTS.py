@@ -230,3 +230,112 @@ class TrainerVTS(TrainerTS):
         if autosave:
             plt.savefig(f"{notion}_T_traverse_{self.latent_dim}_{self.current_title()}.jpg")
         plt.show()
+
+
+class TrainerVTSMask(TrainerVTS):
+    def __init__(self, img_encoder, img_decoder, csi_encoder, msk_decoder,
+                 teacher_args, student_args,
+                 train_loader, valid_loader, test_loader,
+                 div_loss=nn.KLDivLoss(reduction='batchmean'),
+                 img_loss=nn.MSELoss(reduction='sum'),
+                 temperature=20,
+                 alpha=0.3,
+                 latent_dim=8,
+                 kl_weight=0.25
+                 ):
+        super(TrainerVTSMask, self).__init__(img_encoder=img_encoder, img_decoder=img_decoder, csi_encoder=csi_encoder,
+                                         teacher_args=teacher_args, student_args=student_args,
+                                         train_loader=train_loader, valid_loader=valid_loader, test_loader=test_loader,
+                                         div_loss=div_loss,
+                                         img_loss=img_loss,
+                                         temperature=temperature,
+                                         alpha=alpha,
+                                         latent_dim=latent_dim)
+        self.kl_weight = kl_weight
+        self.mask_loss = torch.nn.BCELoss(reduction='sum')
+        self.msk_decoder = msk_decoder
+
+    @staticmethod
+    def __gen_teacher_train__():
+        t_train_loss = {'learning_rate': [],
+                        'epochs': [0],
+                        'LOSS': [],
+                        'KL': [],
+                        'RECON': [],
+                        'MASK': [],
+                        }
+
+        return t_train_loss
+
+    @staticmethod
+    def __gen_teacher_test__():
+        t_test_loss = {'LOSS': [],
+                       'RECON': [],
+                       'KL': [],
+                       'PRED': [],
+                       'MASK': [],
+                       'GT': [],
+                       'IND': []}
+        return t_test_loss
+
+    @staticmethod
+    def __teacher_plot_terms__():
+        terms = {'loss': {'LOSS': 'Loss',
+                          'KL': 'KL Loss',
+                          'RECON': 'Reconstruction Loss',
+                          'MASK': 'Mask Loss'
+                          },
+                 'predict': ('GT', 'PRED', 'MASK', 'IND'),
+                 'test': {'GT': 'Ground Truth',
+                          'PRED': 'Estimated',
+                          'MASK': "Est Mask"}
+                 }
+        return terms
+
+    def loss(self, y, m, gt, latent):
+        # reduction = 'sum'
+        mask = gt
+        mask[mask > 0] = 1
+        recon_loss = self.args['t'].criterion(y, gt) / y.shape[0]
+        kl_loss = self.kl_loss(latent)
+        loss = recon_loss + kl_loss * self.kl_weight
+        mask_loss = self.mask_loss(m, mask)
+        return loss, kl_loss, recon_loss, mask_loss
+
+    def calculate_loss(self, mode, x, y, i=None):
+        if mode == 't':
+            latent, z = self.img_encoder(y)
+            output = self.img_decoder(z)
+            mask = self.msk_decoder(z)
+            loss, kl_loss, recon_loss, mask_loss = self.loss(output, mask, y, latent)
+            self.temp_loss = {'LOSS': loss,
+                              'KL': kl_loss,
+                              'RECON': recon_loss,
+                              'MASK': mask_loss}
+            return {'GT': y,
+                    'PRED': output,
+                    'MASK': mask,
+                    'IND': i}
+
+        elif mode == 's':
+            s_latent, s_z = self.csi_encoder(x)
+            with torch.no_grad():
+                t_latent, t_z = self.img_encoder(y)
+                s_output = self.img_decoder(s_z)
+                t_output = self.img_decoder(t_z)
+                image_loss = self.img_loss(s_output, y)
+
+            straight_loss = self.args['s'].criterion(s_latent, t_latent)
+            distil_loss = self.div_loss(self.logsoftmax(s_latent / self.temperature),
+                                        nn.functional.softmax(t_latent / self.temperature, -1))
+            loss = self.alpha * straight_loss + (1 - self.alpha) * distil_loss
+            self.temp_loss = {'LOSS': loss,
+                              'STRA': straight_loss,
+                              'DIST': distil_loss,
+                              'IMG': image_loss}
+            return {'GT': y,
+                    'T_LATENT': t_latent,
+                    'S_LATENT': s_latent,
+                    'T_PRED': t_output,
+                    'S_PRED': s_output,
+                    'IND': i}
