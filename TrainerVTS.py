@@ -293,14 +293,12 @@ class TrainerVTSMask(TrainerVTS):
                  }
         return terms
 
-    def loss(self, y, m, gt, latent):
+    def loss(self, y, m, gt_y, gt_m, latent):
         # reduction = 'sum'
-        one = torch.ones_like(gt)
-        mask = torch.where(gt > 0, one, gt)
-        recon_loss = self.args['t'].criterion(y, gt) / y.shape[0]
+        recon_loss = self.args['t'].criterion(y, gt_y) / y.shape[0]
         kl_loss = self.kl_loss(latent)
-        loss = recon_loss + kl_loss * self.kl_weight
-        mask_loss = self.mask_loss(m, mask)
+        mask_loss = self.mask_loss(m, gt_m)
+        loss = recon_loss + kl_loss * self.kl_weight + mask_loss
         return loss, kl_loss, recon_loss, mask_loss
 
     def calculate_loss(self, mode, x, y, i=None):
@@ -308,7 +306,9 @@ class TrainerVTSMask(TrainerVTS):
             latent, z = self.img_encoder(y)
             output = self.img_decoder(z)
             mask = self.msk_decoder(z)
-            loss, kl_loss, recon_loss, mask_loss = self.loss(output, mask, y, latent)
+            one = torch.ones_like(y)
+            gt_mask = torch.where(y > 0, one, y)
+            loss, kl_loss, recon_loss, mask_loss = self.loss(output, mask, y, gt_mask, latent)
             self.temp_loss = {'LOSS': loss,
                               'KL': kl_loss,
                               'RECON': recon_loss,
