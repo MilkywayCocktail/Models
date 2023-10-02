@@ -460,6 +460,7 @@ class ImageDecoderV03c2(ImageDecoderV03c1):
         z = self.fclayers(z)
         z = self.cnn(z.view(-1, 128, 4, 4))
 
+        return z.view(-1, 1, 128, 128)
 
 class ImageEncoderV03c3(ImageEncoderV03c2):
     def __init__(self, bottleneck='fc', batchnorm=False, latent_dim=8, active_func=nn.Tanh()):
