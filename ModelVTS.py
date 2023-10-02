@@ -521,7 +521,14 @@ class ImageEncoderV03c3(ImageEncoderV03c2):
 
 class ImageDecoderV03c3(ImageDecoderV03c2):
     def __init__(self, batchnorm=False, latent_dim=8, active_func=nn.Sigmoid()):
-        super(ImageDecoderV03c2, self).__init__(batchnorm, latent_dim, active_func)
+        super(ImageDecoderV03c3, self).__init__(batchnorm, latent_dim, active_func)
+
+        self.fclayers = nn.Sequential(
+            nn.Linear(self.latent_dim, 4096),
+            nn.ReLU(),
+            nn.Linear(4096, 2048),
+            nn.ReLU()
+        )
 
         self.cnn = nn.Sequential(
             ResidualBlock(128, 128),
@@ -635,7 +642,7 @@ class CsiEncoderV03c3(CsiEncoderV03c1):
             # Out = 8 * 42 * 512
         )
 
-        self.cnn1 = nn.Sequential(
+        self.cnn2 = nn.Sequential(
             # In = 90 * 100 * 1
             nn.Conv2d(1, 16, kernel_size=3, stride=(3, 1), padding=0),
             bn(16, batchnorm),
@@ -677,5 +684,5 @@ if __name__ == "__main__":
     # summary(m2, input_size=(1, 16))
     # m3 = CsiEncoder(batchnorm=False)
     # summary(m3, input_size=(2, 90, 100))
-    m4 = ImageDecoderIntV03c3(latent_dim=16)
-    summary(m4, input_size=(1, 16))
+    m4 = CsiEncoderV03c3(latent_dim=16)
+    summary(m4, input_size=(2, 90, 100))
