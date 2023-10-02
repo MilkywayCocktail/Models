@@ -450,9 +450,9 @@ class ImageEncoderV03c3(ImageEncoderV03c2):
             # In = 128 * 128 * 1
             # Out = 64 * 64 * 32
 
-            ResidualBlock(32, 32),
-            ResidualBlock(32, 32),
-            ResidualBlock(32, 32),
+            # ResidualBlock(32, 32),
+            # ResidualBlock(32, 32),
+            # ResidualBlock(32, 32),
 
             nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),
             bn(64, batchnorm),
@@ -461,9 +461,9 @@ class ImageEncoderV03c3(ImageEncoderV03c2):
             # In = 64 * 64 * 32
             # Out = 32 * 32 * 64
 
-            ResidualBlock(64, 64),
-            ResidualBlock(64, 64),
-            ResidualBlock(64, 64),
+            # ResidualBlock(64, 64),
+            # ResidualBlock(64, 64),
+            # ResidualBlock(64, 64),
 
             nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),
             bn(128, batchnorm),
@@ -472,9 +472,9 @@ class ImageEncoderV03c3(ImageEncoderV03c2):
             # In = 32 * 32 * 64
             # Out = 16 * 16 * 128
 
-            ResidualBlock(128, 128),
-            ResidualBlock(128, 128),
-            ResidualBlock(128, 128),
+            # ResidualBlock(128, 128),
+            # ResidualBlock(128, 128),
+            # ResidualBlock(128, 128),
 
             nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1),
             bn(256, batchnorm),
@@ -490,8 +490,8 @@ class ImageEncoderV03c3(ImageEncoderV03c2):
             # In = 8 * 8 * 256
             # Out = 4 * 4 * 512
 
-            ResidualBlock(256, 256),
-            ResidualBlock(256, 256)
+            # ResidualBlock(256, 256),
+            # ResidualBlock(256, 256)
         )
 
         self.fclayers = nn.Sequential(
