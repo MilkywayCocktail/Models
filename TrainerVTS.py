@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.ticker as ticker
 from scipy.stats import norm
 import matplotlib.pyplot as plt
+import os
 from TrainerTS import timer, MyDataset, split_loader, MyArgs, TrainerTS
 
 # ------------------------------------- #
@@ -252,7 +253,7 @@ class TrainerVTSMask(TrainerVTS):
                                          alpha=alpha,
                                          latent_dim=latent_dim)
         self.kl_weight = kl_weight
-        self.mask_loss = torch.nn.BCELoss(reduction='sum')
+        self.mask_loss = nn.BCELoss(reduction='sum')
         self.msk_decoder = msk_decoder
 
     @staticmethod
@@ -365,7 +366,7 @@ class TrainerVTSMask(TrainerVTS):
                 data_y = data_y.to(torch.float32).to(self.args['t'].device)
                 teacher_optimizer.zero_grad()
 
-                PREDS = self.calculate_loss('t', None, data_y)
+                PREDS = self.calculate_loss(mode='t', x=None, y=data_y)
                 self.temp_loss['LOSS'].backward()
                 teacher_optimizer.step()
                 for key in LOSS_TERMS:
@@ -425,7 +426,7 @@ class TrainerVTSMask(TrainerVTS):
                 for sample in range(loader.batch_size):
                     ind = index[sample][np.newaxis, ...]
                     gt = data_y[sample][np.newaxis, ...]
-                    PREDS = self.calculate_loss('t', None, gt, ind)
+                    PREDS = self.calculate_loss(mode='t', x=None, y=gt, i=ind)
 
                     for key in LOSS_TERMS:
                         EPOCH_LOSS[key].append(self.temp_loss[key].item())
