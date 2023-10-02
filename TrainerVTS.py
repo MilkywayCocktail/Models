@@ -245,15 +245,15 @@ class TrainerVTSMask(TrainerVTS):
                  kl_weight=0.25
                  ):
         super(TrainerVTSMask, self).__init__(img_encoder=img_encoder, img_decoder=img_decoder, csi_encoder=csi_encoder,
-                                         teacher_args=teacher_args, student_args=student_args,
-                                         train_loader=train_loader, valid_loader=valid_loader, test_loader=test_loader,
-                                         div_loss=div_loss,
-                                         img_loss=img_loss,
-                                         temperature=temperature,
-                                         alpha=alpha,
-                                         latent_dim=latent_dim)
+                                            teacher_args=teacher_args, student_args=student_args,
+                                            train_loader=train_loader, valid_loader=valid_loader, test_loader=test_loader,
+                                            div_loss=div_loss,
+                                            img_loss=img_loss,
+                                            temperature=temperature,
+                                            alpha=alpha,
+                                            latent_dim=latent_dim)
         self.kl_weight = kl_weight
-        self.mask_loss = nn.BCELoss(reduction='sum')
+        self.mask_loss = nn.BCELoss()
         self.msk_decoder = msk_decoder
 
     @staticmethod
@@ -289,7 +289,7 @@ class TrainerVTSMask(TrainerVTS):
                  'predict': ('GT', 'PRED', 'MASK', 'IND'),
                  'test': {'GT': 'Ground Truth',
                           'PRED': 'Estimated',
-                 #         'MASK': "Est Mask"
+                 #         'MASK': 'Est Mask'
                           }
                  }
         return terms

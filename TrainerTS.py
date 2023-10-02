@@ -27,17 +27,19 @@ def timer(func):
     return wrapper
 
 
-def bn(channels, batchnorm):
+def bn(channels, batchnorm=None):
     """
     Definition of optional batchnorm layer.
     :param channels: input channels
-    :param batchnorm: True or False
+    :param batchnorm: None or 'batch' or 'instance'
     :return: batchnorm layer or Identity layer (no batchnorm)
     """
-    if batchnorm:
-        return nn.BatchNorm2d(channels)
-    else:
+    if not batchnorm:
         return nn.Identity(channels)
+    elif batchnorm=='batch':
+        return nn.BatchNorm2d(channels)
+    elif batchnorm=='instance':
+        return nn.InstanceNorm2d(channels)
 
 
 class Interpolate(nn.Module):
