@@ -3,9 +3,11 @@ import torch.nn as nn
 from torchinfo import summary
 from TrainerTS import bn, Interpolate
 
+
 def reparameterize(mu, logvar):
     eps = torch.randn_like(mu)
     return mu + eps * torch.exp(logvar / 2)
+
 
 class ResidualBlock(nn.Module):
     def __init__(self, in_channels, out_channels):
@@ -356,43 +358,35 @@ class ImageEncoderV03c2(ImageEncoderV03c1):
     def __init__(self, bottleneck='fc', batchnorm=False, latent_dim=8, active_func=nn.Tanh()):
         super(ImageEncoderV03c2, self).__init__(bottleneck, batchnorm, latent_dim, active_func)
 
-        self.layer1 = nn.Sequential(
+        self.cnn = nn.Sequential(
             nn.Conv2d(1, 128, kernel_size=3, stride=2, padding=1),
             bn(128, batchnorm),
             nn.LeakyReLU(inplace=True),
             # nn.MaxPool2d(2, stride=2)
             # In = 128 * 128 * 1
             # Out = 64 * 64 * 128
-        )
 
-        self.layer2 = nn.Sequential(
             nn.Conv2d(128, 128, kernel_size=3, stride=2, padding=1),
             bn(128, batchnorm),
             nn.LeakyReLU(inplace=True),
             # nn.MaxPool2d(2, stride=2)
             # In = 64 * 64 * 128
             # Out = 32 * 32 * 128
-        )
 
-        self.layer3 = nn.Sequential(
             nn.Conv2d(128, 128, kernel_size=3, stride=2, padding=1),
             bn(128, batchnorm),
             nn.LeakyReLU(inplace=True),
             # nn.MaxPool2d(2, stride=2)
             # In = 32 * 32 * 128
             # Out = 16 * 16 * 128
-        )
 
-        self.layer4 = nn.Sequential(
             nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1),
             bn(256, batchnorm),
             nn.LeakyReLU(inplace=True),
             # nn.MaxPool2d(2, stride=2)
             # In = 16 * 16 * 128
             # Out = 8 * 8 * 256
-        )
 
-        self.layer5 = nn.Sequential(
             nn.Conv2d(256, 256, kernel_size=3, stride=2, padding=1),
             bn(256, batchnorm),
             nn.LeakyReLU(inplace=True),
@@ -427,7 +421,7 @@ class ImageDecoderV03c2(ImageDecoderV03c1):
             nn.ReLU()
         )
 
-        self.layer1 = nn.Sequential(
+        self.cnn = nn.Sequential(
             nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
             bn(128, batchnorm),
             nn.LeakyReLU(inplace=True),
@@ -461,6 +455,10 @@ class ImageDecoderV03c2(ImageDecoderV03c1):
 
     def __str__(self):
         return 'ImgDeV03c2'
+
+    def forward(self, z):
+        z = self.fclayers(z)
+        z = self.cnn(z.view(-1, 128, 4, 4))
 
 
 class ImageEncoderV03c3(ImageEncoderV03c2):
@@ -671,5 +669,5 @@ if __name__ == "__main__":
     # summary(m2, input_size=(1, 16))
     # m3 = CsiEncoder(batchnorm=False)
     # summary(m3, input_size=(2, 90, 100))
-    m4 = ImageEncoderV03c3(latent_dim=16)
+    m4 = ImageEncoderV03c2(latent_dim=16)
     summary(m4, input_size=(1, 128, 128))
