@@ -309,6 +309,8 @@ class TrainerVTSMask(TrainerVTS):
             one = torch.ones_like(y)
             gt_mask = torch.where(y > 0, one, y)
             loss, kl_loss, recon_loss, mask_loss = self.loss(output, mask, y, gt_mask, latent)
+            print(mask.shape)
+            print(mask_loss.shape)
             self.temp_loss = {'LOSS': loss,
                               'KL': kl_loss,
                               'RECON': recon_loss,
