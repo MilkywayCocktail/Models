@@ -294,8 +294,8 @@ class TrainerVTSMask(TrainerVTS):
 
     def loss(self, y, m, gt, latent):
         # reduction = 'sum'
-        mask = gt
-        mask[mask > 0] = 1
+        one = torch.ones_like(gt)
+        mask = torch.where(gt > 0, one, gt)
         recon_loss = self.args['t'].criterion(y, gt) / y.shape[0]
         kl_loss = self.kl_loss(latent)
         loss = recon_loss + kl_loss * self.kl_weight
