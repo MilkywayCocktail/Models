@@ -443,11 +443,11 @@ class ImageEncoderV03c3(ImageEncoderV03c2):
         super(ImageEncoderV03c3, self).__init__(bottleneck, batchnorm, latent_dim, active_func)
 
         self.cnn = nn.Sequential(
+            # In = 128 * 128 * 1
             nn.Conv2d(1, 32, kernel_size=3, stride=2, padding=1),
             bn(32, batchnorm),
             nn.LeakyReLU(inplace=True),
             # nn.MaxPool2d(2, stride=2)
-            # In = 128 * 128 * 1
             # Out = 64 * 64 * 32
 
             # ResidualBlock(32, 32),
@@ -458,7 +458,6 @@ class ImageEncoderV03c3(ImageEncoderV03c2):
             bn(64, batchnorm),
             nn.LeakyReLU(inplace=True),
             # nn.MaxPool2d(2, stride=2)
-            # In = 64 * 64 * 32
             # Out = 32 * 32 * 64
 
             # ResidualBlock(64, 64),
@@ -469,7 +468,6 @@ class ImageEncoderV03c3(ImageEncoderV03c2):
             bn(128, batchnorm),
             nn.LeakyReLU(inplace=True),
             # nn.MaxPool2d(2, stride=2)
-            # In = 32 * 32 * 64
             # Out = 16 * 16 * 128
 
             # ResidualBlock(128, 128),
@@ -480,15 +478,13 @@ class ImageEncoderV03c3(ImageEncoderV03c2):
             bn(256, batchnorm),
             nn.LeakyReLU(inplace=True),
             # nn.MaxPool2d(2, stride=2)
-            # In = 16 * 16 * 128
             # Out = 8 * 8 * 256
 
             nn.Conv2d(256, 256, kernel_size=3, stride=2, padding=1),
             bn(256, batchnorm),
             nn.LeakyReLU(inplace=True),
             # nn.MaxPool2d(2, stride=2)
-            # In = 8 * 8 * 256
-            # Out = 4 * 4 * 512
+            # Out = 4 * 4 * 256
 
             # ResidualBlock(256, 256),
             # ResidualBlock(256, 256)
@@ -531,38 +527,30 @@ class ImageDecoderV03c3(ImageDecoderV03c2):
         )
 
         self.cnn = nn.Sequential(
-            ResidualBlock(128, 128),
-            ResidualBlock(128, 128),
-            ResidualBlock(128, 128),
-
-            nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
-            bn(128, batchnorm),
-            nn.LeakyReLU(inplace=True),
             # In = 4 * 4 * 128
-            # Out = 8 * 8 * 64
+            ResidualBlock(128, 128),
+            ResidualBlock(128, 128),
+            ResidualBlock(128, 128),
 
             nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
             bn(128, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # In = 8 * 8 * 64
-            # Out = 16 * 16 * 32
-
+            # Out = 8 * 8 * 128
             nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
             bn(128, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # In = 16 * 16 * 32
-            # Out = 32 * 32 * 16
-
+            # Out = 16 * 16 * 128
             nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
             bn(128, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # In = 32 * 32 * 16
-            # Out = 64 * 64 * 8
-
+            # Out = 32 * 32 * 128
+            nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
+            bn(128, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            # Out = 64 * 64 * 128
             nn.ConvTranspose2d(128, 1, kernel_size=4, stride=2, padding=1),
             bn(1, batchnorm),
             self.active_func,
-            # In = 64 * 64 * 8
             # Out = 128 * 128 * 1
         )
 
