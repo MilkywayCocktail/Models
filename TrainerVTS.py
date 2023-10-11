@@ -242,7 +242,7 @@ class TrainerVTSMask(TrainerVTS):
                                             teacher_args=teacher_args, student_args=student_args,
                                             train_loader=train_loader, valid_loader=valid_loader, test_loader=test_loader,
          )
-        self.mask_loss = nn.BCELoss()
+        self.mask_loss = nn.BCELoss(reduction='sum')
         self.msk_decoder = msk_decoder
 
     @staticmethod
@@ -278,7 +278,7 @@ class TrainerVTSMask(TrainerVTS):
                  'predict': ('GT', 'PRED', 'MASK', 'IND'),
                  'test': {'GT': 'Ground Truth',
                           'PRED': 'Estimated',
-                 #         'MASK': 'Est Mask'
+                          'MASK': 'Est Mask'
                           }
                  }
         return terms
@@ -344,7 +344,8 @@ class TrainerVTSMask(TrainerVTS):
         """
         self.logger(mode='t')
         teacher_optimizer = self.args['t'].optimizer([{'params': self.img_encoder.parameters()},
-                                                      {'params': self.img_decoder.parameters()}],
+                                                      {'params': self.img_decoder.parameters()},
+                                                      {'params': self.msk_decoder.parameters()}],
                                                      lr=self.args['t'].learning_rate)
         LOSS_TERMS = self.plot_terms['t']['loss'].keys()
 
