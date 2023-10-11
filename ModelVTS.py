@@ -46,7 +46,7 @@ class ResidualBlock(nn.Module):
 
 
 class ImageEncoderV03c1(nn.Module):
-    def __init__(self, bottleneck='fc', batchnorm=False, latent_dim=8, active_func=nn.Tanh()):
+    def __init__(self, bottleneck='fc', batchnorm=False, latent_dim=16, active_func=nn.Tanh()):
         super(ImageEncoderV03c1, self).__init__()
 
         self.bottleneck = bottleneck
@@ -120,7 +120,7 @@ class ImageEncoderV03c1(nn.Module):
 
 
 class ImageDecoderV03c1(nn.Module):
-    def __init__(self, batchnorm=False, latent_dim=8, active_func=nn.Sigmoid()):
+    def __init__(self, batchnorm=False, latent_dim=16, active_func=nn.Sigmoid()):
         super(ImageDecoderV03c1, self).__init__()
 
         self.latent_dim = latent_dim
@@ -231,7 +231,7 @@ class ImageDecoderIntV03c1(ImageDecoderV03c1):
 
 
 class CsiEncoderV03c1(nn.Module):
-    def __init__(self, bottleneck='last', batchnorm=False, latent_dim=8, active_func=nn.Sigmoid(), feature_length=512):
+    def __init__(self, bottleneck='last', batchnorm=False, latent_dim=16, active_func=nn.Sigmoid(), feature_length=512):
         super(CsiEncoderV03c1, self).__init__()
 
         self.bottleneck = bottleneck
@@ -479,13 +479,6 @@ class ImageEncoderV03c3(ImageEncoderV03c2):
 class ImageDecoderV03c3(ImageDecoderV03c2):
     def __init__(self, batchnorm=False):
         super(ImageDecoderV03c3, self).__init__(batchnorm=batchnorm)
-
-        self.fclayers = nn.Sequential(
-            nn.Linear(self.latent_dim, 4096),
-            nn.ReLU(),
-            nn.Linear(4096, 2048),
-            nn.ReLU()
-        )
 
         self.cnn = nn.Sequential(
             # In = 4 * 4 * 128
