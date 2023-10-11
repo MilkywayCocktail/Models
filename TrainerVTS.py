@@ -237,22 +237,11 @@ class TrainerVTSMask(TrainerVTS):
     def __init__(self, img_encoder, img_decoder, csi_encoder, msk_decoder,
                  teacher_args, student_args,
                  train_loader, valid_loader, test_loader,
-                 div_loss=nn.KLDivLoss(reduction='batchmean'),
-                 img_loss=nn.MSELoss(reduction='sum'),
-                 temperature=20,
-                 alpha=0.3,
-                 latent_dim=8,
-                 kl_weight=0.25
                  ):
         super(TrainerVTSMask, self).__init__(img_encoder=img_encoder, img_decoder=img_decoder, csi_encoder=csi_encoder,
                                             teacher_args=teacher_args, student_args=student_args,
                                             train_loader=train_loader, valid_loader=valid_loader, test_loader=test_loader,
-                                            div_loss=div_loss,
-                                            img_loss=img_loss,
-                                            temperature=temperature,
-                                            alpha=alpha,
-                                            latent_dim=latent_dim)
-        self.kl_weight = kl_weight
+         )
         self.mask_loss = nn.BCELoss()
         self.msk_decoder = msk_decoder
 
@@ -304,11 +293,13 @@ class TrainerVTSMask(TrainerVTS):
 
     def calculate_loss(self, mode, x, y, i=None):
         if mode == 't':
+            one = torch.ones_like(y)
+            gt_mask = torch.where(y > 0, one, y)
+
             latent, z = self.img_encoder(y)
             output = self.img_decoder(z)
             mask = self.msk_decoder(z)
-            one = torch.ones_like(y)
-            gt_mask = torch.where(y > 0, one, y)
+            output = output.mul(mask)
             loss, kl_loss, recon_loss, mask_loss = self.loss(output, mask, y, gt_mask, latent)
             print(mask_loss)
             self.temp_loss = {'LOSS': loss,
