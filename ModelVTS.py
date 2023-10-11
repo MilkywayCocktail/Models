@@ -434,7 +434,7 @@ class ImageEncoderV03c3(ImageEncoderV03c2):
 
         self.cnn = nn.Sequential(
             # In = 128 * 128 * 1
-            nn.Conv2d(1, 128, kernel_size=3, stride=2, padding=1),
+            nn.Conv2d(1, 32, kernel_size=3, stride=2, padding=1),
             bn(32, batchnorm),
             nn.LeakyReLU(inplace=True),
             # Out = 64 * 64 * 128
