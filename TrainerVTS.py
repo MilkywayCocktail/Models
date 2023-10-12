@@ -262,8 +262,9 @@ class TrainerVTSMask(TrainerVTS):
         t_test_loss = {'LOSS': [],
                        'RECON': [],
                        'KL': [],
-                       'PRED': [],
                        'MASK': [],
+                       'PRED': [],
+                       'PRED_MASK': [],
                        'GT': [],
                        'IND': []}
         return t_test_loss
@@ -278,7 +279,7 @@ class TrainerVTSMask(TrainerVTS):
                  'predict': ('GT', 'PRED', 'MASK', 'IND'),
                  'test': {'GT': 'Ground Truth',
                           'PRED': 'Estimated',
-                          'MASK': 'Est Mask'
+                          'PRED_MASK': 'Estimated Mask'
                           }
                  }
         return terms
@@ -287,7 +288,7 @@ class TrainerVTSMask(TrainerVTS):
         # reduction = 'sum'
         recon_loss = self.args['t'].criterion(y, gt_y) / y.shape[0]
         kl_loss = self.kl_loss(latent)
-        mask_loss = self.mask_loss(m, gt_m)
+        mask_loss = self.mask_loss(m, gt_m) / y.shape[0]
         loss = recon_loss + kl_loss * self.kl_weight + mask_loss
         return loss, kl_loss, recon_loss, mask_loss
 
@@ -307,7 +308,7 @@ class TrainerVTSMask(TrainerVTS):
                               'MASK': mask_loss}
             return {'GT': y,
                     'PRED': output,
-                    'MASK': mask,
+                    'PRED_MASK': mask,
                     'IND': i}
 
         elif mode == 's':
@@ -374,6 +375,7 @@ class TrainerVTSMask(TrainerVTS):
             # =====================valid============================
             self.img_encoder.eval()
             self.img_decoder.eval()
+            self.msk_decoder.eval()
             EPOCH_LOSS = {key: [] for key in LOSS_TERMS}
 
             for idx, (data_x, data_y, index) in enumerate(self.valid_loader, 0):
