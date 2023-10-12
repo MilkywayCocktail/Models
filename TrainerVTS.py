@@ -266,18 +266,20 @@ class TrainerVTSMask(TrainerVTS):
                        'PRED': [],
                        'PRED_MASK': [],
                        'GT': [],
+                       'GT_MASK': [],
                        'IND': []}
         return t_test_loss
 
     @staticmethod
     def __teacher_plot_terms__():
         terms = {'loss': {'LOSS': 'Loss',
-                          # 'KL': 'KL Loss',
-                          # 'RECON': 'Reconstruction Loss',
+                          'KL': 'KL Loss',
+                          'RECON': 'Reconstruction Loss',
                           'MASK': 'Mask Loss'
                           },
-                 'predict': ('GT', 'PRED', 'PRED_MASK', 'IND'),
+                 'predict': ('GT', 'GT_MASK', 'PRED', 'PRED_MASK', 'IND'),
                  'test': {'GT': 'Ground Truth',
+                          'GT_MASK': 'GT Mask',
                           'PRED': 'Estimated',
                           'PRED_MASK': 'Estimated Mask'
                           }
@@ -295,8 +297,7 @@ class TrainerVTSMask(TrainerVTS):
 
     def calculate_loss(self, mode, x, y, i=None):
         if mode == 't':
-            one = torch.ones_like(y)
-            gt_mask = torch.where(y > 0, one, y)
+            gt_mask = torch.where(y > 0, 1., 0.)
 
             latent, z = self.img_encoder(y)
             output = self.img_decoder(z)
@@ -308,6 +309,7 @@ class TrainerVTSMask(TrainerVTS):
                               'RECON': recon_loss,
                               'MASK': mask_loss}
             return {'GT': y,
+                    'GT_MASK': gt_mask,
                     'PRED': output,
                     'PRED_MASK': mask,
                     'IND': i}
