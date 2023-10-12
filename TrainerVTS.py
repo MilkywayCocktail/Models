@@ -289,7 +289,8 @@ class TrainerVTSMask(TrainerVTS):
         recon_loss = self.args['t'].criterion(y, gt_y) / y.shape[0]
         kl_loss = self.kl_loss(latent)
         mask_loss = self.mask_loss(m, gt_m) / y.shape[0]
-        loss = recon_loss + kl_loss * self.kl_weight + mask_loss
+        # loss = recon_loss + kl_loss * self.kl_weight + mask_loss
+        loss = mask_loss
         return loss, kl_loss, recon_loss, mask_loss
 
     def calculate_loss(self, mode, x, y, i=None):
