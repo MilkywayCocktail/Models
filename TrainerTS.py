@@ -255,9 +255,9 @@ class TrainerTS:
                  train_loader, valid_loader, test_loader,
                  div_loss=nn.KLDivLoss(reduction='batchmean'),
                  img_loss=nn.MSELoss(reduction='sum'),
-                 temperature=20,
+                 temperature=1,
                  alpha=0.3,
-                 latent_dim=8):
+                 latent_dim=16):
         """
         Used in Teacher-Student model training
         :param img_encoder: image encoder model

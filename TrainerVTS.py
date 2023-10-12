@@ -19,8 +19,8 @@ class TrainerVTS(TrainerTS):
                  img_loss=nn.MSELoss(reduction='sum'),
                  temperature=20,
                  alpha=0.3,
-                 latent_dim=8,
-                 kl_weight=0.25
+                 latent_dim=16,
+                 kl_weight=1.2
                  ):
         super(TrainerVTS, self).__init__(img_encoder=img_encoder, img_decoder=img_decoder, csi_encoder=csi_encoder,
                                          teacher_args=teacher_args, student_args=student_args,
@@ -271,8 +271,8 @@ class TrainerVTSMask(TrainerVTS):
     @staticmethod
     def __teacher_plot_terms__():
         terms = {'loss': {'LOSS': 'Loss',
-                          'KL': 'KL Loss',
-                          'RECON': 'Reconstruction Loss',
+                          # 'KL': 'KL Loss',
+                          # 'RECON': 'Reconstruction Loss',
                           'MASK': 'Mask Loss'
                           },
                  'predict': ('GT', 'PRED', 'MASK', 'IND'),
@@ -301,7 +301,6 @@ class TrainerVTSMask(TrainerVTS):
             mask = self.msk_decoder(z)
             output = output.mul(mask)
             loss, kl_loss, recon_loss, mask_loss = self.loss(output, mask, y, gt_mask, latent)
-            print(mask_loss)
             self.temp_loss = {'LOSS': loss,
                               'KL': kl_loss,
                               'RECON': recon_loss,
