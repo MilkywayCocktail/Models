@@ -302,7 +302,7 @@ class TrainerVTSMask(TrainerVTS):
             latent, z = self.img_encoder(y)
             output = self.img_decoder(z)
             mask = self.msk_decoder(z)
-            output = output.mul(mask)
+            # output = output.mul(mask)
             loss, kl_loss, recon_loss, mask_loss = self.loss(output, mask, y, gt_mask, latent)
             self.temp_loss = {'LOSS': loss,
                               'KL': kl_loss,
