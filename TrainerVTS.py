@@ -276,7 +276,7 @@ class TrainerVTSMask(TrainerVTS):
                           # 'RECON': 'Reconstruction Loss',
                           'MASK': 'Mask Loss'
                           },
-                 'predict': ('GT', 'PRED', 'MASK', 'IND'),
+                 'predict': ('GT', 'PRED', 'PRED_MASK', 'IND'),
                  'test': {'GT': 'Ground Truth',
                           'PRED': 'Estimated',
                           'PRED_MASK': 'Estimated Mask'
