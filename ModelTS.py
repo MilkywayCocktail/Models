@@ -14,7 +14,7 @@ from TrainerTS import bn, Interpolate
 
 
 class ImageEncoderV03b1(nn.Module):
-    def __init__(self, bottleneck='fc', batchnorm=False, latent_dim=8, active_func=nn.Tanh()):
+    def __init__(self, bottleneck='fc', batchnorm=False, latent_dim=16, active_func=nn.Tanh()):
         super(ImageEncoderV03b1, self).__init__()
 
         self.bottleneck = bottleneck
@@ -26,6 +26,7 @@ class ImageEncoderV03b1(nn.Module):
             nn.Conv2d(1, 16, kernel_size=3, stride=2, padding=1),
             bn(16, batchnorm),
             nn.LeakyReLU(inplace=True),
+            # Out = 64 * 64 * 16
 
             nn.Conv2d(16, 32, kernel_size=3, stride=2, padding=1),
             bn(32, batchnorm),
@@ -75,7 +76,7 @@ class ImageEncoderV03b1(nn.Module):
 
 
 class ImageDecoderV03b1(nn.Module):
-    def __init__(self, batchnorm=False, latent_dim=8, active_func=nn.Sigmoid()):
+    def __init__(self, batchnorm=False, latent_dim=16, active_func=nn.Sigmoid()):
         super(ImageDecoderV03b1, self).__init__()
 
         self.latent_dim = latent_dim
@@ -132,7 +133,7 @@ class ImageDecoderV03b1(nn.Module):
 
 
 class ImageDecoderIntV03b1(ImageDecoderV03b1):
-    def __init__(self, batchnorm=False, latent_dim=8, active_func=nn.Sigmoid()):
+    def __init__(self, batchnorm=False, latent_dim=16, active_func=nn.Sigmoid()):
         super(ImageDecoderIntV03b1, self).__init__()
 
         self.latent_dim = latent_dim
@@ -151,8 +152,8 @@ class ImageDecoderIntV03b1(ImageDecoderV03b1):
             bn(16, batchnorm),
             nn.LeakyReLU(inplace=True),
             Interpolate(size=(16, 16)),
-
             # Out = 16 * 16 * 16
+
             nn.Conv2d(16, 8, kernel_size=3, stride=1, padding=1),
             bn(8, batchnorm),
             nn.LeakyReLU(inplace=True),
@@ -182,7 +183,7 @@ class ImageDecoderIntV03b1(ImageDecoderV03b1):
 
 
 class CsiEncoderV03b1(nn.Module):
-    def __init__(self, bottleneck='last', batchnorm=False, latent_dim=8):
+    def __init__(self, bottleneck='last', batchnorm=False, latent_dim=16):
         super(CsiEncoderV03b1, self).__init__()
 
         self.bottleneck = bottleneck
@@ -260,17 +261,16 @@ class CsiEncoderV03b1(nn.Module):
 
 
 # ------------------------------------- #
-# Model v03b4
+# Model v03b2
 # Minor modifications to Model v03b1
 # In number of channels
 
 # ImageEncoder: in = 128 * 128, out = 1 * latent_dim
 # ImageDecoder: in = 1 * latent_dim, out = 128 * 128
-# CSIEncoder: in = 2 * 90 * 100, out = 1 * 256 (Unused)
 
 class ImageEncoderV03b2(ImageEncoderV03b1):
-    def __init__(self, bottleneck='fc', batchnorm=False, latent_dim=8, active_func=nn.Tanh()):
-        super(ImageEncoderV03b2, self).__init__(bottleneck, batchnorm, latent_dim, active_func)
+    def __init__(self, batchnorm=False):
+        super(ImageEncoderV03b2, self).__init__(batchnorm=batchnorm)
 
         self.cnn = nn.Sequential(
             # In = 128 * 128 * 1
@@ -300,24 +300,13 @@ class ImageEncoderV03b2(ImageEncoderV03b1):
             # Out = 4 * 4 * 256
         )
 
-        self.gap = nn.Sequential(
-            nn.AvgPool2d(kernel_size=(4, 4), stride=1, padding=0)
-        )
-
-        self.fclayers = nn.Sequential(
-            nn.Linear(4 * 4 * 256, 4096),
-            nn.ReLU(),
-            nn.Linear(4096, self.latent_dim),
-            self.active_func
-        )
-
     def __str__(self):
         return 'ImgEnV03b2' + self.bottleneck.capitalize()
 
 
 class ImageDecoderV03b2(ImageDecoderV03b1):
-    def __init__(self, batchnorm=False, latent_dim=8, active_func=nn.Sigmoid()):
-        super(ImageDecoderV03b2, self).__init__(batchnorm, latent_dim, active_func)
+    def __init__(self, batchnorm=False):
+        super(ImageDecoderV03b2, self).__init__(batchnorm=batchnorm)
 
         self.fclayers = nn.Sequential(
             nn.Linear(self.latent_dim, 4096),
