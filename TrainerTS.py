@@ -1074,9 +1074,9 @@ class TrainerTSMask(TrainerTS):
 
         gt_mask = torch.where(y > 0, 1., 0.)
 
-        latent, z = self.models['imgen'](y)
-        output = self.models['imgde'](z)
-        mask = self.models['mskde'](z)
+        latent = self.models['imgen'](y)
+        output = self.models['imgde'](latent)
+        mask = self.models['mskde'](latent)
         # output = output.mul(mask)
         loss, recon_loss, mask_loss = self.loss(output, mask, y, gt_mask, latent)
         self.temp_loss = {'LOSS': loss,
