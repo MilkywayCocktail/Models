@@ -1065,7 +1065,7 @@ class TrainerTSMask(TrainerTS):
     def loss(self, y, m, gt_y, gt_m, latent):
         # reduction = 'sum'
         recon_loss = self.args['t'].criterion(y, gt_y) / y.shape[0]
-        mask_loss = self.mask_loss(m, gt_m) / y.shape[0]
+        mask_loss = self.mask_loss(m, gt_m) / m.shape[0]
         # loss = recon_loss + kl_loss * self.kl_weight + mask_loss
         loss = mask_loss
         return loss, recon_loss, mask_loss
