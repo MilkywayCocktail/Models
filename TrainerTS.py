@@ -275,9 +275,10 @@ class TrainerTS:
         :param alpha: weight of divergence loss. Default is 0.3
         :param latent_dim: length of latent vector. Default is 8
         """
-        self.img_encoder = img_encoder
-        self.img_decoder = img_decoder
-        self.csi_encoder = csi_encoder
+
+        self.models = {'imgen': img_encoder,
+                       'imgde': img_decoder,
+                       'csien': csi_encoder}
 
         self.args = {'t': teacher_args,
                      's': student_args}
@@ -408,6 +409,27 @@ class TrainerTS:
                  }
         return terms
 
+    def __train_models_t__(self):
+        self.models['imgen'].train()
+        self.models['imgde'].train()
+        return [{'params': self.models['imgen'].parameters()},
+                {'params': self.models['imgde'].parameters()}]
+
+    def __test_models_t__(self):
+        self.models['imgen'].eval()
+        self.models['imgde'].eval()
+
+    def __train_models_s__(self):
+        self.models['imgen'].eval()
+        self.models['imgde'].eval()
+        self.models['csien'].train()
+        return self.models['csien'].parameters()
+
+    def __test_models_s__(self):
+        self.models['imgen'].eval()
+        self.models['imgde'].eval()
+        self.models['csien'].eval()
+
     def current_title(self):
         """
         Shows current title
@@ -453,46 +475,51 @@ class TrainerTS:
                     obj[mode]['learning_rate'].append(self.args[mode].learning_rate)
                     obj[mode]['epochs'].append(last_end + self.args[mode].epochs)
 
-    def calculate_loss(self, mode, x, y, i=None):
+    def calculate_loss_t(self, x, y, i=None):
         """
         Calculate loss function for back propagation.
-        :param mode: 't' or 's'
         :param x: x data
         :param y: y data
         :param i: index of data
         :return: loss object
         """
-        if mode == 't':
-            latent = self.img_encoder(y)
-            output = self.img_decoder(latent)
-            loss = self.args[mode].criterion(output, y)
-            self.temp_loss = {'LOSS': loss}
-            return {'GT': y,
-                    'PRED': output,
-                    'IND': i}
+        latent = self.models['imgen'](y)
+        output = self.models['imgde'](latent)
+        loss = self.args['t'].criterion(output, y)
+        self.temp_loss = {'LOSS': loss}
+        return {'GT': y,
+                'PRED': output,
+                'IND': i}
 
-        elif mode == 's':
-            s_latent = self.csi_encoder(x)
-            with torch.no_grad():
-                t_latent = self.img_encoder(y)
-                s_output = self.img_decoder(s_latent)
-                t_output = self.img_decoder(t_latent)
-                image_loss = self.img_loss(s_output, y)
+    def calculate_loss_s(self, x, y, i=None):
+        """
+        Calculate loss function for back propagation.
+        :param x: x data
+        :param y: y data
+        :param i: index of data
+        :return: loss object
+        """
+        s_latent = self.models['csien'](x)
+        with torch.no_grad():
+            t_latent = self.models['imgen'](y)
+            s_output = self.models['imgde'](s_latent)
+            t_output = self.models['imgde'](t_latent)
+            image_loss = self.img_loss(s_output, y)
 
-            straight_loss = self.args[mode].criterion(s_latent, t_latent)
-            distil_loss = self.div_loss(self.logsoftmax(s_latent / self.temperature),
-                                        nn.functional.softmax(t_latent / self.temperature, -1))
-            loss = self.alpha * straight_loss + (1 - self.alpha) * distil_loss
-            self.temp_loss = {'LOSS': loss,
-                              'STRA': straight_loss,
-                              'DIST': distil_loss,
-                              'IMG': image_loss}
-            return {'GT': y,
-                    'T_LATENT': t_latent,
-                    'S_LATENT': s_latent,
-                    'T_PRED': t_output,
-                    'S_PRED': s_output,
-                    'IND': i}
+        straight_loss = self.args['s'].criterion(s_latent, t_latent)
+        distil_loss = self.div_loss(self.logsoftmax(s_latent / self.temperature),
+                                    nn.functional.softmax(t_latent / self.temperature, -1))
+        loss = self.alpha * straight_loss + (1 - self.alpha) * distil_loss
+        self.temp_loss = {'LOSS': loss,
+                          'STRA': straight_loss,
+                          'DIST': distil_loss,
+                          'IMG': image_loss}
+        return {'GT': y,
+                'T_LATENT': t_latent,
+                'S_LATENT': s_latent,
+                'T_PRED': t_output,
+                'S_PRED': s_output,
+                'IND': i}
 
     @timer
     def train_teacher(self, autosave=False, notion=''):
@@ -503,24 +530,21 @@ class TrainerTS:
         :return: trained teacher
         """
         self.logger(mode='t')
-        teacher_optimizer = self.args['t'].optimizer([{'params': self.img_encoder.parameters()},
-                                                      {'params': self.img_decoder.parameters()}],
-                                                     lr=self.args['t'].learning_rate)
         LOSS_TERMS = self.plot_terms['t']['loss'].keys()
+        t_optimizer = self.args['t'].optimizer(self.__train_models_t__(), lr=self.args['t'].learning_rate)
 
         for epoch in range(self.args['t'].epochs):
 
             # =====================train============================
-            self.img_encoder.train()
-            self.img_decoder.train()
+            params = self.__train_models_t__()
             EPOCH_LOSS = {key: [] for key in LOSS_TERMS}
             for idx, (data_x, data_y, index) in enumerate(self.train_loader, 0):
                 data_y = data_y.to(torch.float32).to(self.args['t'].device)
-                teacher_optimizer.zero_grad()
+                t_optimizer.zero_grad()
 
-                PREDS = self.calculate_loss('t', None, data_y)
+                PREDS = self.calculate_loss_t(None, data_y)
                 self.temp_loss['LOSS'].backward()
-                teacher_optimizer.step()
+                t_optimizer.step()
                 for key in LOSS_TERMS:
                     EPOCH_LOSS[key].append(self.temp_loss[key].item())
 
@@ -531,14 +555,13 @@ class TrainerTS:
                 self.train_loss['t'][key].append(np.average(EPOCH_LOSS[key]))
 
             # =====================valid============================
-            self.img_encoder.eval()
-            self.img_decoder.eval()
+            self.__test_models_t__()
             EPOCH_LOSS = {key: [] for key in LOSS_TERMS}
 
             for idx, (data_x, data_y, index) in enumerate(self.valid_loader, 0):
                 data_y = data_y.to(torch.float32).to(self.args['t'].device)
                 with torch.no_grad():
-                    PREDS = self.calculate_loss('t', None, data_y)
+                    PREDS = self.calculate_loss_t(None, data_y)
                 for key in LOSS_TERMS:
                     EPOCH_LOSS[key].append(self.temp_loss[key].item())
             for key in LOSS_TERMS:
@@ -548,10 +571,10 @@ class TrainerTS:
             save_path = f'../saved/{notion}/'
             if not os.path.exists(save_path):
                 os.makedirs(save_path)
-            torch.save(self.img_encoder.state_dict(),
-                       f"{save_path}{notion}_{self.img_encoder}_{self.current_title()}.pth")
-            torch.save(self.img_decoder.state_dict(),
-                       f"{save_path}{notion}_{self.img_decoder}_{self.current_title()}.pth")
+            torch.save(self.models['imgen'].state_dict(),
+                       f"{save_path}{notion}_{self.models['imgen']}_{self.current_title()}.pth")
+            torch.save(self.models['imgde'].state_dict(),
+                       f"{save_path}{notion}_{self.models['imgde']}_{self.current_title()}.pth")
 
     @timer
     def train_student(self, autosave=False, notion=''):
@@ -562,15 +585,12 @@ class TrainerTS:
         :return: trained student
         """
         self.logger(mode='s')
-        student_optimizer = self.args['s'].optimizer(self.csi_encoder.parameters(),
-                                                     lr=self.args['s'].learning_rate)
+        s_optimizer = self.args['s'].optimizer(self.__train_models_s__(), lr=self.args['s'].learning_rate)
 
         for epoch in range(self.args['s'].epochs):
 
             # =====================train============================
-            self.img_encoder.eval()
-            self.img_decoder.eval()
-            self.csi_encoder.train()
+            params = self.__train_models_s__()
             LOSS_TERMS = self.plot_terms['s']['loss'].keys()
             EPOCH_LOSS = {key: [] for key in LOSS_TERMS}
 
@@ -578,10 +598,10 @@ class TrainerTS:
                 data_x = data_x.to(torch.float32).to(self.args['s'].device)
                 data_y = data_y.to(torch.float32).to(self.args['s'].device)
 
-                PREDS = self.calculate_loss('s', data_x, data_y)
-                student_optimizer.zero_grad()
+                PREDS = self.calculate_loss_s(data_x, data_y)
+                s_optimizer.zero_grad()
                 self.temp_loss['LOSS'].backward()
-                student_optimizer.step()
+                s_optimizer.step()
 
                 for key in LOSS_TERMS:
                     EPOCH_LOSS[key].append(self.temp_loss[key].item())
@@ -594,16 +614,14 @@ class TrainerTS:
                 self.train_loss['s'][key].append(np.average(EPOCH_LOSS[key]))
 
             # =====================valid============================
-            self.csi_encoder.eval()
-            self.img_encoder.eval()
-            self.img_decoder.eval()
+            self.__test_models_s__()
             EPOCH_LOSS = {key: [] for key in LOSS_TERMS}
 
             for idx, (data_x, data_y, index) in enumerate(self.valid_loader, 0):
                 data_x = data_x.to(torch.float32).to(self.args['s'].device)
                 data_y = data_y.to(torch.float32).to(self.args['s'].device)
                 with torch.no_grad():
-                    PREDS = self.calculate_loss('s', data_x, data_y)
+                    PREDS = self.calculate_loss_s(data_x, data_y)
 
                 for key in LOSS_TERMS:
                     EPOCH_LOSS[key].append(self.temp_loss[key].item())
@@ -615,8 +633,8 @@ class TrainerTS:
             save_path = f'../saved/{notion}/'
             if not os.path.exists(save_path):
                 os.makedirs(save_path)
-            torch.save(self.csi_encoder.state_dict(),
-                       f"{save_path}{notion}_{self.csi_encoder}_{self.current_title()}.pth")
+            torch.save(self.models['csien'].state_dict(),
+                       f"{save_path}{notion}_{self.models['csien']}_{self.current_title()}.pth")
 
     def test_teacher(self, mode='test'):
         """
@@ -625,8 +643,7 @@ class TrainerTS:
         :return: test results
         """
         self.test_loss['t'] = self.__gen_teacher_test__()
-        self.img_encoder.eval()
-        self.img_decoder.eval()
+        self.__test_models_t__()
         LOSS_TERMS = self.plot_terms['t']['loss'].keys()
         PLOT_TERMS = self.plot_terms['t']['predict']
         EPOCH_LOSS = {key: [] for key in LOSS_TERMS}
@@ -642,7 +659,7 @@ class TrainerTS:
                 for sample in range(loader.batch_size):
                     ind = index[sample][np.newaxis, ...]
                     gt = data_y[sample][np.newaxis, ...]
-                    PREDS = self.calculate_loss('t', None, gt, ind)
+                    PREDS = self.calculate_loss_t(None, gt, ind)
 
                     for key in LOSS_TERMS:
                         EPOCH_LOSS[key].append(self.temp_loss[key].item())
@@ -667,9 +684,7 @@ class TrainerTS:
         :return: test results
         """
         self.test_loss['s'] = self.__gen_student_test__()
-        self.img_encoder.eval()
-        self.img_decoder.eval()
-        self.csi_encoder.eval()
+        self.__test_models_s__()
         LOSS_TERMS = self.plot_terms['s']['loss'].keys()
         PLOT_TERMS = self.plot_terms['s']['predict']
         EPOCH_LOSS = {key: [] for key in LOSS_TERMS}
@@ -687,7 +702,7 @@ class TrainerTS:
                     ind = index[sample][np.newaxis, ...]
                     csi = data_x[sample][np.newaxis, ...]
                     gt = data_y[sample][np.newaxis, ...]
-                    PREDS = self.calculate_loss('s', csi, gt, ind)
+                    PREDS = self.calculate_loss_s(csi, gt, ind)
 
                     for key in LOSS_TERMS:
                         EPOCH_LOSS[key].append(self.temp_loss[key].item())
@@ -871,12 +886,10 @@ class TrainerTS:
                 plt.savefig(filename[mode]['LATENT'])
             plt.show()
 
-    def traverse_latent(self, img_ind, dataset, mode='t', img='x', dim1=0, dim2=1, granularity=11, autosave=False, notion=''):
+    def traverse_latent(self, img_ind, dataset, mode='t', img='x', dim1=0, dim2=1,
+                        granularity=11, autosave=False, notion=''):
         self.__plot_settings__()
-
-        self.img_encoder.eval()
-        self.img_decoder.eval()
-        self.csi_encoder.eval()
+        self.__test_models_s__()
 
         if img_ind >= len(dataset):
             img_ind = np.random.randint(len(dataset))
@@ -893,9 +906,9 @@ class TrainerTS:
             image = dataset[img_ind][np.newaxis, ...]
 
         if mode == 't':
-            z = self.img_encoder(torch.from_numpy(image).to(torch.float32).to(self.args['t'].device))
+            z = self.models['imgen'](torch.from_numpy(image).to(torch.float32).to(self.args['t'].device))
         if mode == 's':
-            z = self.img_encoder(torch.from_numpy(csi).to(torch.float32).to(self.args['s'].device))
+            z = self.models['imgen'](torch.from_numpy(csi).to(torch.float32).to(self.args['s'].device))
 
         z = z.cpu().detach().numpy().squeeze()
 
@@ -911,7 +924,7 @@ class TrainerTS:
         for i, yi in enumerate(grid_y):
             for j, xi in enumerate(grid_x):
                 z[dim1], z[dim2] = xi, yi
-                output = self.img_decoder(torch.from_numpy(z).to(self.args['t'].device))
+                output = self.models['imgde'](torch.from_numpy(z).to(self.args['t'].device))
                 figure[i * 128: (i + 1) * 128,
                        j * 128: (j + 1) * 128] = output.cpu().detach().numpy().squeeze()
 
@@ -945,12 +958,12 @@ class TrainerTS:
         if not os.path.exists(save_path):
             os.makedirs(save_path)
 
-        torch.save(self.img_encoder.state_dict(),
-                   f"{save_path}{notion}_{self.img_encoder}{self.current_title()}.pth")
-        torch.save(self.img_decoder.state_dict(),
-                   f"{save_path}{notion}_{self.img_decoder}{self.current_title()}.pth")
-        torch.save(self.csi_encoder.state_dict(),
-                   f"{save_path}{notion}_{self.csi_encoder}{self.current_title()}.pth")
+        torch.save(self.models['imgen'].state_dict(),
+                   f"{save_path}{notion}_{self.models['imgen']}{self.current_title()}.pth")
+        torch.save(self.models['imgde'].state_dict(),
+                   f"{save_path}{notion}_{self.models['imgde']}{self.current_title()}.pth")
+        torch.save(self.models['csien'].state_dict(),
+                   f"{save_path}{notion}_{self.models['csien']}{self.current_title()}.pth")
 
     def scheduler(self, train_t=True, train_s=True,
                   t_turns=10, s_turns=10,

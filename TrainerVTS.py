@@ -4,7 +4,6 @@ import numpy as np
 import matplotlib.ticker as ticker
 from scipy.stats import norm
 import matplotlib.pyplot as plt
-import os
 from TrainerTS import timer, MyDataset, split_loader, MyArgs, TrainerTS
 
 # ------------------------------------- #
@@ -78,48 +77,46 @@ class TrainerVTS(TrainerTS):
         loss = recon_loss + kl_loss * self.kl_weight
         return loss, kl_loss, recon_loss
 
-    def calculate_loss(self, mode, x, y, i=None):
-        if mode == 't':
-            latent, z = self.img_encoder(y)
-            output = self.img_decoder(z)
-            loss, kl_loss, recon_loss = self.loss(output, y, latent)
-            self.temp_loss = {'LOSS': loss,
-                              'KL': kl_loss,
-                              'RECON': recon_loss}
-            return {'GT': y,
-                    'PRED': output,
-                    'IND': i}
+    def calculate_loss_t(self, x, y, i=None):
 
-        elif mode == 's':
-            s_latent, s_z = self.csi_encoder(x)
-            with torch.no_grad():
-                t_latent, t_z = self.img_encoder(y)
-                s_output = self.img_decoder(s_z)
-                t_output = self.img_decoder(t_z)
-                image_loss = self.img_loss(s_output, y)
+        latent, z = self.models['imgen'](y)
+        output = self.models['imgde'](z)
+        loss, kl_loss, recon_loss = self.loss(output, y, latent)
+        self.temp_loss = {'LOSS': loss,
+                          'KL': kl_loss,
+                          'RECON': recon_loss}
+        return {'GT': y,
+                'PRED': output,
+                'IND': i}
 
-            straight_loss = self.args['s'].criterion(s_latent, t_latent)
-            distil_loss = self.div_loss(self.logsoftmax(s_latent / self.temperature),
-                                        nn.functional.softmax(t_latent / self.temperature, -1))
-            loss = self.alpha * straight_loss + (1 - self.alpha) * distil_loss
-            self.temp_loss = {'LOSS': loss,
-                              'STRA': straight_loss,
-                              'DIST': distil_loss,
-                              'IMG': image_loss}
-            return {'GT': y,
-                    'T_LATENT': t_latent,
-                    'S_LATENT': s_latent,
-                    'T_PRED': t_output,
-                    'S_PRED': s_output,
-                    'IND': i}
+    def calculate_loss_s(self, x, y, i=None):
+
+        s_latent, s_z = self.models['csien'](x)
+        with torch.no_grad():
+            t_latent, t_z = self.models['imgen'](y)
+            s_output = self.models['imgde'](s_z)
+            t_output = self.models['imgde'](t_z)
+            image_loss = self.img_loss(s_output, y)
+
+        straight_loss = self.args['s'].criterion(s_latent, t_latent)
+        distil_loss = self.div_loss(self.logsoftmax(s_latent / self.temperature),
+                                    nn.functional.softmax(t_latent / self.temperature, -1))
+        loss = self.alpha * straight_loss + (1 - self.alpha) * distil_loss
+        self.temp_loss = {'LOSS': loss,
+                          'STRA': straight_loss,
+                          'DIST': distil_loss,
+                          'IMG': image_loss}
+        return {'GT': y,
+                'T_LATENT': t_latent,
+                'S_LATENT': s_latent,
+                'T_PRED': t_output,
+                'S_PRED': s_output,
+                'IND': i}
 
     def traverse_latent_2dim(self, img_ind, dataset, mode='t', img='x',
                              dim1=0, dim2=1, granularity=11, autosave=False, notion=''):
         self.__plot_settings__()
-
-        self.img_encoder.eval()
-        self.img_decoder.eval()
-        self.csi_encoder.eval()
+        self.__test_models_s__()
 
         if img_ind >= len(dataset):
             img_ind = np.random.randint(len(dataset))
@@ -136,9 +133,9 @@ class TrainerVTS(TrainerTS):
             image = dataset[img_ind][np.newaxis, ...]
 
         if mode == 't':
-            latent, z = self.img_encoder(torch.from_numpy(image).to(torch.float32).to(self.args['t'].device))
+            latent, z = self.models['imgen'](torch.from_numpy(image).to(torch.float32).to(self.args['t'].device))
         elif mode == 's':
-            latent, z = self.csi_encoder(torch.from_numpy(csi).to(torch.float32).to(self.args['s'].device))
+            latent, z = self.models['csien'](torch.from_numpy(csi).to(torch.float32).to(self.args['s'].device))
 
         e = z.cpu().detach().numpy().squeeze()
 
@@ -154,7 +151,7 @@ class TrainerVTS(TrainerTS):
         for i, yi in enumerate(grid_y):
             for j, xi in enumerate(grid_x):
                 e[dim1], e[dim2] = xi, yi
-                output = self.img_decoder(torch.from_numpy(e).to(torch.float32).to(self.args['t'].device))
+                output = self.models['imgde'](torch.from_numpy(e).to(torch.float32).to(self.args['t'].device))
                 figure[i * 128: (i + 1) * 128,
                        j * 128: (j + 1) * 128] = output.cpu().detach().numpy().squeeze().tolist()
 
@@ -174,10 +171,7 @@ class TrainerVTS(TrainerTS):
 
     def traverse_latent(self, img_ind, dataset, mode='t', img='x',  autosave=False, notion=''):
         self.__plot_settings__()
-
-        self.img_encoder.eval()
-        self.img_decoder.eval()
-        self.csi_encoder.eval()
+        self.__test_models_s__()
 
         if img_ind >= len(dataset):
             img_ind = np.random.randint(len(dataset))
@@ -194,9 +188,9 @@ class TrainerVTS(TrainerTS):
             image = dataset[img_ind][np.newaxis, ...]
 
         if mode == 't':
-            latent, z = self.img_encoder(torch.from_numpy(image).to(torch.float32).to(self.args['t'].device))
+            latent, z = self.models['imgen'](torch.from_numpy(image).to(torch.float32).to(self.args['t'].device))
         elif mode == 's':
-            latent, z = self.csi_encoder(torch.from_numpy(csi).to(torch.float32).to(self.args['s'].device))
+            latent, z = self.models['csien'](torch.from_numpy(csi).to(torch.float32).to(self.args['s'].device))
 
         e = z.cpu().detach().numpy().squeeze()
 
@@ -211,9 +205,9 @@ class TrainerVTS(TrainerTS):
             for i in range(self.latent_dim):
                 for j, xi in enumerate(grid_x):
                     e[dim] = xi
-                    output = self.img_decoder(torch.from_numpy(e).to(torch.float32).to(self.args['t'].device))
+                    output = self.models['imgde'](torch.from_numpy(e).to(torch.float32).to(self.args['t'].device))
                     figure[i * 128: (i + 1) * 128,
-                    j * 128: (j + 1) * 128] = output.cpu().detach().numpy().squeeze().tolist()
+                           j * 128: (j + 1) * 128] = output.cpu().detach().numpy().squeeze().tolist()
 
         fig = plt.figure(constrained_layout=True)
         fig.suptitle(f"Teacher Traverse in dims 0~{self.latent_dim - 1}")
@@ -243,7 +237,7 @@ class TrainerVTSMask(TrainerVTS):
                                             train_loader=train_loader, valid_loader=valid_loader, test_loader=test_loader,
          )
         self.mask_loss = nn.BCELoss(reduction='sum')
-        self.msk_decoder = msk_decoder
+        self.models['mskde'] = msk_decoder
 
     @staticmethod
     def __gen_teacher_train__():
@@ -286,6 +280,18 @@ class TrainerVTSMask(TrainerVTS):
                  }
         return terms
 
+    def __train_models_t__(self):
+        self.models['imgen'].train()
+        self.models['imgde'].train()
+        return [{'params': self.models['imgen'].parameters()},
+                {'params': self.models['imgde'].parameters()},
+                {'params': self.models['mskde'].parameters()}]
+
+    def __test_models_t__(self):
+        self.models['imgen'].eval()
+        self.models['imgde'].eval()
+        self.models['mskde'].eval()
+
     def loss(self, y, m, gt_y, gt_m, latent):
         # reduction = 'sum'
         recon_loss = self.args['t'].criterion(y, gt_y) / y.shape[0]
@@ -295,148 +301,23 @@ class TrainerVTSMask(TrainerVTS):
         loss = mask_loss
         return loss, kl_loss, recon_loss, mask_loss
 
-    def calculate_loss(self, mode, x, y, i=None):
-        if mode == 't':
-            gt_mask = torch.where(y > 0, 1., 0.)
+    def calculate_loss_t(self, x, y, i=None):
 
-            latent, z = self.img_encoder(y)
-            output = self.img_decoder(z)
-            mask = self.msk_decoder(z)
-            # output = output.mul(mask)
-            loss, kl_loss, recon_loss, mask_loss = self.loss(output, mask, y, gt_mask, latent)
-            self.temp_loss = {'LOSS': loss,
-                              'KL': kl_loss,
-                              'RECON': recon_loss,
-                              'MASK': mask_loss}
-            return {'GT': y,
-                    'GT_MASK': gt_mask,
-                    'PRED': output,
-                    'PRED_MASK': mask,
-                    'IND': i}
+        gt_mask = torch.where(y > 0, 1., 0.)
 
-        elif mode == 's':
-            s_latent, s_z = self.csi_encoder(x)
-            with torch.no_grad():
-                t_latent, t_z = self.img_encoder(y)
-                s_output = self.img_decoder(s_z)
-                t_output = self.img_decoder(t_z)
-                image_loss = self.img_loss(s_output, y)
+        latent, z = self.models['imgen'](y)
+        output = self.models['imgde'](z)
+        mask = self.models['mskde'](z)
+        # output = output.mul(mask)
+        loss, kl_loss, recon_loss, mask_loss = self.loss(output, mask, y, gt_mask, latent)
+        self.temp_loss = {'LOSS': loss,
+                          'KL': kl_loss,
+                          'RECON': recon_loss,
+                          'MASK': mask_loss}
+        return {'GT': y,
+                'GT_MASK': gt_mask,
+                'PRED': output,
+                'PRED_MASK': mask,
+                'IND': i}
 
-            straight_loss = self.args['s'].criterion(s_latent, t_latent)
-            distil_loss = self.div_loss(self.logsoftmax(s_latent / self.temperature),
-                                        nn.functional.softmax(t_latent / self.temperature, -1))
-            loss = self.alpha * straight_loss + (1 - self.alpha) * distil_loss
-            self.temp_loss = {'LOSS': loss,
-                              'STRA': straight_loss,
-                              'DIST': distil_loss,
-                              'IMG': image_loss}
-            return {'GT': y,
-                    'T_LATENT': t_latent,
-                    'S_LATENT': s_latent,
-                    'T_PRED': t_output,
-                    'S_PRED': s_output,
-                    'IND': i}
 
-    @timer
-    def train_teacher(self, autosave=False, notion=''):
-        """
-        Trains the teacher.
-        :param autosave: whether to save model parameters. Default is False
-        :param notion: additional notes in save name
-        :return: trained teacher
-        """
-        self.logger(mode='t')
-        teacher_optimizer = self.args['t'].optimizer([{'params': self.img_encoder.parameters()},
-                                                      {'params': self.img_decoder.parameters()},
-                                                      {'params': self.msk_decoder.parameters()}],
-                                                     lr=self.args['t'].learning_rate)
-        LOSS_TERMS = self.plot_terms['t']['loss'].keys()
-
-        for epoch in range(self.args['t'].epochs):
-
-            # =====================train============================
-            self.img_encoder.train()
-            self.img_decoder.train()
-            self.msk_decoder.train()
-            EPOCH_LOSS = {key: [] for key in LOSS_TERMS}
-            for idx, (data_x, data_y, index) in enumerate(self.train_loader, 0):
-                data_y = data_y.to(torch.float32).to(self.args['t'].device)
-                teacher_optimizer.zero_grad()
-
-                PREDS = self.calculate_loss(mode='t', x=None, y=data_y)
-                self.temp_loss['LOSS'].backward()
-                teacher_optimizer.step()
-                for key in LOSS_TERMS:
-                    EPOCH_LOSS[key].append(self.temp_loss[key].item())
-
-                if idx % (len(self.train_loader) // 5) == 0:
-                    print(f"\rTeacher: epoch={epoch}/{self.args['t'].epochs}, batch={idx}/{len(self.train_loader)},"
-                          f"loss={self.temp_loss['LOSS'].item()}", end='')
-            for key in LOSS_TERMS:
-                self.train_loss['t'][key].append(np.average(EPOCH_LOSS[key]))
-
-            # =====================valid============================
-            self.img_encoder.eval()
-            self.img_decoder.eval()
-            self.msk_decoder.eval()
-            EPOCH_LOSS = {key: [] for key in LOSS_TERMS}
-
-            for idx, (data_x, data_y, index) in enumerate(self.valid_loader, 0):
-                data_y = data_y.to(torch.float32).to(self.args['t'].device)
-                with torch.no_grad():
-                    PREDS = self.calculate_loss('t', None, data_y)
-                for key in LOSS_TERMS:
-                    EPOCH_LOSS[key].append(self.temp_loss[key].item())
-            for key in LOSS_TERMS:
-                self.valid_loss['t'][key].append(np.average(EPOCH_LOSS[key]))
-
-        if autosave:
-            save_path = f'../saved/{notion}/'
-            if not os.path.exists(save_path):
-                os.makedirs(save_path)
-            torch.save(self.img_encoder.state_dict(),
-                       f"{save_path}{notion}_{self.img_encoder}_{self.current_title()}.pth")
-            torch.save(self.img_decoder.state_dict(),
-                       f"{save_path}{notion}_{self.img_decoder}_{self.current_title()}.pth")
-
-    def test_teacher(self, mode='test'):
-        """
-        Tests the teacher and saves estimates.
-        :param mode: 'test' or 'train' (selects data loader). Default is 'test'
-        :return: test results
-        """
-        self.test_loss['t'] = self.__gen_teacher_test__()
-        self.img_encoder.eval()
-        self.img_decoder.eval()
-        self.msk_decoder.eval()
-        LOSS_TERMS = self.plot_terms['t']['loss'].keys()
-        PLOT_TERMS = self.plot_terms['t']['predict']
-        EPOCH_LOSS = {key: [] for key in LOSS_TERMS}
-
-        if mode == 'test':
-            loader = self.test_loader
-        elif mode == 'train':
-            loader = self.train_loader
-
-        for idx, (data_x, data_y, index) in enumerate(loader, 0):
-            data_y = data_y.to(torch.float32).to(self.args['t'].device)
-            with torch.no_grad():
-                for sample in range(loader.batch_size):
-                    ind = index[sample][np.newaxis, ...]
-                    gt = data_y[sample][np.newaxis, ...]
-                    PREDS = self.calculate_loss(mode='t', x=None, y=gt, i=ind)
-
-                    for key in LOSS_TERMS:
-                        EPOCH_LOSS[key].append(self.temp_loss[key].item())
-
-                    for key in PLOT_TERMS:
-                        self.test_loss['t'][key].append(PREDS[key].cpu().detach().numpy().squeeze())
-                    for key in LOSS_TERMS:
-                        self.test_loss['t'][key] = EPOCH_LOSS[key]
-
-            if idx % (len(loader)//5) == 0:
-                print(f"\rTeacher: test={idx}/{len(loader)}, loss={self.temp_loss['LOSS'].item()}", end='')
-
-        for key in LOSS_TERMS:
-            EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
-        print(f"\nTest finished. Average loss={EPOCH_LOSS}")
