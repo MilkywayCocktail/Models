@@ -54,39 +54,30 @@ class ImageEncoderV03c1(nn.Module):
         self.active_func = active_func
 
         self.cnn = nn.Sequential(
+            # In = 128 * 128 * 1
             nn.Conv2d(1, 16, kernel_size=3, stride=2, padding=1),
             bn(16, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # nn.MaxPool2d(2, stride=2)
-            # In = 128 * 128 * 1
             # Out = 64 * 64 * 16
 
             nn.Conv2d(16, 32, kernel_size=3, stride=2, padding=1),
             bn(32, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # nn.MaxPool2d(2, stride=2)
-            # In = 64 * 64 * 16
             # Out = 32 * 32 * 32
 
             nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),
             bn(64, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # nn.MaxPool2d(2, stride=2)
-            # In = 32 * 32 * 32
             # Out = 16 * 16 * 64
 
             nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),
             bn(128, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # nn.MaxPool2d(2, stride=2)
-            # In = 16 * 16 * 64
             # Out = 8 * 8 * 128
 
             nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1),
             bn(256, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # nn.MaxPool2d(2, stride=2)
-            # In = 8 * 8 * 128
             # Out = 4 * 4 * 256
         )
 
@@ -134,40 +125,35 @@ class ImageDecoderV03c1(nn.Module):
         )
 
         self.cnn = nn.Sequential(
+            # In = 1 * 1 * 256
             nn.ConvTranspose2d(256, 128, kernel_size=4),
             bn(128, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # In = 1 * 1 * 256
             # Out = 4 * 4 * 128
 
             nn.ConvTranspose2d(128, 64, kernel_size=4, stride=2, padding=1),
             bn(64, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # In = 4 * 4 * 128
             # Out = 8 * 8 * 64
 
             nn.ConvTranspose2d(64, 32, kernel_size=4, stride=2, padding=1),
             bn(32, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # In = 8 * 8 * 64
             # Out = 16 * 16 * 32
 
             nn.ConvTranspose2d(32, 16, kernel_size=4, stride=2, padding=1),
             bn(16, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # In = 16 * 16 * 32
             # Out = 32 * 32 * 16
 
             nn.ConvTranspose2d(16, 8, kernel_size=4, stride=2, padding=1),
             bn(8, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # In = 32 * 32 * 16
             # Out = 64 * 64 * 8
 
             nn.ConvTranspose2d(8, 1, kernel_size=4, stride=2, padding=1),
             bn(1, batchnorm),
             self.active_func,
-            # In = 64 * 64 * 8
             # Out = 128 * 128 * 1
         )
 
@@ -193,31 +179,28 @@ class ImageDecoderIntV03c1(ImageDecoderV03c1):
         )
 
         self.cnn = nn.Sequential(
+            # In = 4 * 4 * 32
             nn.Conv2d(32, 16, kernel_size=3, stride=1, padding=1),
             bn(16, batchnorm),
             nn.LeakyReLU(inplace=True),
             Interpolate(size=(16, 16)),
-            # In = 4 * 4 * 32
             # Out = 16 * 16 * 16
 
             nn.Conv2d(16, 8, kernel_size=3, stride=1, padding=1),
             bn(8, batchnorm),
             nn.LeakyReLU(inplace=True),
             Interpolate(size=(64, 64)),
-            # In = 16 * 16 * 16
             # Out = 64 * 64 * 8
 
             nn.Conv2d(8, 4, kernel_size=3, stride=1, padding=1),
             bn(4, batchnorm),
             nn.LeakyReLU(inplace=True),
             Interpolate(size=(128, 128)),
-            # In = 64 * 64 * 8
             # Out = 128 * 128 * 4
 
             nn.Conv2d(4, 1, kernel_size=3, stride=1, padding=1),
             bn(1, batchnorm),
             self.active_func,
-            # In = 128 * 128 * 4
             # Out = 128 * 128 * 1
         )
 
@@ -377,34 +360,30 @@ class ImageDecoderV03c2(ImageDecoderV03c1):
         )
 
         self.cnn = nn.Sequential(
+            # In = 4 * 4 * 128
             nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
             bn(128, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # In = 4 * 4 * 128
             # Out = 8 * 8 * 128
 
             nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
             bn(128, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # In = 8 * 8 * 128
             # Out = 16 * 16 * 128
 
             nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
             bn(128, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # In = 16 * 16 * 128
             # Out = 32 * 32 * 128
 
             nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
             bn(128, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # In = 32 * 32 * 128
             # Out = 64 * 64 * 128
 
             nn.ConvTranspose2d(128, 1, kernel_size=4, stride=2, padding=1),
             bn(1, batchnorm),
             self.active_func,
-            # In = 64 * 64 * 128
             # Out = 128 * 128 * 1
         )
 

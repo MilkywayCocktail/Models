@@ -39,7 +39,6 @@ class TrainerVTS(TrainerTS):
                         'KL': [],
                         'RECON': [],
                         }
-
         return t_train_loss
 
     @staticmethod

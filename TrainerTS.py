@@ -549,7 +549,7 @@ class TrainerTS:
                     EPOCH_LOSS[key].append(self.temp_loss[key].item())
 
                 if idx % (len(self.train_loader) // 5) == 0:
-                    print(f"\rTeacher: epoch={epoch}/{self.args['t'].epochs}, batch={idx}/{len(self.train_loader)},"
+                    print(f"\rTeacher: epoch={epoch}/{self.args['t'].epochs}, batch={idx}/{len(self.train_loader)}, "
                           f"loss={self.temp_loss['LOSS'].item()}", end='')
             for key in LOSS_TERMS:
                 self.train_loss['t'][key].append(np.average(EPOCH_LOSS[key]))
@@ -607,7 +607,7 @@ class TrainerTS:
                     EPOCH_LOSS[key].append(self.temp_loss[key].item())
 
                 if idx % (len(self.train_loader) // 5) == 0:
-                    print(f"\rStudent: epoch={epoch}/{self.args['t'].epochs}, batch={idx}/{len(self.train_loader)},"
+                    print(f"\rStudent: epoch={epoch}/{self.args['t'].epochs}, batch={idx}/{len(self.train_loader)}, "
                           f"loss={self.temp_loss['LOSS'].item()}", end='')
 
             for key in LOSS_TERMS:
@@ -1001,3 +1001,88 @@ class TrainerTS:
                     self.args['s'].learning_rate *= decay_rate
 
         print("\nSchedule Completed!")
+
+
+class TrainerTSMask(TrainerTS):
+    def __init__(self, img_encoder, img_decoder, csi_encoder, msk_decoder,
+                 teacher_args, student_args,
+                 train_loader, valid_loader, test_loader,
+                 ):
+        super(TrainerTSMask, self).__init__(img_encoder=img_encoder, img_decoder=img_decoder, csi_encoder=csi_encoder,
+                                            teacher_args=teacher_args, student_args=student_args,
+                                            train_loader=train_loader, valid_loader=valid_loader, test_loader=test_loader,
+         )
+        self.mask_loss = nn.BCELoss(reduction='sum')
+        self.models['mskde'] = msk_decoder
+
+    @staticmethod
+    def __gen_teacher_train__():
+        t_train_loss = {'learning_rate': [],
+                        'epochs': [0],
+                        'LOSS': [],
+                        'MASK': [],
+                        }
+
+        return t_train_loss
+
+    @staticmethod
+    def __gen_teacher_test__():
+        t_test_loss = {'LOSS': [],
+                       'MASK': [],
+                       'PRED': [],
+                       'PRED_MASK': [],
+                       'GT': [],
+                       'GT_MASK': [],
+                       'IND': []}
+        return t_test_loss
+
+    @staticmethod
+    def __teacher_plot_terms__():
+        terms = {'loss': {'LOSS': 'Loss',
+                          'MASK': 'Mask Loss'
+                          },
+                 'predict': ('GT', 'GT_MASK', 'PRED', 'PRED_MASK', 'IND'),
+                 'test': {'GT': 'Ground Truth',
+                          'GT_MASK': 'GT Mask',
+                          'PRED': 'Estimated',
+                          'PRED_MASK': 'Estimated Mask'
+                          }
+                 }
+        return terms
+
+    def __train_models_t__(self):
+        self.models['imgen'].train()
+        self.models['imgde'].train()
+        return [{'params': self.models['imgen'].parameters()},
+                {'params': self.models['imgde'].parameters()},
+                {'params': self.models['mskde'].parameters()}]
+
+    def __test_models_t__(self):
+        self.models['imgen'].eval()
+        self.models['imgde'].eval()
+        self.models['mskde'].eval()
+
+    def loss(self, y, m, gt_y, gt_m, latent):
+        # reduction = 'sum'
+        recon_loss = self.args['t'].criterion(y, gt_y) / y.shape[0]
+        mask_loss = self.mask_loss(m, gt_m) / y.shape[0]
+        # loss = recon_loss + kl_loss * self.kl_weight + mask_loss
+        loss = mask_loss
+        return loss, recon_loss, mask_loss
+
+    def calculate_loss_t(self, x, y, i=None):
+
+        gt_mask = torch.where(y > 0, 1., 0.)
+
+        latent, z = self.models['imgen'](y)
+        output = self.models['imgde'](z)
+        mask = self.models['mskde'](z)
+        # output = output.mul(mask)
+        loss, recon_loss, mask_loss = self.loss(output, mask, y, gt_mask, latent)
+        self.temp_loss = {'LOSS': loss,
+                          'MASK': mask_loss}
+        return {'GT': y,
+                'GT_MASK': gt_mask,
+                'PRED': output,
+                'PRED_MASK': mask,
+                'IND': i}
