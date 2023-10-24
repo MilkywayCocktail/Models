@@ -33,21 +33,20 @@ class ResidualBlock(nn.Module):
         out = self.relu(out)
         return out
 
-
 # ------------------------------------- #
-# Model v03c1
-# VAE version; Adaptive to MNIST
+# Model TS
+# Model V03b1
 # Added interpolating decoder
+# Adaptive to MNIST
 
-# ImageEncoder: in = 128 * 128, out = 2 * latent_dim
+# ImageEncoder: in = 128 * 128, out = 1 * latent_dim
 # ImageDecoder: in = 1 * latent_dim, out = 128 * 128
-# ImageDecoderInterp: in = 1 * latent_dim, out = 128 * 128
-# CSIEncoder: in = 2 * 90 * 100, out = 2 * latent_dim
+# CSIEncoder: in = 2 * 90 * 100, out = 1 * latent_dim
 
 
-class ImageEncoderV03c1(nn.Module):
+class ImageEncoderV03b1(nn.Module):
     def __init__(self, bottleneck='fc', batchnorm=False, latent_dim=16, active_func=nn.Tanh()):
-        super(ImageEncoderV03c1, self).__init__()
+        super(ImageEncoderV03b1, self).__init__()
 
         self.bottleneck = bottleneck
         self.latent_dim = latent_dim
@@ -88,12 +87,12 @@ class ImageEncoderV03c1(nn.Module):
         self.fclayers = nn.Sequential(
             nn.Linear(4 * 4 * 256, 4096),
             nn.ReLU(),
-            nn.Linear(4096, 2 * self.latent_dim),
+            nn.Linear(4096, self.latent_dim),
             self.active_func
         )
 
     def __str__(self):
-        return 'ImgEnV03c1' + self.bottleneck.capitalize()
+        return 'ImgEnV03b1' + self.bottleneck.capitalize()
 
     def forward(self, x):
         x = self.cnn(x)
@@ -104,15 +103,12 @@ class ImageEncoderV03c1(nn.Module):
             x = self.gap(x)
             x = nn.Sigmoid(x)
 
-        mu, logvar = x.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
-        z = reparameterize(mu, logvar)
-
-        return x, z
+        return x.view(-1, self.latent_dim)
 
 
-class ImageDecoderV03c1(nn.Module):
+class ImageDecoderV03b1(nn.Module):
     def __init__(self, batchnorm=False, latent_dim=16, active_func=nn.Sigmoid()):
-        super(ImageDecoderV03c1, self).__init__()
+        super(ImageDecoderV03b1, self).__init__()
 
         self.latent_dim = latent_dim
         self.active_func = active_func
@@ -158,18 +154,21 @@ class ImageDecoderV03c1(nn.Module):
         )
 
     def __str__(self):
-        return 'ImgDeV03c1'
+        return 'ImgDeV03b1' + self.fc
 
-    def forward(self, z):
-        z = self.fclayers(z)
-        z = self.cnn(z.view(-1, 256, 1, 1))
+    def forward(self, x):
 
-        return z.view(-1, 1, 128, 128)
+        x = self.fclayers(x.view(-1, self.latent_dim))
+        x = self.cnn(x.view(-1, 256, 1, 1))
+        return x.view(-1, 1, 128, 128)
 
 
-class ImageDecoderIntV03c1(ImageDecoderV03c1):
-    def __init__(self, batchnorm=False):
-        super(ImageDecoderIntV03c1, self).__init__(batchnorm=batchnorm)
+class ImageDecoderIntV03b1(ImageDecoderV03b1):
+    def __init__(self, batchnorm=False, latent_dim=16, active_func=nn.Sigmoid()):
+        super(ImageDecoderIntV03b1, self).__init__()
+
+        self.latent_dim = latent_dim
+        self.active_func = active_func
 
         self.fclayers = nn.Sequential(
             nn.Linear(self.latent_dim, 4096),
@@ -205,21 +204,21 @@ class ImageDecoderIntV03c1(ImageDecoderV03c1):
         )
 
     def __str__(self):
-        return 'ImgDeIntV03c1'
+        return 'ImgDeIntV03b1' + self.fc
 
-    def forward(self, z):
-        z = self.fclayers(z)
-        z = self.cnn(z.view(-1, 32, 4, 4))
-        return z.view(-1, 1, 128, 128)
+    def forward(self, x):
+
+        x = self.fclayers(x.view(-1, self.latent_dim))
+        x = self.cnn(x.view(-1, 32, 4, 4))
+        return x.view(-1, 1, 128, 128)
 
 
-class CsiEncoderV03c1(nn.Module):
-    def __init__(self, bottleneck='last', batchnorm=False, latent_dim=16, active_func=nn.Sigmoid(), feature_length=512):
-        super(CsiEncoderV03c1, self).__init__()
+class CsiEncoderV03b1(nn.Module):
+    def __init__(self, bottleneck='last', batchnorm=False, latent_dim=16, feature_length=512):
+        super(CsiEncoderV03b1, self).__init__()
 
         self.bottleneck = bottleneck
         self.latent_dim = latent_dim
-        self.active_func = active_func
         self.feature_length = feature_length
 
         self.cnn1 = nn.Sequential(
@@ -282,11 +281,11 @@ class CsiEncoderV03c1(nn.Module):
         )
 
         self.lstm = nn.Sequential(
-            nn.LSTM(self.feature_length, 2 * self.latent_dim, 2, batch_first=True, dropout=0.1),
+            nn.LSTM(self.feature_length, self.latent_dim, 2, batch_first=True, dropout=0.1),
         )
 
     def __str__(self):
-        return 'CsiEnV03c1' + self.bottleneck.capitalize()
+        return 'CsiEnV03b1' + self.bottleneck.capitalize()
 
     def forward(self, x):
         x = torch.chunk(x.view(-1, 2, 90, 100), 2, dim=1)
@@ -299,22 +298,20 @@ class CsiEncoderV03c1(nn.Module):
         if self.bottleneck == 'last':
             out = out[:, -1, :]
 
-        mu, logvar = out.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
-        z = reparameterize(mu, logvar)
+        return out
 
-        return out, z
 
-# Model v03c2
-# Minor modifications to Model v03c1
+# ------------------------------------- #
+# Model v03b2
+# Minor modifications to Model v03b1
 # In number of channels
 
-# ImageEncoder: in = 128 * 128, out = 2 * latent_dim
+# ImageEncoder: in = 128 * 128, out = 1 * latent_dim
 # ImageDecoder: in = 1 * latent_dim, out = 128 * 128
 
-
-class ImageEncoderV03c2(ImageEncoderV03c1):
+class ImageEncoderV03b2(ImageEncoderV03b1):
     def __init__(self, batchnorm=False):
-        super(ImageEncoderV03c2, self).__init__(batchnorm=batchnorm)
+        super(ImageEncoderV03b2, self).__init__(batchnorm=batchnorm)
 
         self.cnn = nn.Sequential(
             # In = 128 * 128 * 1
@@ -345,12 +342,12 @@ class ImageEncoderV03c2(ImageEncoderV03c1):
         )
 
     def __str__(self):
-        return 'ImgEnV03c2' + self.bottleneck.capitalize()
+        return 'ImgEnV03b2' + self.bottleneck.capitalize()
 
 
-class ImageDecoderV03c2(ImageDecoderV03c1):
+class ImageDecoderV03b2(ImageDecoderV03b1):
     def __init__(self, batchnorm=False):
-        super(ImageDecoderV03c2, self).__init__(batchnorm=batchnorm)
+        super(ImageDecoderV03b2, self).__init__(batchnorm=batchnorm)
 
         self.fclayers = nn.Sequential(
             nn.Linear(self.latent_dim, 4096),
@@ -388,18 +385,148 @@ class ImageDecoderV03c2(ImageDecoderV03c1):
         )
 
     def __str__(self):
+        return 'ImgDeV03b2'
+
+    def forward(self, x):
+        x = self.fclayers(x)
+        x = self.cnn(x.view(-1, 128, 4, 4))
+        return x.view(-1, 1, 128, 128)
+
+# ------------------------------------- #
+# Model VTS
+# Model v03c1
+# VAE version; Adaptive to MNIST
+# Added interpolating decoder
+
+# ImageEncoder: in = 128 * 128, out = 2 * latent_dim
+# ImageDecoder: in = 1 * latent_dim, out = 128 * 128 (=V03b1)
+# ImageDecoderInterp: in = 1 * latent_dim, out = 128 * 128 (=V03b1)
+# CSIEncoder: in = 2 * 90 * 100, out = 2 * latent_dim
+
+
+class ImageEncoderV03c1(ImageEncoderV03b1):
+    def __init__(self, batchnorm=False):
+        super(ImageEncoderV03c1, self).__init__(batchnorm=batchnorm)
+
+    def __str__(self):
+        return 'ImgEnV03c1'
+
+    def forward(self, x):
+        x = self.cnn(x)
+
+        if self.bottleneck == 'fc':
+            x = self.fclayers(x.view(-1, 4 * 4 * 256))
+        elif self.bottleneck == 'gap':
+            x = self.gap(x)
+            x = nn.Sigmoid(x)
+
+        mu, logvar = x.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
+        z = reparameterize(mu, logvar)
+
+        return x, z
+
+
+class ImageDecoderV03c1(ImageDecoderV03b1):
+    def __init__(self):
+        super(ImageDecoderV03c1, self).__init__()
+
+    def __str__(self):
+        return 'ImgDeV03c1'
+
+
+class ImageDecoderIntV03c1(ImageDecoderIntV03b1):
+    def __init__(self, batchnorm=False):
+        super(ImageDecoderIntV03c1, self).__init__(batchnorm=batchnorm)
+
+    def __str__(self):
+        return 'ImgDeIntV03c1'
+
+
+class CsiEncoderV03c1(CsiEncoderV03b1):
+    def __init__(self, batchnorm=False, feature_length=512):
+        super(CsiEncoderV03c1, self).__init__(batchnorm=batchnorm, feature_length=feature_length)
+
+        self.lstm = nn.Sequential(
+            nn.LSTM(self.feature_length, 2 * self.latent_dim, 2, batch_first=True, dropout=0.1),
+        )
+
+    def __str__(self):
+        return 'CsiEnV03c1' + self.bottleneck.capitalize()
+
+    def forward(self, x):
+        x = torch.chunk(x.view(-1, 2, 90, 100), 2, dim=1)
+        x1 = self.cnn1(x[0])
+        x2 = self.cnn2(x[1])
+        out = torch.cat([x1, x2], dim=1)
+        out, (final_hidden_state, final_cell_state) = self.lstm.forward(
+            out.view(-1, self.feature_length, 8 * 42).transpose(1, 2))
+
+        if self.bottleneck == 'last':
+            out = out[:, -1, :]
+
+        mu, logvar = out.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
+        z = reparameterize(mu, logvar)
+
+        return out, z
+
+# ------------------------------------- #
+# Model v03c2
+# Minor modifications to Model v03c1
+# In number of channels
+
+# ImageEncoder: in = 128 * 128, out = 2 * latent_dim
+# ImageDecoder: in = 1 * latent_dim, out = 128 * 128 (=V03b2)
+
+
+class ImageEncoderV03c2(ImageEncoderV03c1):
+    def __init__(self, batchnorm=False):
+        super(ImageEncoderV03c2, self).__init__()
+
+        self.cnn = nn.Sequential(
+            # In = 128 * 128 * 1
+            nn.Conv2d(1, 128, kernel_size=3, stride=2, padding=1),
+            bn(128, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            # Out = 64 * 64 * 128
+
+            nn.Conv2d(128, 128, kernel_size=3, stride=2, padding=1),
+            bn(128, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            # Out = 32 * 32 * 128
+
+            nn.Conv2d(128, 128, kernel_size=3, stride=2, padding=1),
+            bn(128, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            # Out = 16 * 16 * 128
+
+            nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1),
+            bn(256, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            # Out = 8 * 8 * 256
+
+            nn.Conv2d(256, 256, kernel_size=3, stride=2, padding=1),
+            bn(256, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            # Out = 4 * 4 * 256
+        )
+
+    def __str__(self):
+        return 'ImgEnV03c2' + self.bottleneck.capitalize()
+
+
+class ImageDecoderV03c2(ImageDecoderV03b2):
+    def __init__(self, batchnorm=False):
+        super(ImageDecoderV03c2, self).__init__(batchnorm=batchnorm)
+
+    def __str__(self):
         return 'ImgDeV03c2'
 
-    def forward(self, z):
-        z = self.fclayers(z)
-        z = self.cnn(z.view(-1, 128, 4, 4))
 
-        return z.view(-1, 1, 128, 128)
-
+# ------------------------------------- #
 # Model v03c3
 # Minor modifications to Model v03c2
 # In the use of Resblock
-# CsiEncoder adopted 2-channel cnn
+# CsiEncoder increased feature length
 
 # ImageEncoder: in = 128 * 128, out = 2 * latent_dim
 # ImageDecoder: in = 1 * latent_dim, out = 128 * 128
