@@ -3,6 +3,14 @@ import torch.nn as nn
 from torchinfo import summary
 from TrainerTS import bn, Interpolate
 
+# -------------------------------------------------------------------------- #
+# Models named with 'b' are AEs
+# Models named with 'c' are VAEs
+# Numbers after 'V' are generations
+# Numbers after 'b' or 'c' are variations
+# eg: ModelV03b1 means Gen3 AE Var1
+# -------------------------------------------------------------------------- #
+
 
 def reparameterize(mu, logvar):
     eps = torch.randn_like(mu)
@@ -33,7 +41,7 @@ class ResidualBlock(nn.Module):
         out = self.relu(out)
         return out
 
-# ------------------------------------- #
+# -------------------------------------------------------------------------- #
 # Model TS
 # Model V03b1
 # Added interpolating decoder
@@ -42,6 +50,7 @@ class ResidualBlock(nn.Module):
 # ImageEncoder: in = 128 * 128, out = 1 * latent_dim
 # ImageDecoder: in = 1 * latent_dim, out = 128 * 128
 # CSIEncoder: in = 2 * 90 * 100, out = 1 * latent_dim
+# -------------------------------------------------------------------------- #
 
 
 class ImageEncoderV03b1(nn.Module):
@@ -301,13 +310,14 @@ class CsiEncoderV03b1(nn.Module):
         return out
 
 
-# ------------------------------------- #
+# -------------------------------------------------------------------------- #
 # Model v03b2
 # Minor modifications to Model v03b1
 # In number of channels
 
 # ImageEncoder: in = 128 * 128, out = 1 * latent_dim
 # ImageDecoder: in = 1 * latent_dim, out = 128 * 128
+# -------------------------------------------------------------------------- #
 
 class ImageEncoderV03b2(ImageEncoderV03b1):
     def __init__(self, batchnorm=False):
@@ -392,7 +402,7 @@ class ImageDecoderV03b2(ImageDecoderV03b1):
         x = self.cnn(x.view(-1, 128, 4, 4))
         return x.view(-1, 1, 128, 128)
 
-# ------------------------------------- #
+# -------------------------------------------------------------------------- #
 # Model VTS
 # Model v03c1
 # VAE version; Adaptive to MNIST
@@ -402,6 +412,7 @@ class ImageDecoderV03b2(ImageDecoderV03b1):
 # ImageDecoder: in = 1 * latent_dim, out = 128 * 128 (=V03b1)
 # ImageDecoderInterp: in = 1 * latent_dim, out = 128 * 128 (=V03b1)
 # CSIEncoder: in = 2 * 90 * 100, out = 2 * latent_dim
+# -------------------------------------------------------------------------- #
 
 
 class ImageEncoderV03c1(ImageEncoderV03b1):
@@ -469,13 +480,14 @@ class CsiEncoderV03c1(CsiEncoderV03b1):
 
         return out, z
 
-# ------------------------------------- #
+# -------------------------------------------------------------------------- #
 # Model v03c2
 # Minor modifications to Model v03c1
 # In number of channels
 
 # ImageEncoder: in = 128 * 128, out = 2 * latent_dim
 # ImageDecoder: in = 1 * latent_dim, out = 128 * 128 (=V03b2)
+# -------------------------------------------------------------------------- #
 
 
 class ImageEncoderV03c2(ImageEncoderV03c1):
@@ -522,7 +534,7 @@ class ImageDecoderV03c2(ImageDecoderV03b2):
         return 'ImgDeV03c2'
 
 
-# ------------------------------------- #
+# -------------------------------------------------------------------------- #
 # Model v03c3
 # Minor modifications to Model v03c2
 # In the use of Resblock
@@ -532,6 +544,7 @@ class ImageDecoderV03c2(ImageDecoderV03b2):
 # ImageDecoder: in = 1 * latent_dim, out = 128 * 128
 # ImageDecoderInterp: in = 1 * latent_dim, out = 128 * 128
 # CSIEncoder: in = 2 * 90 * 100, out = 2 * latent_dim
+# -------------------------------------------------------------------------- #
 
 
 class ImageEncoderV03c3(ImageEncoderV03c2):
@@ -707,6 +720,31 @@ class CsiEncoderV03c3(CsiEncoderV03c1):
 
     def __str__(self):
         return 'CsiEnV03c3' + self.bottleneck.capitalize()
+
+
+# -------------------------------------------------------------------------- #
+# Model v04c1
+# Implemented inductive biases
+
+# ImageEncoder: in = 128 * 128, out = 2 * latent_dim
+# ImageDecoder: in = 1 * latent_dim, out = 128 * 128 & 1 * inductive_dim
+# CSIEncoder: in = 2 * 90 * 100, out = 2 * latent_dim
+# -------------------------------------------------------------------------- #
+
+class ImageEncoderV04c1(ImageEncoderV03c2):
+    def __init__(self, batchnorm=False):
+        super(ImageEncoderV04c1, self).__init__(batchnorm=batchnorm)
+
+    def __str__(self):
+        return 'ImgEnV04c1' + self.bottleneck.capitalize()
+
+
+class ImageDecoderV04c1(ImageDecoderV03c2):
+    def __init__(self, batchnorm=False):
+        super(ImageDecoderV04c1, self).__init__(batchnorm=batchnorm)
+
+    def __str__(self):
+        return 'ImgDeV04c1'
 
 
 if __name__ == "__main__":
