@@ -419,6 +419,13 @@ class ImageEncoderV03c1(ImageEncoderV03b1):
     def __init__(self, batchnorm=False):
         super(ImageEncoderV03c1, self).__init__(batchnorm=batchnorm)
 
+        self.fclayers = nn.Sequential(
+            nn.Linear(4 * 4 * 256, 4096),
+            nn.ReLU(),
+            nn.Linear(4096, 2 * self.latent_dim),
+            self.active_func
+        )
+
     def __str__(self):
         return 'ImgEnV03c1'
 
@@ -748,11 +755,9 @@ class ImageDecoderV04c1(ImageDecoderV03c2):
 
 
 if __name__ == "__main__":
-    # m1 = ImageEncoder()
-    # summary(m1, input_size=(1, 128, 128))
-    # m2 = ImageDecoder()
-    # summary(m2, input_size=(1, 16))
-    # m3 = CsiEncoder()
-    # summary(m3, input_size=(2, 90, 100))
-    m4 = CsiEncoderV03c3()
-    summary(m4, input_size=(2, 90, 100))
+    IMG = (1, 128, 128)
+    CSI = (2, 90, 100)
+    LAT = (1, 16)
+
+    m = ImageEncoderV03c3()
+    summary(m, input_size=IMG)
