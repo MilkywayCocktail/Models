@@ -410,22 +410,38 @@ class TrainerTS:
         return terms
 
     def __train_models_t__(self):
+        """
+        Changes teacher model states for training.
+        :return: None
+        """
         self.models['imgen'].train()
         self.models['imgde'].train()
         return [{'params': self.models['imgen'].parameters()},
                 {'params': self.models['imgde'].parameters()}]
 
     def __test_models_t__(self):
+        """
+        Changes teacher model states for testing.
+        :return: None
+        """
         self.models['imgen'].eval()
         self.models['imgde'].eval()
 
     def __train_models_s__(self):
+        """
+        Changes student model states for training.
+        :return: None
+        """
         self.models['imgen'].eval()
         self.models['imgde'].eval()
         self.models['csien'].train()
         return self.models['csien'].parameters()
 
     def __test_models_s__(self):
+        """
+        Changes student model states for testing.
+        :return: None
+        """
         self.models['imgen'].eval()
         self.models['imgde'].eval()
         self.models['csien'].eval()
@@ -477,9 +493,9 @@ class TrainerTS:
 
     def calculate_loss_t(self, x, y, i=None):
         """
-        Calculate loss function for back propagation.
-        :param x: x data
-        :param y: y data
+        Calculates loss function for back propagation.
+        :param x: x data (CSI)
+        :param y: y data (image)
         :param i: index of data
         :return: loss object
         """
@@ -493,9 +509,9 @@ class TrainerTS:
 
     def calculate_loss_s(self, x, y, i=None):
         """
-        Calculate loss function for back propagation.
-        :param x: x data
-        :param y: y data
+        Calculates loss function for back propagation.
+        :param x: x data (CSI)
+        :param y: y data (image)
         :param i: index of data
         :return: loss object
         """

@@ -1,29 +1,14 @@
 import matplotlib.pyplot as plt
 from matplotlib import cm
 import numpy as np
-from torchvision import datasets
+import torch
 
-y = [1,2,3,4,5,6]
-y2 = [4,5,7,6,7,1]
-l = list(range(len(y)))
+x = torch.rand(1, 9)
+print(x)
+eye = torch.eye(3)
 
-keys = ['A', 'B', 'C']
+z = x.view(1, 3, 3)
+print(z)
 
-dics = {key:[] for key in keys}
-#print(dics.items())
-
-dic2 = {'A':2, 'B':3, 'C':4}
-dics = {**dics, **dic2}
-
-#print(f"\r123445", end='')
-#print(f"\raabbc")
-
-#print(0.4 ** 10)
-
-a = np.ones(4)
-b = a * 2
-c = a * 3
-e = np.array([a, b, c])
-print(e.shape)
-print(e.reshape((6, 2)).T)
-#print(e)
+#print(z * torch.transpose(z, -1, -2) - eye)
+print(torch.matmul(x, torch.transpose(x, -1, -2)))

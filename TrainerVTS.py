@@ -33,6 +33,10 @@ class TrainerVTS(TrainerTS):
 
     @staticmethod
     def __gen_teacher_train__():
+        """
+        Generates student's training loss.
+        :return: structured loss
+        """
         t_train_loss = {'learning_rate': [],
                         'epochs': [0],
                         'LOSS': [],
@@ -43,6 +47,10 @@ class TrainerVTS(TrainerTS):
 
     @staticmethod
     def __gen_teacher_test__():
+        """
+        Generates teacher's test loss.
+        :return: structured loss
+        """
         t_test_loss = {'LOSS': [],
                        'RECON': [],
                        'KL': [],
@@ -53,6 +61,10 @@ class TrainerVTS(TrainerTS):
 
     @staticmethod
     def __teacher_plot_terms__():
+        """
+        Defines plot items for plot_test(mode='t')
+        :return: keywords
+        """
         terms = {'loss': {'LOSS': 'Loss',
                           'KL': 'KL Loss',
                           'RECON': 'Reconstruction Loss'
@@ -65,19 +77,37 @@ class TrainerVTS(TrainerTS):
 
     @staticmethod
     def kl_loss(vector):
+        """
+        KL loss used as VAE loss.
+        :param vector: vector containing mu and sigma
+        :return: loss term
+        """
         mu = vector[:len(vector)//2]
         logvar = vector[len(vector)//2:]
         return -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
 
-    def loss(self, y, gt, latent):
+    def loss(self, pred, gt, latent):
+        """
+        Total loss of teacher network.
+        :param pred: predicted images
+        :param gt: ground truth of images
+        :param latent: predicted latent vectors
+        :return: loss term
+        """
         # reduction = 'sum'
-        recon_loss = self.args['t'].criterion(y, gt) / y.shape[0]
+        recon_loss = self.args['t'].criterion(pred, gt) / pred.shape[0]
         kl_loss = self.kl_loss(latent)
         loss = recon_loss + kl_loss * self.kl_weight
         return loss, kl_loss, recon_loss
 
     def calculate_loss_t(self, x, y, i=None):
-
+        """
+        Calculates loss function for back propagation,
+        :param x: x data (CSI)
+        :param y: y data (image)
+        :param i: index of data
+        :return: loss object
+        """
         latent, z = self.models['imgen'](y)
         output = self.models['imgde'](z)
         loss, kl_loss, recon_loss = self.loss(output, y, latent)
@@ -89,7 +119,13 @@ class TrainerVTS(TrainerTS):
                 'IND': i}
 
     def calculate_loss_s(self, x, y, i=None):
-
+        """
+        Calculates loss function for back propagation.
+        :param x: x data (CSI)
+        :param y: y data (image)
+        :param i: index of data
+        :return: loss object
+        """
         s_latent, s_z = self.models['csien'](x)
         with torch.no_grad():
             t_latent, t_z = self.models['imgen'](y)
@@ -240,6 +276,10 @@ class TrainerVTSMask(TrainerVTS):
 
     @staticmethod
     def __gen_teacher_train__():
+        """
+        Generates student's training loss.
+        :return: structured loss
+        """
         t_train_loss = {'learning_rate': [],
                         'epochs': [0],
                         'LOSS': [],
@@ -252,6 +292,10 @@ class TrainerVTSMask(TrainerVTS):
 
     @staticmethod
     def __gen_teacher_test__():
+        """
+        Generates teacher's test loss.
+        :return: structured loss
+        """
         t_test_loss = {'LOSS': [],
                        'RECON': [],
                        'KL': [],
@@ -265,6 +309,10 @@ class TrainerVTSMask(TrainerVTS):
 
     @staticmethod
     def __teacher_plot_terms__():
+        """
+        Defines plot items for plot_test(mode='t')
+        :return: keywords
+        """
         terms = {'loss': {'LOSS': 'Loss',
                           'KL': 'KL Loss',
                           'RECON': 'Reconstruction Loss',
@@ -280,6 +328,10 @@ class TrainerVTSMask(TrainerVTS):
         return terms
 
     def __train_models_t__(self):
+        """
+        Changes teacher model states for training.
+        :return: None
+        """
         self.models['imgen'].train()
         self.models['imgde'].train()
         return [{'params': self.models['imgen'].parameters()},
@@ -287,27 +339,47 @@ class TrainerVTSMask(TrainerVTS):
                 {'params': self.models['mskde'].parameters()}]
 
     def __test_models_t__(self):
+        """
+        Changes teacher model states for testing.
+        :return: None
+        """
         self.models['imgen'].eval()
         self.models['imgde'].eval()
         self.models['mskde'].eval()
 
-    def loss(self, y, m, gt_y, gt_m, latent):
+    def loss(self, y, pred_mask, gt_y, gt_m, latent):
+        """
+        Total loss of teacher network.
+        :param y: predicted images
+        :param pred_mask: predicted masks
+        :param gt_y: ground truth of images
+        :param gt_m: ground truth of masks
+        :param latent: predicted latent vectors
+        :return: loss term
+        """
+
         # reduction = 'sum'
         recon_loss = self.args['t'].criterion(y, gt_y) / y.shape[0]
         kl_loss = self.kl_loss(latent)
-        mask_loss = self.mask_loss(m, gt_m) / m.shape[0]
-        # loss = recon_loss + kl_loss * self.kl_weight + mask_loss
-        loss = mask_loss
+        mask_loss = self.mask_loss(pred_mask, gt_m) / pred_mask.shape[0]
+        loss = recon_loss + kl_loss * self.kl_weight + mask_loss
+        # loss = mask_loss
         return loss, kl_loss, recon_loss, mask_loss
 
     def calculate_loss_t(self, x, y, i=None):
-
+        """
+        Calculates loss function for back propagation,
+        :param x: x data (CSI)
+        :param y: y data (image)
+        :param i: index of data
+        :return: loss object
+        """
         gt_mask = torch.where(y > 0, 1., 0.)
 
         latent, z = self.models['imgen'](y)
         output = self.models['imgde'](z)
         mask = self.models['mskde'](z)
-        # output = output.mul(mask)
+        output = output.mul(mask)
         loss, kl_loss, recon_loss, mask_loss = self.loss(output, mask, y, gt_mask, latent)
         self.temp_loss = {'LOSS': loss,
                           'KL': kl_loss,
@@ -320,3 +392,153 @@ class TrainerVTSMask(TrainerVTS):
                 'IND': i}
 
 
+class TrainerVTSIB1(TrainerVTS):
+    def __init__(self, img_encoder, img_decoder, csi_encoder,
+                 teacher_args, student_args,
+                 train_loader, valid_loader, test_loader,
+                 lb=1e-2,
+                 inductive_length=25,
+                 memory_size=64
+                 ):
+        super(TrainerVTSIB1, self).__init__(img_encoder=img_encoder, img_decoder=img_decoder, csi_encoder=csi_encoder,
+                                            teacher_args=teacher_args, student_args=student_args,
+                                            train_loader=train_loader, valid_loader=valid_loader, test_loader=test_loader,
+         )
+
+        self.lb = lb
+        self.inductive_length=inductive_length
+        self.memory_size = memory_size
+        self.ib_loss = nn.MSELoss()
+        self.memory_bank = self.__gen_memory_bank__()
+
+    @staticmethod
+    def __gen_teacher_train__():
+        """
+        Generates teacher's training loss.
+        :return: structured loss
+        """
+        t_train_loss = {'learning_rate': [],
+                        'epochs': [0],
+                        'LOSS': [],
+                        'KL': [],
+                        'RECON': [],
+                        'ORTH': [],
+                        'SMTH': []
+                        }
+
+        return t_train_loss
+
+    @staticmethod
+    def __gen_teacher_test__():
+        """
+        Generates teacher's test loss.
+        :return: structured loss
+        """
+        t_test_loss = {'LOSS': [],
+                       'RECON': [],
+                       'KL': [],
+                       'PRED': [],
+                       'GT': [],
+                       'GT_IB': [],
+                       'IND': []}
+        return t_test_loss
+
+    @staticmethod
+    def __teacher_plot_terms__():
+        """
+        Defines plot items for plot_test(mode='t')
+        :return: keywords
+        """
+        terms = {'loss': {'LOSS': 'Loss',
+                          'KL': 'KL Loss',
+                          'RECON': 'Reconstruction Loss',
+                          'ORTH': 'Orthogonality Loss',
+                          'SMTH': 'Smoothness Loss'
+                          },
+                 'predict': ('GT', 'PRED', 'IND'),
+                 'test': {'GT': 'Ground Truth',
+                          'PRED': 'Estimated',
+                          }
+                 }
+        return terms
+
+    def __gen_memory_bank__(self):
+        """
+        Generates memory bank.
+        :return: memory bank
+        """
+        mem = {'LAT': torch.zeros(self.memory_size),
+               'IB': torch.zeros(self.memory_size),
+               'FLAG': 0
+               }
+        return mem
+
+    def orthogonality_loss(self, ib):
+        """
+        Orthogonality loss upon inductive bias.
+        :param ib: predicted inductive bias
+        :return: loss term
+        """
+        ib_dims = ib.view(-1, 5, 5)
+        orth_matrix = ib_dims * torch.transpose(ib_dims, -1, -2)    # torch.matmul
+        orth_loss = self.ib_loss(orth_matrix, torch.eye(5))
+
+        return orth_loss
+
+    def smoothness_loss(self, latent, gt_ib):
+        if self.memory_bank['FLAG'] == 0:
+            self.memory_bank['LAT'] = latent
+            self.memory_bank['IB'] = gt_ib
+            self.memory_bank['FLAG'] = 1
+            return 0
+        else:
+            d_y = gt_ib - self.memory_bank['IB']
+            d_x = latent - self.memory_bank['LAT']
+            gradient2 = (torch.matmul(d_y, torch.transpose(d_y, -1, -2))) / torch.matmul(d_x, torch.matmul(d_x))
+            smooth_loss = self.ib_loss(gradient2, self.lb * self.lb)
+            self.memory_bank['LAT'] = latent
+            self.memory_bank['IB'] = gt_ib
+        return smooth_loss
+
+    def loss(self, pred, pred_ib, gt_y, gt_ib, latent):
+        """
+        Total loss of teacher network.
+        :param pred: predicted images
+        :param pred_ib: predicted inductive biases
+        :param gt_y: ground truth of images
+        :param gt_ib: ground truth of inductive biases
+        :param latent: predicted latent vectors
+        :return: loss term
+        """
+        # reduction = 'sum'
+        recon_loss = self.args['t'].criterion(pred, gt_y) / pred.shape[0]
+        kl_loss = self.kl_loss(latent)
+        ib_loss1 = self.orthogonality_loss(pred_ib)
+        ib_loss2 = self.smoothness_loss(latent, gt_ib)
+
+        loss = recon_loss + kl_loss * self.kl_weight + ib_loss1 + ib_loss2
+
+        return loss, kl_loss, recon_loss, ib_loss1, ib_loss2
+
+    def calculate_loss_t(self, x, y, c, i=None):
+        """
+        Calculates loss function for back propagation,
+        :param x: x data (CSI)
+        :param y: y data (image)
+        :param c: inductive bias data
+        :param i: index of data
+        :return: loss object
+        """
+        latent, z = self.models['imgen'](y)
+        output, ib = self.models['imgde'](z)
+
+        loss, kl_loss, recon_loss, orth_loss, smooth_loss = self.loss(output, ib, y, c, latent)
+        self.temp_loss = {'LOSS': loss,
+                          'KL': kl_loss,
+                          'RECON': recon_loss,
+                          'ORTH': orth_loss,
+                          'SMTH': smooth_loss}
+        return {'GT': y,
+                'GT_IB': c,
+                'PRED': output,
+                'IND': i}

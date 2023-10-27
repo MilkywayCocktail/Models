@@ -747,11 +747,25 @@ class ImageEncoderV04c1(ImageEncoderV03c2):
 
 
 class ImageDecoderV04c1(ImageDecoderV03c2):
-    def __init__(self, batchnorm=False):
+    def __init__(self, batchnorm=False, inductive_length=25):
         super(ImageDecoderV04c1, self).__init__(batchnorm=batchnorm)
+
+        self.inductive_length = inductive_length
+        self.fc2 = nn.Sequential(
+            nn.Linear(self.latent_dim, 64),
+            nn.ReLU(),
+            nn.Linear(64, self.inductive_length),
+            nn.ReLU()
+        )
 
     def __str__(self):
         return 'ImgDeV04c1'
+
+    def forward(self, x):
+        ib = self.fc2(x)
+        x = self.fclayers(x.view(-1, self.latent_dim))
+        x = self.cnn(x.view(-1, 256, 1, 1))
+        return x.view(-1, 1, 128, 128), ib.view(-1, self.inductive_length)
 
 
 if __name__ == "__main__":
