@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 from torchinfo import summary
-from TrainerTS import bn, Interpolate
 
 # -------------------------------------------------------------------------- #
 # Models named with 'b' are AEs
@@ -12,32 +11,60 @@ from TrainerTS import bn, Interpolate
 # -------------------------------------------------------------------------- #
 
 
+def bn(channels, batchnorm=False):
+    """
+    Definition of optional batchnorm layer.
+    :param channels: input channels
+    :param batchnorm: False or 'batch' or 'instance'
+    :return: batchnorm layer or Identity layer (no batchnorm)
+    """
+    if not batchnorm:
+        return nn.Identity(channels)
+    elif batchnorm == 'batch':
+        return nn.BatchNorm2d(channels)
+    elif batchnorm == 'instance':
+        return nn.InstanceNorm2d(channels)
+
+
+class Interpolate(nn.Module):
+    def __init__(self, size, mode='bilinear'):
+        """
+        Definition of interpolate layer.
+        :param size: (height, width)
+        :param mode: default is 'bilinear'
+        """
+        super(Interpolate, self).__init__()
+        self.interp = nn.functional.interpolate
+        self.size = size
+        self.mode = mode
+
+    def forward(self, x):
+        x = self.interp(x, size=self.size, mode=self.mode, align_corners=False)
+        return x
+
+
 def reparameterize(mu, logvar):
     eps = torch.randn_like(mu)
     return mu + eps * torch.exp(logvar / 2)
 
 
 class ResidualBlock(nn.Module):
-    def __init__(self, in_channels, out_channels):
+    def __init__(self, in_channels, out_channels, batchnorm):
         super(ResidualBlock, self).__init__()
-        self.conv1 = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1, padding_mode='reflect'),
-            # nn.BatchNorm2d(out_channels),
-            # nn.ReLU()
-            )
-        self.conv2 = nn.Sequential(
+        self.conv = nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1),
+            bn(out_channels, batchnorm),
+            nn.ReLU(),
             nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1),
-            # nn.BatchNorm2d(out_channels)
+            bn(out_channels, batchnorm)
             )
 
         self.relu = nn.ReLU()
         self.out_channels = out_channels
 
     def forward(self, x):
-        residual = x
-        out = self.conv1(x)
-        out = self.conv2(out)
-        out += residual
+        out = self.conv(x)
+        out += x
         out = self.relu(out)
         return out
 
@@ -565,9 +592,9 @@ class ImageEncoderV03c3(ImageEncoderV03c2):
             nn.LeakyReLU(inplace=True),
             # Out = 64 * 64 * 128
 
-            ResidualBlock(128, 128),
-            ResidualBlock(128, 128),
-            ResidualBlock(128, 128),
+            ResidualBlock(128, 128, batchnorm),
+            ResidualBlock(128, 128, batchnorm),
+            ResidualBlock(128, 128, batchnorm),
 
             nn.Conv2d(128, 128, kernel_size=3, stride=2, padding=1),
             bn(128, batchnorm),
@@ -584,9 +611,9 @@ class ImageEncoderV03c3(ImageEncoderV03c2):
             nn.LeakyReLU(inplace=True),
             # Out = 8 * 8 * 256
 
-            ResidualBlock(256, 256),
-            ResidualBlock(256, 256),
-            ResidualBlock(256, 256),
+            ResidualBlock(256, 256, batchnorm),
+            ResidualBlock(256, 256, batchnorm),
+            ResidualBlock(256, 256, batchnorm),
 
             nn.Conv2d(256, 256, kernel_size=3, stride=2, padding=1),
             bn(256, batchnorm),
@@ -604,9 +631,9 @@ class ImageDecoderV03c3(ImageDecoderV03c2):
 
         self.cnn = nn.Sequential(
             # In = 4 * 4 * 128
-            ResidualBlock(128, 128),
-            ResidualBlock(128, 128),
-            ResidualBlock(128, 128),
+            ResidualBlock(128, 128, batchnorm),
+            ResidualBlock(128, 128, batchnorm),
+            ResidualBlock(128, 128, batchnorm),
 
             nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
             bn(128, batchnorm),
@@ -636,9 +663,9 @@ class ImageDecoderIntV03c3(ImageDecoderV03c2):
         super(ImageDecoderIntV03c3, self).__init__(batchnorm=batchnorm)
 
         self.cnn = nn.Sequential(
-            ResidualBlock(128, 128),
-            ResidualBlock(128, 128),
-            ResidualBlock(128, 128),
+            ResidualBlock(128, 128, batchnorm),
+            ResidualBlock(128, 128, batchnorm),
+            ResidualBlock(128, 128, batchnorm),
             # 4x4x128
             Interpolate(size=(8, 8)),
             nn.Conv2d(128, 64, kernel_size=3, stride=1, padding=0),
@@ -769,9 +796,9 @@ class ImageDecoderV04c1(ImageDecoderV03c2):
 
 
 if __name__ == "__main__":
-    IMG = (1, 128, 128)
+    IMG = (1, 1, 128, 128)
     CSI = (2, 90, 100)
     LAT = (1, 16)
 
-    m = ImageEncoderV03c3()
+    m = ImageEncoderV03c3(batchnorm='batch')
     summary(m, input_size=IMG)

@@ -27,38 +27,6 @@ def timer(func):
     return wrapper
 
 
-def bn(channels, batchnorm=None):
-    """
-    Definition of optional batchnorm layer.
-    :param channels: input channels
-    :param batchnorm: None or 'batch' or 'instance'
-    :return: batchnorm layer or Identity layer (no batchnorm)
-    """
-    if not batchnorm:
-        return nn.Identity(channels)
-    elif batchnorm=='batch':
-        return nn.BatchNorm2d(channels)
-    elif batchnorm=='instance':
-        return nn.InstanceNorm2d(channels)
-
-
-class Interpolate(nn.Module):
-    def __init__(self, size, mode='bilinear'):
-        """
-        Definition of interpolate layer.
-        :param size: (height, width)
-        :param mode: default is 'bilinear'
-        """
-        super(Interpolate, self).__init__()
-        self.interp = nn.functional.interpolate
-        self.size = size
-        self.mode = mode
-
-    def forward(self, x):
-        x = self.interp(x, size=self.size, mode=self.mode, align_corners=False)
-        return x
-
-
 class MyDataset(Data.Dataset):
     """
     DATA LOADER
