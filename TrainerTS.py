@@ -42,12 +42,15 @@ class MyDataset(Data.Dataset):
         :param int_image: whether convert images to np.uint8. Default is False
         :param number: select a number of samples. Default is 0 (all)
         """
+        self.x_path = x_path
+        self.y_path = y_path
+        self.number = number
         self.seeds = None
         self.img_size = img_size
         self.transform = transform
         self.img = img
         self.int_img = int_image
-        self.data = self.__load_data__(x_path, y_path, number=number)
+        self.data = self.__load_data__()
         print('loaded')
 
     def __convert__(self, sample):
@@ -86,16 +89,13 @@ class MyDataset(Data.Dataset):
     def __len__(self):
         return self.data['x'].shape[0]
 
-    def __load_data__(self, x_path, y_path, number):
+    def __load_data__(self):
         """
         Load data.
-        :param x_path: path of x file (npy)
-        :param y_path: path of y file (npy)
-        :param number: select a number of samples. Default is 0 (all)
         :return: loaded dataset
         """
-        x = np.load(x_path)
-        y = np.load(y_path)
+        x = np.load(self.x_path)
+        y = np.load(self.y_path)
         if self.img == 'x':
             x = x.reshape((-1, 1, self.img_size[0], self.img_size[1]))
         elif self.img == 'y':
@@ -103,8 +103,39 @@ class MyDataset(Data.Dataset):
 
         if x.shape[0] == y.shape[0]:
             total_count = x.shape[0]
-            if number != 0:
-                picked = np.random.choice(list(range(total_count)), size=number, replace=False)
+            if self.number != 0:
+                picked = np.random.choice(list(range(total_count)), size=self.number, replace=False)
+                self.seeds = picked
+                x = x[picked]
+                y = y[picked]
+        else:
+            print(x.shape, y.shape, "lengths not equal!")
+
+        return {'x': x, 'y': y}
+
+
+class SplitDataset(MyDataset):
+    def __init__(self, x_path, y_path, z_path, img_size=(128, 128), transform=None, img='y', int_image=False, number=0):
+        super(SplitDataset, self).__init__(x_path, y_path, img_size, transform, img, int_image, number)
+        self.z_path = z_path
+
+    def __load_data__(self):
+        """
+        Load data.
+        :return: loaded dataset
+        """
+        x = np.load(self.x_path)
+        y = np.load(self.y_path)
+        z = np.load(self.z_path)
+        if self.img == 'x':
+            x = x.reshape((-1, 1, self.img_size[0], self.img_size[1]))
+        elif self.img == 'y':
+            y = y.reshape((-1, 1, self.img_size[0], self.img_size[1]))
+
+        if x.shape[0] == y.shape[0]:
+            total_count = x.shape[0]
+            if self.number != 0:
+                picked = np.random.choice(list(range(total_count)), size=self.number, replace=False)
                 self.seeds = picked
                 x = x[picked]
                 y = y[picked]
@@ -159,6 +190,12 @@ class MnistDataset(MyDataset):
             return {'x': y, 'y': x}
         else:
             return {'x': x, 'y': y}
+
+
+def ready_loader(dataset, batch_size, shuffle=True):
+    print(len(dataset))
+    loader = Data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, drop_last=True)
+    return loader
 
 
 def split_loader(dataset, train_size, valid_size, test_size, batch_size, random=True, shuffle=True, generator=None):
