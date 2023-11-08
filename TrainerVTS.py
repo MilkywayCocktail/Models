@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.ticker as ticker
 from scipy.stats import norm
 import matplotlib.pyplot as plt
-from TrainerTS import timer, MyDataset, split_loader, MyArgs, TrainerTS
+from TrainerTS import timer, MyDataset, split_loader, ready_loader, MyArgs, TrainerTS
 
 # ------------------------------------- #
 # Trainer of VAE Teacher-student network
