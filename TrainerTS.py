@@ -694,6 +694,7 @@ class TrainerTS:
                 axes[j].bar(range(len(self.test_loss[mode]['S_LATENT'][inds[0]])),
                             self.test_loss[mode]['S_LATENT'][inds[j]],
                             width=1, fc='orange', alpha=0.8, label='Student')
+                axes[j].ylim(-1, 1)
                 axes[j].set_title(f"#{samples[j]}")
                 axes[j].grid()
 

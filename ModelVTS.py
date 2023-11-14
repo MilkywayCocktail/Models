@@ -39,8 +39,8 @@ class Interpolate(nn.Module):
         self.mode = mode
 
     def forward(self, x):
-        x = self.interp(x, size=self.size, mode=self.mode, align_corners=False)
-        return x
+        out = self.interp(x, size=self.size, mode=self.mode, align_corners=False)
+        return out
 
 
 def reparameterize(mu, logvar):
@@ -131,15 +131,15 @@ class ImageEncoderV03b1(nn.Module):
         return 'ImgEnV03b1' + self.bottleneck.capitalize()
 
     def forward(self, x):
-        x = self.cnn(x)
+        out = self.cnn(x)
 
         if self.bottleneck == 'fc':
-            x = self.fclayers(x.view(-1, 4 * 4 * 256))
+            out = self.fclayers(out.view(-1, 4 * 4 * 256))
         elif self.bottleneck == 'gap':
-            x = self.gap(x)
-            x = nn.Sigmoid(x)
+            out = self.gap(out)
+            out = nn.Sigmoid(out)
 
-        return x.view(-1, self.latent_dim)
+        return out.view(-1, self.latent_dim)
 
 
 class ImageDecoderV03b1(nn.Module):
@@ -194,9 +194,9 @@ class ImageDecoderV03b1(nn.Module):
 
     def forward(self, x):
 
-        x = self.fclayers(x.view(-1, self.latent_dim))
-        x = self.cnn(x.view(-1, 256, 1, 1))
-        return x.view(-1, 1, 128, 128)
+        out = self.fclayers(x.view(-1, self.latent_dim))
+        out = self.cnn(out.view(-1, 256, 1, 1))
+        return out.view(-1, 1, 128, 128)
 
 
 class ImageDecoderIntV03b1(ImageDecoderV03b1):
@@ -244,9 +244,9 @@ class ImageDecoderIntV03b1(ImageDecoderV03b1):
 
     def forward(self, x):
 
-        x = self.fclayers(x.view(-1, self.latent_dim))
-        x = self.cnn(x.view(-1, 32, 4, 4))
-        return x.view(-1, 1, 128, 128)
+        out = self.fclayers(x.view(-1, self.latent_dim))
+        out = self.cnn(out.view(-1, 32, 4, 4))
+        return out.view(-1, 1, 128, 128)
 
 
 class CsiEncoderV03b1(nn.Module):
@@ -425,9 +425,9 @@ class ImageDecoderV03b2(ImageDecoderV03b1):
         return 'ImgDeV03b2'
 
     def forward(self, x):
-        x = self.fclayers(x)
-        x = self.cnn(x.view(-1, 128, 4, 4))
-        return x.view(-1, 1, 128, 128)
+        out = self.fclayers(x)
+        out = self.cnn(out.view(-1, 128, 4, 4))
+        return out.view(-1, 1, 128, 128)
 
 # -------------------------------------------------------------------------- #
 # Model VTS
@@ -457,18 +457,18 @@ class ImageEncoderV03c1(ImageEncoderV03b1):
         return 'ImgEnV03c1'
 
     def forward(self, x):
-        x = self.cnn(x)
+        out = self.cnn(x)
 
         if self.bottleneck == 'fc':
-            x = self.fclayers(x.view(-1, 4 * 4 * 256))
+            out = self.fclayers(out.view(-1, 4 * 4 * 256))
         elif self.bottleneck == 'gap':
-            x = self.gap(x)
-            x = nn.Sigmoid(x)
+            out = self.gap(out)
+            out = nn.Sigmoid(out)
 
-        mu, logvar = x.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
+        mu, logvar = out.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
         z = reparameterize(mu, logvar)
 
-        return x, z
+        return out, z
 
 
 class ImageDecoderV03c1(ImageDecoderV03b1):
@@ -790,9 +790,9 @@ class ImageDecoderV04c1(ImageDecoderV03c2):
 
     def forward(self, x):
         ib = self.fc2(x)
-        x = self.fclayers(x.view(-1, self.latent_dim))
-        x = self.cnn(x.view(-1, 256, 1, 1))
-        return x.view(-1, 1, 128, 128), ib.view(-1, self.inductive_length)
+        out = self.fclayers(x.view(-1, self.latent_dim))
+        out = self.cnn(out.view(-1, 256, 1, 1))
+        return out.view(-1, 1, 128, 128), ib.view(-1, self.inductive_length)
 
 
 if __name__ == "__main__":

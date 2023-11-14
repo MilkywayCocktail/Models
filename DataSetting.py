@@ -27,7 +27,6 @@ class MyDataset(Data.Dataset):
         self.img = img
         self.int_img = int_image
         self.data = self.__load_data__(x_path, y_path, number=number)
-        print('loaded')
 
     def __convert__(self, sample):
         """
@@ -73,6 +72,7 @@ class MyDataset(Data.Dataset):
         :param number: select a number of samples. Default is 0 (all)
         :return: loaded dataset
         """
+        print(f"{self.name} loading...")
         x = np.load(x_path)
         y = np.load(y_path)
         print(f"{self.name}: loaded x {x.shape}, y {y.shape}")
@@ -119,6 +119,7 @@ class MnistDataset(MyDataset):
         :param number: select a number of samples. Default is 0 (all)
         :return: loaded dataset
         """
+        print(f"{self.name} loading...")
         x = mnist[:, 0].reshape((-1, 1, self.img_size[0], self.img_size[1]))
         y = mnist[:, 1]
         print(f"Loaded x {x.shape}, y {y.shape}")
@@ -171,12 +172,13 @@ class DataSplitter:
         :param shuffle: whether to shuffle samples. Default is True
         :return: data loader
         """
-        print(f"Exporting loader of len {len(self.data)}...")
         if not batch_size:
             batch_size = self.batch_size
         if not shuffle:
             shuffle = self.shuffle
+        print("Exporting...")
         loader = Data.DataLoader(self.data, batch_size=batch_size, shuffle=shuffle, drop_last=True)
+        print(f"Exported loader of len {len(self.data)}...", end='')
         return loader
 
     def split_loader(self, batch_size=None, random=None, shuffle=None, generator=None):
@@ -194,6 +196,7 @@ class DataSplitter:
             random = self.random
         if not shuffle:
             shuffle = self.shuffle
+        print("Exporting...")
 
         if random:
             train_dataset, valid_dataset, test_dataset = Data.random_split(
@@ -206,9 +209,9 @@ class DataSplitter:
             valid_dataset = torch.utils.data.Subset(self.data, range(r1, r2))
             test_dataset = torch.utils.data.Subset(self.data, range(r2, r3))
 
-        print(f"Exporting loader len: train {len(train_dataset)}, valid {len(valid_dataset)}, test {len(test_dataset)}")
         train_loader = Data.DataLoader(train_dataset, batch_size=batch_size, shuffle=shuffle, drop_last=True)
         valid_loader = Data.DataLoader(valid_dataset, batch_size=batch_size, shuffle=shuffle, drop_last=True)
         test_loader = Data.DataLoader(test_dataset, batch_size=1, shuffle=shuffle)
+        print(f"Exported loader len: train {len(train_dataset)}, valid {len(valid_dataset)}, test {len(test_dataset)}")
 
         return train_loader, valid_loader, test_loader
