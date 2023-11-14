@@ -236,7 +236,7 @@ class TrainerTS:
         self.models['imgen'].eval()
         self.models['imgde'].eval()
         self.models['csien'].train()
-        return {'params': self.models['csien'].parameters()}
+        return [{'params': self.models['csien'].parameters()}]
 
     def __test_models_s__(self):
         """
