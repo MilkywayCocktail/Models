@@ -631,8 +631,8 @@ class TrainerTS:
             inds = select_ind
         else:
             inds = np.random.choice(list(range(len(self.test_loss[mode]['IND']))), select_num, replace=False)
-        inds = np.sort(inds)
         samples = np.array(self.test_loss[mode]['IND'])[inds]
+        inds = inds[np.argsort(samples)]
 
         # Depth Images
         fig = plt.figure(constrained_layout=True)

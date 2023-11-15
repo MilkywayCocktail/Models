@@ -13,8 +13,10 @@ print(z)
 #print(z * torch.transpose(z, -1, -2) - eye)
 #print(torch.matmul(x, torch.transpose(x, -1, -2)))
 
-gen = np.zeros((1, 5))
-new = np.array([1, 2, 3, 4, 5])
+a1 = np.array(['apple, pen, bar, foo'])
 
-gen = np.concatenate((gen, new.reshape(1, 5)), axis=0)
-print(gen)
+inds = np.random.choice([1, 2, 3, 4], replace=False)
+
+samples = np.array([0,2,3,1])
+
+print(np.argsort())

@@ -309,13 +309,6 @@ class CsiEncoderV03b1(nn.Module):
             nn.AvgPool1d(kernel_size=8 * 42, stride=1, padding=0)
         )
 
-        self.fclayers = nn.Sequential(
-            nn.Linear(256 * 8 * 42, 4096),
-            nn.ReLU(),
-            nn.Linear(4096, 256),
-            nn.ReLU()
-        )
-
         self.lstm = nn.Sequential(
             nn.LSTM(self.feature_length, self.latent_dim, 2, batch_first=True, dropout=0.1),
         )
@@ -638,23 +631,23 @@ class ImageDecoderV03c3(ImageDecoderV03c2):
             nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
             bn(128, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 8 * 8 * 128
+            # 128 * 8 * 8
             nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
             bn(128, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 16 * 16 * 128
+            # 128 * 16 * 16
             nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
             bn(128, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 32 * 32 * 128
+            # 128 * 32 * 32
             nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
             bn(128, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 64 * 64 * 128
+            # 128 * 64 * 64
             nn.ConvTranspose2d(128, 1, kernel_size=4, stride=2, padding=1),
             bn(1, batchnorm),
             self.active_func,
-            # Out = 128 * 128 * 1
+            # 1 * 128 * 128
         )
 
 
@@ -666,27 +659,27 @@ class ImageDecoderIntV03c3(ImageDecoderV03c2):
             ResidualBlock(128, 128, batchnorm),
             ResidualBlock(128, 128, batchnorm),
             ResidualBlock(128, 128, batchnorm),
-            # 4x4x128
+            # 128 * 4 * 4
             Interpolate(size=(8, 8)),
             nn.Conv2d(128, 64, kernel_size=3, stride=1, padding=0),
-            # 6x6x64
+            # 64 * 6 * 6
             Interpolate(size=(12, 12)),
             nn.Conv2d(64, 32, kernel_size=3, stride=1, padding=0),
-            # 10x10x32
+            # 32 * 10 * 10
             Interpolate(size=(20, 20)),
             nn.Conv2d(32, 16, kernel_size=3, stride=1, padding=0),
-            # 18x18x16
+            # 16 * 18 * 18
             Interpolate(size=(36, 36)),
             nn.Conv2d(16, 8, kernel_size=3, stride=1, padding=0),
-            # 34x34x8
+            # 8 * 34 * 34
             Interpolate(size=(68, 68)),
             nn.Conv2d(8, 4, kernel_size=3, stride=1, padding=0),
-            # 66x66x4
+            # 4 * 66 * 66
             Interpolate(size=(132, 132)),
             nn.Conv2d(4, 2, kernel_size=3, stride=1, padding=0),
-            # 130x130x2
+            # 2 * 130 * 130
             nn.Conv2d(2, 1, kernel_size=3, stride=1, padding=0),
-            # 128x128x1
+            # 1 * 128 * 128
         )
 
     def __str__(self):
@@ -698,62 +691,106 @@ class CsiEncoderV03c3(CsiEncoderV03c1):
         super(CsiEncoderV03c3, self).__init__(batchnorm=batchnorm, feature_length=feature_length)
 
         self.cnn1 = nn.Sequential(
-            # In = 90 * 100 * 1
+            # 1 * 90 * 100
             nn.Conv2d(1, 16, kernel_size=3, stride=(3, 1), padding=0),
             bn(16, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 30 * 98 * 16
+            # 16 * 30 * 98
             nn.Conv2d(16, 64, kernel_size=3, stride=(2, 2), padding=0),
             bn(64, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 14 * 48 * 64
+            # 64 * 14 * 48
             nn.Conv2d(64, 128, kernel_size=3, stride=(1, 1), padding=0),
             bn(128, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 12 * 46 * 128
+            # 128 * 12 * 46
             nn.Conv2d(128, 256, kernel_size=3, stride=(1, 1), padding=0),
             bn(256, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 10 * 44 * 256
+            # 256 * 10 * 44
             nn.Conv2d(256, 512, kernel_size=3, stride=(1, 1), padding=0),
             bn(512, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 8 * 42 * 512
+            # 512 * 8 * 42
         )
 
         self.cnn2 = nn.Sequential(
-            # In = 90 * 100 * 1
+            # 1 * 90 * 100
             nn.Conv2d(1, 16, kernel_size=3, stride=(3, 1), padding=0),
             bn(16, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 30 * 98 * 16
+            # 16 * 30 * 98
             nn.Conv2d(16, 64, kernel_size=3, stride=(2, 2), padding=0),
             bn(64, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 14 * 48 * 64
+            # 64 * 14 * 48
             nn.Conv2d(64, 128, kernel_size=3, stride=(1, 1), padding=0),
             bn(128, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 12 * 46 * 128
+            # 128 * 12 * 46
             nn.Conv2d(128, 256, kernel_size=3, stride=(1, 1), padding=0),
             bn(256, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 10 * 44 * 256
+            # 256 * 10 * 44
             nn.Conv2d(256, 512, kernel_size=3, stride=(1, 1), padding=0),
             bn(512, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 8 * 42 * 512
-        )
-
-        self.fclayers = nn.Sequential(
-            nn.Linear(512 * 8 * 42, 4096),
-            nn.ReLU(),
-            nn.Linear(4096, 256),
-            nn.ReLU()
+            # 512 * 8 * 42
         )
 
     def __str__(self):
         return 'CsiEnV03c3' + self.bottleneck.capitalize()
+
+# -------------------------------------------------------------------------- #
+# Model v03c4
+# Modified CSI Encoder (2-channeled)
+
+# ImageEncoder: in = 128 * 128, out = 2 * latent_dim
+# ImageDecoder: in = 1 * latent_dim, out = 128 * 128 & 1 * inductive_dim
+# CSIEncoder: in = 2 * 90 * 100, out = 2 * latent_dim
+# -------------------------------------------------------------------------- #
+
+
+class CsiEncoderV03c4(CsiEncoderV03c1):
+    def __init__(self, batchnorm=False, feature_length=512):
+        super(CsiEncoderV03c4, self).__init__(batchnorm=batchnorm, feature_length=feature_length)
+
+        self.cnn = nn.Sequential(
+            # 2 * 90 * 100
+            nn.Conv2d(2, 16, kernel_size=3, stride=(3, 1), padding=0),
+            bn(16, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            # 16 * 30 * 98
+            nn.Conv2d(16, 64, kernel_size=3, stride=(2, 2), padding=0),
+            bn(64, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            # 64 * 14 * 48
+            nn.Conv2d(64, 128, kernel_size=3, stride=(1, 1), padding=0),
+            bn(128, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            # 128 * 12 * 46
+            nn.Conv2d(128, 256, kernel_size=3, stride=(1, 1), padding=0),
+            bn(256, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            # 256 * 10 * 44
+            nn.Conv2d(256, 512, kernel_size=3, stride=(1, 1), padding=0),
+            bn(512, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            # 512 * 8 * 42
+        )
+
+    def __str__(self):
+        return 'CsiEnV03c4' + self.bottleneck.capitalize()
+
+    def forward(self, x):
+        out = self.cnn(x)
+        out, (final_hidden_state, final_cell_state) = self.lstm.forward(
+            out.view(-1, self.feature_length, 8 * 42).transpose(1, 2))
+
+        if self.bottleneck == 'last':
+            out = out[:, -1, :]
+
+        return out
 
 
 # -------------------------------------------------------------------------- #
@@ -764,6 +801,7 @@ class CsiEncoderV03c3(CsiEncoderV03c1):
 # ImageDecoder: in = 1 * latent_dim, out = 128 * 128 & 1 * inductive_dim
 # CSIEncoder: in = 2 * 90 * 100, out = 2 * latent_dim
 # -------------------------------------------------------------------------- #
+
 
 class ImageEncoderV04c1(ImageEncoderV03c2):
     def __init__(self, batchnorm=False):
