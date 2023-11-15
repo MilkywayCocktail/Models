@@ -790,7 +790,10 @@ class CsiEncoderV03c4(CsiEncoderV03c1):
         if self.bottleneck == 'last':
             out = out[:, -1, :]
 
-        return out
+        mu, logvar = out.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
+        z = reparameterize(mu, logvar)
+
+        return out, z
 
 
 # -------------------------------------------------------------------------- #
