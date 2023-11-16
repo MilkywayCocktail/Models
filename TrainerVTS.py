@@ -86,7 +86,7 @@ class TrainerVTS(TrainerTS):
         logvar = vector[len(vector)//2:]
         return -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
 
-    def loss(self, pred, gt, latent):
+    def vae_loss(self, pred, gt, latent):
         """
         Total loss of teacher network.
         :param pred: predicted images
@@ -100,6 +100,13 @@ class TrainerVTS(TrainerTS):
         loss = recon_loss + kl_loss * self.kl_weight
         return loss, kl_loss, recon_loss
 
+    def kd_loss(self, s_latent, t_latent):
+        straight_loss = self.args['s'].criterion(s_latent, t_latent) / s_latent.shape[0]
+        distil_loss = self.div_loss(self.logsoftmax(s_latent / self.temperature),
+                                    nn.functional.softmax(t_latent / self.temperature, -1))
+        loss = self.alpha * straight_loss + (1 - self.alpha) * distil_loss
+        return loss, straight_loss, distil_loss
+
     def calculate_loss_t(self, x, y, i=None):
         """
         Calculates loss function for back propagation,
@@ -110,7 +117,7 @@ class TrainerVTS(TrainerTS):
         """
         latent, z = self.models['imgen'](y)
         output = self.models['imgde'](z)
-        loss, kl_loss, recon_loss = self.loss(output, y, latent)
+        loss, kl_loss, recon_loss = self.vae_loss(output, y, latent)
         self.temp_loss = {'LOSS': loss,
                           'KL': kl_loss,
                           'RECON': recon_loss}
@@ -132,11 +139,8 @@ class TrainerVTS(TrainerTS):
             s_output = self.models['imgde'](s_z)
             t_output = self.models['imgde'](t_z)
             image_loss = self.img_loss(s_output, y)
+        loss, straight_loss, distil_loss = self.kd_loss(s_latent, t_latent)
 
-        straight_loss = self.args['s'].criterion(s_latent, t_latent)
-        distil_loss = self.div_loss(self.logsoftmax(s_latent / self.temperature),
-                                    nn.functional.softmax(t_latent / self.temperature, -1))
-        loss = self.alpha * straight_loss + (1 - self.alpha) * distil_loss
         self.temp_loss = {'LOSS': loss,
                           'STRA': straight_loss,
                           'DIST': distil_loss,

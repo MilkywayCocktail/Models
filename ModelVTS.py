@@ -782,17 +782,25 @@ class CsiEncoderV03c4(CsiEncoderV03c1):
             nn.LSTM(512, 2 * self.latent_dim, 5, batch_first=True, dropout=0.1),
         )
 
+        self.fclayers = nn.Sequential(
+            nn.Linear(512, 128),
+            nn.ReLU(),
+            nn.Linear(128, 32),
+            nn.Tanh()
+        )
+
     def __str__(self):
         return 'CsiEnV03c4' + self.bottleneck.capitalize()
 
     def forward(self, x):
         out = self.cnn(x)
         out = self.gap(out.view(-1, 512*8, 42))
-        out, (final_hidden_state, final_cell_state) = self.lstm.forward(
-            out.view(-1, self.feature_length, 42).transpose(1, 2))
+        out = self.fclayers(out)
+        #out, (final_hidden_state, final_cell_state) = self.lstm.forward(
+        #    out.view(-1, self.feature_length, 42).transpose(1, 2))
 
-        if self.bottleneck == 'last':
-            out = out[:, -1, :]
+        #if self.bottleneck == 'last':
+        #    out = out[:, -1, :]
 
         mu, logvar = out.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
         z = reparameterize(mu, logvar)
