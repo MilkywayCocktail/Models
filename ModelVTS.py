@@ -779,6 +779,10 @@ class CsiEncoderV03c4(CsiEncoderV03c1):
             # 512 * 8 * 42
         )
 
+        self.lstm = nn.Sequential(
+            nn.LSTM(4096, 2 * self.latent_dim, 2, batch_first=True, dropout=0.1),
+        )
+
     def __str__(self):
         return 'CsiEnV03c4' + self.bottleneck.capitalize()
 
