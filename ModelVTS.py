@@ -305,10 +305,6 @@ class CsiEncoderV03b1(nn.Module):
             # 256 * 8 * 42
         )
 
-        self.gap = nn.Sequential(
-            nn.AvgPool1d(kernel_size=8 * 42, stride=1, padding=0)
-        )
-
         self.lstm = nn.Sequential(
             nn.LSTM(self.feature_length, self.latent_dim, 2, batch_first=True, dropout=0.1),
         )
@@ -779,8 +775,11 @@ class CsiEncoderV03c4(CsiEncoderV03c1):
             # 512 * 8 * 42
         )
 
+        self.gap = nn.AdaptiveAvgPool2d(output_size=(512, 42))
+        self.gap2 = nn.AvgPool1d(kernel_size=8, stride=1, padding=0)
+
         self.lstm = nn.Sequential(
-            nn.LSTM(4096, 2 * self.latent_dim, 2, batch_first=True, dropout=0.1),
+            nn.LSTM(512, 2 * self.latent_dim, 2, batch_first=True, dropout=0.1),
         )
 
     def __str__(self):
@@ -788,8 +787,9 @@ class CsiEncoderV03c4(CsiEncoderV03c1):
 
     def forward(self, x):
         out = self.cnn(x)
+        out = self.gap(out.view(-1, 512*8, 42))
         out, (final_hidden_state, final_cell_state) = self.lstm.forward(
-            out.view(-1, self.feature_length * 8, 42).transpose(1, 2))
+            out.view(-1, self.feature_length, 42).transpose(1, 2))
 
         if self.bottleneck == 'last':
             out = out[:, -1, :]
@@ -845,5 +845,5 @@ if __name__ == "__main__":
     CSI = (2, 90, 100)
     LAT = (1, 16)
 
-    m = ImageEncoderV03c3(batchnorm='batch')
-    summary(m, input_size=IMG)
+    m = CsiEncoderV03c4()
+    summary(m, input_size=CSI)
