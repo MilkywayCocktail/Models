@@ -795,7 +795,7 @@ class CsiEncoderV03c4(CsiEncoderV03c1):
     def forward(self, x):
         out = self.cnn(x)
         out = self.gap(out.view(-1, 512*8, 42))
-        out = self.fclayers(out)
+        out = self.fclayers(out.view(-1, 512))
         #out, (final_hidden_state, final_cell_state) = self.lstm.forward(
         #    out.view(-1, self.feature_length, 42).transpose(1, 2))
 
