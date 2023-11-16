@@ -775,7 +775,7 @@ class CsiEncoderV03c4(CsiEncoderV03c1):
             # 512 * 8 * 42
         )
 
-        self.gap = nn.AdaptiveAvgPool2d(output_size=(512, 42))
+        self.gap = nn.AdaptiveAvgPool2d(output_size=(512, 1))
         self.gap2 = nn.AvgPool1d(kernel_size=8, stride=1, padding=0)
 
         self.lstm = nn.Sequential(
