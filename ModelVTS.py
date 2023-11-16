@@ -258,51 +258,51 @@ class CsiEncoderV03b1(nn.Module):
         self.feature_length = feature_length
 
         self.cnn1 = nn.Sequential(
-            # In = 90 * 100 * 1
+            # 1 * 90 * 100
             nn.Conv2d(1, 16, kernel_size=3, stride=(3, 1), padding=0),
             bn(16, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 30 * 98 * 16
+            # 16 * 30 * 98
             nn.Conv2d(16, 32, kernel_size=3, stride=(2, 2), padding=0),
             bn(32, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 14 * 48 * 32
+            # 32 * 14 * 48
             nn.Conv2d(32, 64, kernel_size=3, stride=(1, 1), padding=0),
             bn(64, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 12 * 46 * 64
+            # 64 * 12 * 46
             nn.Conv2d(64, 128, kernel_size=3, stride=(1, 1), padding=0),
             bn(128, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 10 * 44 * 128
+            # 128 * 10 * 44
             nn.Conv2d(128, 256, kernel_size=3, stride=(1, 1), padding=0),
             bn(256, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 8 * 42 * 256
+            # 256 * 8 * 42
         )
 
         self.cnn2 = nn.Sequential(
-            # In = 90 * 100 * 1
+            # 1 * 90 * 100
             nn.Conv2d(1, 16, kernel_size=3, stride=(3, 1), padding=0),
             bn(16, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 30 * 98 * 16
+            # 16 * 30 * 98
             nn.Conv2d(16, 32, kernel_size=3, stride=(2, 2), padding=0),
             bn(32, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 14 * 48 * 32
+            # 32 * 14 * 48
             nn.Conv2d(32, 64, kernel_size=3, stride=(1, 1), padding=0),
             bn(64, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 12 * 46 * 64
+            # 64 * 12 * 46
             nn.Conv2d(64, 128, kernel_size=3, stride=(1, 1), padding=0),
             bn(128, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 10 * 44 * 128
+            # 128 * 10 * 44
             nn.Conv2d(128, 256, kernel_size=3, stride=(1, 1), padding=0),
             bn(256, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 8 * 42 * 256
+            # 256 * 8 * 42
         )
 
         self.gap = nn.Sequential(
@@ -785,7 +785,7 @@ class CsiEncoderV03c4(CsiEncoderV03c1):
     def forward(self, x):
         out = self.cnn(x)
         out, (final_hidden_state, final_cell_state) = self.lstm.forward(
-            out.view(-1, self.feature_length, 8 * 42).transpose(1, 2))
+            out.view(-1, self.feature_length * 8, 42).transpose(1, 2))
 
         if self.bottleneck == 'last':
             out = out[:, -1, :]
