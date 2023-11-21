@@ -76,27 +76,27 @@ class TrainerVTS(TrainerTS):
         return terms
 
     @staticmethod
-    def kl_loss(vector):
+    def kl_loss(mu, logvar):
         """
         KL loss used as VAE loss.
-        :param vector: vector containing mu and sigma
+        :param mu: mu vector
+        :param logvar: sigma vector
         :return: loss term
         """
-        mu = vector[:len(vector)//2]
-        logvar = vector[len(vector)//2:]
         return -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
 
-    def vae_loss(self, pred, gt, latent):
+    def vae_loss(self, pred, gt, mu, logvar):
         """
-        Total loss of teacher network.
+        Total loss of teacher network.\n
         :param pred: predicted images
         :param gt: ground truth of images
-        :param latent: predicted latent vectors
+        :param mu: predicted mu vector
+        :param logvar: predicted logvar vector
         :return: loss term
         """
         # reduction = 'sum'
         recon_loss = self.args['t'].criterion(pred, gt) / pred.shape[0]
-        kl_loss = self.kl_loss(latent)
+        kl_loss = self.kl_loss(mu, logvar)
         loss = recon_loss + kl_loss * self.kl_weight
         return loss, kl_loss, recon_loss
 
@@ -107,6 +107,12 @@ class TrainerVTS(TrainerTS):
         loss = self.alpha * straight_loss + (1 - self.alpha) * distil_loss
         return loss, straight_loss, distil_loss
 
+    def kd_loss2(self, mu_s, logvar_s, mu_t, logvar_t):
+        mu_loss = self.args['s'].criterion(mu_s, mu_t) / mu_s.shape[0]
+        logvar_loss = self.args['s'].criterion(logvar_s, logvar_t) / logvar_s.shape[0]
+        loss = self.alpha * mu_loss + (1 - self.alpha) * logvar_loss
+        return loss, mu_loss, logvar_loss
+
     def calculate_loss_t(self, x, y, i=None):
         """
         Calculates loss function for back propagation,
@@ -115,9 +121,9 @@ class TrainerVTS(TrainerTS):
         :param i: index of data
         :return: loss object
         """
-        latent, z = self.models['imgen'](y)
+        latent, z, mu, logvar = self.models['imgen'](y)
         output = self.models['imgde'](z)
-        loss, kl_loss, recon_loss = self.vae_loss(output, y, latent)
+        loss, kl_loss, recon_loss = self.vae_loss(output, y, mu, logvar)
         self.temp_loss = {'LOSS': loss,
                           'KL': kl_loss,
                           'RECON': recon_loss}
@@ -133,9 +139,9 @@ class TrainerVTS(TrainerTS):
         :param i: index of data
         :return: loss object
         """
-        s_latent, s_z = self.models['csien'](x)
+        s_latent, s_z, s_mu, s_logvar = self.models['csien'](x)
         with torch.no_grad():
-            t_latent, t_z = self.models['imgen'](y)
+            t_latent, t_z, t_mu, t_logvar = self.models['imgen'](y)
             s_output = self.models['imgde'](s_z)
             t_output = self.models['imgde'](t_z)
             image_loss = self.img_loss(s_output, y)

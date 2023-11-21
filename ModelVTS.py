@@ -457,7 +457,7 @@ class ImageEncoderV03c1(ImageEncoderV03b1):
         mu, logvar = out.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
         z = reparameterize(mu, logvar)
 
-        return out, z
+        return out, z, mu, logvar
 
 
 class ImageDecoderV03c1(ImageDecoderV03b1):
@@ -501,7 +501,7 @@ class CsiEncoderV03c1(CsiEncoderV03b1):
         mu, logvar = out.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
         z = reparameterize(mu, logvar)
 
-        return out, z
+        return out, z, mu, logvar
 
 # -------------------------------------------------------------------------- #
 # Model v03c2
@@ -794,18 +794,18 @@ class CsiEncoderV03c4(CsiEncoderV03c1):
 
     def forward(self, x):
         out = self.cnn(x)
-        out = self.gap(out.view(-1, 512*8, 42))
-        out = self.fclayers(out.view(-1, 512))
-        #out, (final_hidden_state, final_cell_state) = self.lstm.forward(
-        #    out.view(-1, self.feature_length, 42).transpose(1, 2))
+        # out = self.gap(out.view(-1, 512*8, 42))
+        # out = self.fclayers(out.view(-1, 512))
+        out, (final_hidden_state, final_cell_state) = self.lstm.forward(
+            out.view(-1, self.feature_length, 42).transpose(1, 2))
 
-        #if self.bottleneck == 'last':
-        #    out = out[:, -1, :]
+        if self.bottleneck == 'last':
+            out = out[:, -1, :]
 
         mu, logvar = out.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
         z = reparameterize(mu, logvar)
 
-        return out, z
+        return out, z, mu, logvar
 
 
 # -------------------------------------------------------------------------- #
