@@ -107,12 +107,6 @@ class TrainerVTS(TrainerTS):
         loss = self.alpha * straight_loss + (1 - self.alpha) * distil_loss
         return loss, straight_loss, distil_loss
 
-    def kd_loss2(self, mu_s, logvar_s, mu_t, logvar_t):
-        mu_loss = self.args['s'].criterion(mu_s, mu_t) / mu_s.shape[0]
-        logvar_loss = self.args['s'].criterion(logvar_s, logvar_t) / logvar_s.shape[0]
-        loss = self.alpha * mu_loss + (1 - self.alpha) * logvar_loss
-        return loss, mu_loss, logvar_loss
-
     def calculate_loss_t(self, x, y, i=None):
         """
         Calculates loss function for back propagation,
@@ -551,4 +545,99 @@ class TrainerVTSIB1(TrainerVTS):
         return {'GT': y,
                 'GT_IB': c,
                 'PRED': output,
+                'IND': i}
+
+
+class TrainerVTSMu(TrainerVTS):
+    def __init__(self, img_encoder, img_decoder, csi_encoder,
+                 teacher_args, student_args,
+                 train_loader, valid_loader, test_loader,
+                 ):
+        super(TrainerVTSMu, self).__init__(img_encoder=img_encoder, img_decoder=img_decoder, csi_encoder=csi_encoder,
+                                           teacher_args=teacher_args, student_args=student_args,
+                                           train_loader=train_loader, valid_loader=valid_loader, test_loader=test_loader,
+        )
+
+    @staticmethod
+    def __gen_student_train__():
+        """
+        Generates student's training loss.
+        :return: structured loss
+        """
+        s_train_loss = {'learning_rate': [],
+                        'epochs': [0],
+                        'LOSS': [],
+                        'MU': [],
+                        'LOGVAR': [],
+                        'IMG': [],
+                        }
+        return s_train_loss
+
+    @staticmethod
+    def __gen_student_test__():
+        """
+        Generates student's test loss.
+        :return: structured loss
+        """
+        s_test_loss = {'LOSS': [],
+                       'MU': [],
+                       'LOGVAR': [],
+                       'IMG': [],
+                       'T_LATENT': [],
+                       'S_LATENT': [],
+                       'T_PRED': [],
+                       'S_PRED': [],
+                       'GT': [],
+                       'IND': []
+                       }
+        return s_test_loss
+
+    @staticmethod
+    def __student_plot_terms__():
+        """
+        Defines plot items for plot_test(mode='s')
+        :return: keywords
+        """
+        terms = {'loss': {'LOSS': 'Loss',
+                          'MU': 'Mu',
+                          'LOGVAR': 'Logvar',
+                          'IMG': 'Image'},
+                 'predict': ('GT', 'S_PRED', 'T_PRED', 'T_LATENT', 'S_LATENT', 'IND'),
+                 'test': {'GT': 'Ground Truth',
+                          'T_PRED': 'Teacher Estimate',
+                          'S_PRED': 'Student Estimate'}
+                 }
+        return terms
+
+    def kd_loss(self, mu_s, logvar_s, mu_t, logvar_t):
+        mu_loss = self.args['s'].criterion(mu_s, mu_t) / mu_s.shape[0]
+        logvar_loss = self.args['s'].criterion(logvar_s, logvar_t) / logvar_s.shape[0]
+        loss = self.alpha * mu_loss + (1 - self.alpha) * logvar_loss
+        return loss, mu_loss, logvar_loss
+
+    def calculate_loss_s(self, x, y, i=None):
+        """
+        Calculates loss function for back propagation.
+        :param x: x data (CSI)
+        :param y: y data (image)
+        :param i: index of data
+        :return: loss object
+        """
+        s_latent, s_z, s_mu, s_logvar = self.models['csien'](x)
+        with torch.no_grad():
+            t_latent, t_z, t_mu, t_logvar = self.models['imgen'](y)
+            s_output = self.models['imgde'](s_z)
+            t_output = self.models['imgde'](t_z)
+            image_loss = self.img_loss(s_output, y)
+        loss, mu_loss, logvar_loss = self.kd_loss(s_latent, t_latent)
+
+        self.temp_loss = {'LOSS': loss,
+                          'MU': mu_loss,
+                          'LOGVAR': logvar_loss,
+                          'IMG': image_loss}
+        return {'GT': y,
+                'T_LATENT': t_latent,
+                'S_LATENT': s_latent,
+                'T_PRED': t_output,
+                'S_PRED': s_output,
                 'IND': i}
