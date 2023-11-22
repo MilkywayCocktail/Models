@@ -635,7 +635,7 @@ class TrainerVTSMu(TrainerVTS):
             s_output = self.models['imgde'](s_z)
             t_output = self.models['imgde'](t_z)
             image_loss = self.img_loss(s_output, y)
-        loss, mu_loss, logvar_loss = self.kd_loss(s_latent, t_latent)
+        loss, mu_loss, logvar_loss = self.kd_loss(s_mu, s_logvar, t_mu, t_logvar)
 
         self.temp_loss = {'LOSS': loss,
                           'MU': mu_loss,
