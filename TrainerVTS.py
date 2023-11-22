@@ -552,10 +552,16 @@ class TrainerVTSMu(TrainerVTS):
     def __init__(self, img_encoder, img_decoder, csi_encoder,
                  teacher_args, student_args,
                  train_loader, valid_loader, test_loader,
+                 alpha=0.3,
+                 latent_dim=16,
+                 kl_weight=1.2
                  ):
         super(TrainerVTSMu, self).__init__(img_encoder=img_encoder, img_decoder=img_decoder, csi_encoder=csi_encoder,
                                            teacher_args=teacher_args, student_args=student_args,
                                            train_loader=train_loader, valid_loader=valid_loader, test_loader=test_loader,
+                                           alpha=alpha,
+                                           latent_dim=latent_dim,
+                                           kl_weight=kl_weight
         )
 
     @staticmethod
