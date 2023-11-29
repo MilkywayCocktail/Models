@@ -13,5 +13,5 @@ inds = np.random.choice([0, 1, 2, 3, 4], 4, replace=False)
 inds = np.sort(inds)
 
 s = samples[inds]
-print(s)
-print(a1[inds[np.argsort(s)]])
+#print(s)
+#print(a1[inds[np.argsort(s)]])
