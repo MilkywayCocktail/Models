@@ -340,31 +340,27 @@ class ImageEncoderV03b2(ImageEncoderV03b1):
         super(ImageEncoderV03b2, self).__init__(batchnorm=batchnorm)
 
         self.cnn = nn.Sequential(
-            # In = 128 * 128 * 1
+            # 1 * 128 * 128
             nn.Conv2d(1, 128, kernel_size=3, stride=2, padding=1),
             bn(128, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 64 * 64 * 128
-
+            # 128 * 64 * 64
             nn.Conv2d(128, 128, kernel_size=3, stride=2, padding=1),
             bn(128, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 32 * 32 * 128
-
+            # 128 * 32 * 32
             nn.Conv2d(128, 128, kernel_size=3, stride=2, padding=1),
             bn(128, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 16 * 16 * 128
-
+            # 128 * 16 * 16
             nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1),
             bn(256, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 8 * 8 * 256
-
+            # 256 * 8 * 8
             nn.Conv2d(256, 256, kernel_size=3, stride=2, padding=1),
             bn(256, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 4 * 4 * 256
+            # 256 * 4 * 4
         )
 
     def __str__(self):
@@ -383,31 +379,27 @@ class ImageDecoderV03b2(ImageDecoderV03b1):
         )
 
         self.cnn = nn.Sequential(
-            # In = 4 * 4 * 128
+            # 128 * 4 * 4
             nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
             bn(128, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 8 * 8 * 128
-
+            # 128 * 8 * 8
             nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
             bn(128, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 16 * 16 * 128
-
+            # 128 * 16 * 16
             nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
             bn(128, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 32 * 32 * 128
-
+            # 128 * 32 * 32
             nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
             bn(128, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 64 * 64 * 128
-
+            # 128 * 64 * 64
             nn.ConvTranspose2d(128, 1, kernel_size=4, stride=2, padding=1),
             bn(1, batchnorm),
             self.active_func,
-            # Out = 128 * 128 * 1
+            # 1 * 128 * 128
         )
 
     def __str__(self):
@@ -518,31 +510,27 @@ class ImageEncoderV03c2(ImageEncoderV03c1):
         super(ImageEncoderV03c2, self).__init__()
 
         self.cnn = nn.Sequential(
-            # In = 128 * 128 * 1
+            # 1 * 128 * 128
             nn.Conv2d(1, 128, kernel_size=3, stride=2, padding=1),
             bn(128, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 64 * 64 * 128
-
+            # 128 * 64 * 64
             nn.Conv2d(128, 128, kernel_size=3, stride=2, padding=1),
             bn(128, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 32 * 32 * 128
-
+            # 128 * 32 * 32
             nn.Conv2d(128, 128, kernel_size=3, stride=2, padding=1),
             bn(128, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 16 * 16 * 128
-
+            # 128 * 16 * 16
             nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1),
             bn(256, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 8 * 8 * 256
-
+            # 256 * 8 * 8
             nn.Conv2d(256, 256, kernel_size=3, stride=2, padding=1),
             bn(256, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 4 * 4 * 256
+            # 256 * 4 * 4
         )
 
     def __str__(self):
@@ -553,8 +541,41 @@ class ImageDecoderV03c2(ImageDecoderV03b2):
     def __init__(self, batchnorm=False):
         super(ImageDecoderV03c2, self).__init__(batchnorm=batchnorm)
 
+        self.fclayers = nn.Sequential(
+            nn.Linear(self.latent_dim, 4096),
+            nn.ReLU(),
+            nn.Linear(4096, 4096),
+            nn.ReLU()
+        )
+
+        self.cnn = nn.Sequential(
+            # 256 * 4 * 4
+            nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
+            bn(256, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            # 256 * 8 * 8
+            nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
+            bn(256, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            # 256 * 16 * 16
+            nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
+            bn(256, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            # 256 32 * 32
+            nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
+            bn(128, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            # 128 * 64 * 64
+            nn.ConvTranspose2d(128, 1, kernel_size=4, stride=2, padding=1),
+            bn(1, batchnorm),
+            self.active_func,
+            # 1 * 128 * 128
+        )
+
     def __str__(self):
         return 'ImgDeV03c2'
+
+
 
 
 # -------------------------------------------------------------------------- #
