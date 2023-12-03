@@ -550,19 +550,19 @@ class ImageDecoderV03c2(ImageDecoderV03b2):
 
         self.cnn = nn.Sequential(
             # 256 * 4 * 4
-            nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
+            nn.ConvTranspose2d(256, 256, kernel_size=4, stride=2, padding=1),
             bn(256, batchnorm),
             nn.LeakyReLU(inplace=True),
             # 256 * 8 * 8
-            nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
+            nn.ConvTranspose2d(256, 256, kernel_size=4, stride=2, padding=1),
             bn(256, batchnorm),
             nn.LeakyReLU(inplace=True),
             # 256 * 16 * 16
-            nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
+            nn.ConvTranspose2d(256, 256, kernel_size=4, stride=2, padding=1),
             bn(256, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # 256 32 * 32
-            nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
+            # 256 * 32 * 32
+            nn.ConvTranspose2d(256, 128, kernel_size=4, stride=2, padding=1),
             bn(128, batchnorm),
             nn.LeakyReLU(inplace=True),
             # 128 * 64 * 64
