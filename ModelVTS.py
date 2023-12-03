@@ -575,7 +575,10 @@ class ImageDecoderV03c2(ImageDecoderV03b2):
     def __str__(self):
         return 'ImgDeV03c2'
 
-
+    def forward(self, x):
+        out = self.fclayers(x)
+        out = self.cnn(out.view(-1, 256, 4, 4))
+        return out.view(-1, 1, 128, 128)
 
 
 # -------------------------------------------------------------------------- #
