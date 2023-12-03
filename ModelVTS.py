@@ -790,25 +790,25 @@ class CsiEncoderV03c4(CsiEncoderV03c1):
             bn(256, batchnorm),
             nn.LeakyReLU(inplace=True),
             # 256 * 10 * 44
-            nn.Conv2d(256, 512, kernel_size=3, stride=(1, 1), padding=0),
-            bn(512, batchnorm),
+            nn.Conv2d(256, self.feature_length, kernel_size=3, stride=(1, 1), padding=0),
+            bn(self.feature_length, batchnorm),
             nn.LeakyReLU(inplace=True),
             # 512 * 8 * 42
         )
 
         self.gap = nn.AdaptiveAvgPool2d(output_size=(self.feature_length, 42))
-        self.gap2 = nn.AvgPool1d(kernel_size=8, stride=1, padding=0)
+        # self.gap2 = nn.AvgPool1d(kernel_size=8, stride=1, padding=0)
 
         self.lstm = nn.Sequential(
             nn.LSTM(self.feature_length, 2 * self.latent_dim, 2, batch_first=True, dropout=0.1),
         )
 
-        self.fclayers = nn.Sequential(
-            nn.Linear(self.feature_length, 128),
-            nn.ReLU(),
-            nn.Linear(128, 32),
-            nn.Tanh()
-        )
+        # self.fclayers = nn.Sequential(
+        #    nn.Linear(self.feature_length, 128),
+        #    nn.ReLU(),
+        #    nn.Linear(128, 32),
+        #    nn.Tanh()
+        #)
 
     def __str__(self):
         return 'CsiEnV03c4' + self.bottleneck.capitalize()
