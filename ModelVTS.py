@@ -833,6 +833,70 @@ class CsiEncoderV03c4(CsiEncoderV03c1):
 
 
 # -------------------------------------------------------------------------- #
+# Model v03d1
+# All dense layers
+
+# ImageEncoder: in = 128 * 128, out = 2 * latent_dim
+# ImageDecoder: in = 1 * latent_dim, out = 128 * 128 & 1 * inductive_dim
+# CSIEncoder: in = 2 * 90 * 100, out = 2 * latent_dim
+# -------------------------------------------------------------------------- #
+
+
+class ImageEncoderV03d1(ImageEncoderV03c1):
+    def __init__(self):
+        super(ImageEncoderV03d1, self).__init__()
+
+        self.fclayers = nn.Sequential(
+            nn.Linear(128 * 128, 4096),
+            nn.ReLU(),
+            nn.Linear(4096, 1024),
+            nn.ReLU(),
+            nn.Linear(1024, 256),
+            nn.ReLU(),
+            nn.Linear(256, 64),
+            nn.ReLU(),
+            nn.Linear(64, 2 * self.latent_dim),
+            nn.ReLU()
+        )
+
+    def __str__(self):
+        return 'ImgEnV03d1' + self.bottleneck.capitalize()
+
+    def forward(self, x):
+        out = self.fclayers(x)
+
+        mu, logvar = out.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
+        z = reparameterize(mu, logvar)
+
+        return out, z, mu, logvar
+
+
+class ImageDecoderV03d1(ImageDecoderV03c1):
+    def __init__(self):
+        super(ImageDecoderV03d1, self).__init__()
+
+        self.fclayers = nn.Sequential(
+            nn.Linear(self.latent_dim, 128),
+            nn.ReLU(),
+            nn.Linear(128, 512),
+            nn.ReLU(),
+            nn.Linear(512, 2048),
+            nn.ReLU(),
+            nn.Linear(2048, 8192),
+            nn.ReLU(),
+            nn.Linear(8192, 16384),
+            nn.ReLU()
+        )
+
+    def __str__(self):
+        return 'ImgDeV03d1'
+
+    def forward(self, x):
+        out = self.fclayers(x)
+        return out.view(-1, 1, 128, 128)
+
+
+# -------------------------------------------------------------------------- #
 # Model v04c1
 # Implemented inductive biases
 
