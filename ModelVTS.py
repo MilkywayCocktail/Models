@@ -89,31 +89,27 @@ class ImageEncoderV03b1(nn.Module):
         self.active_func = active_func
 
         self.cnn = nn.Sequential(
-            # In = 128 * 128 * 1
+            # 1 * 128 * 128
             nn.Conv2d(1, 16, kernel_size=3, stride=2, padding=1),
             bn(16, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 64 * 64 * 16
-
+            # 16 * 64 * 64
             nn.Conv2d(16, 32, kernel_size=3, stride=2, padding=1),
             bn(32, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 32 * 32 * 32
-
+            # 32 * 32 * 32
             nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),
             bn(64, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 16 * 16 * 64
-
+            # 64 * 16 * 16 * 64
             nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),
             bn(128, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 8 * 8 * 128
-
+            # 128 * 8 * 8
             nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1),
             bn(256, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # Out = 4 * 4 * 256
+            # 256 * 4 * 4
         )
 
         self.gap = nn.Sequential(
@@ -799,7 +795,7 @@ class CsiEncoderV03c4(CsiEncoderV03c1):
             # 512 * 8 * 42
         )
 
-        self.gap = nn.AdaptiveAvgPool2d(output_size=(self.feature_length, 42))
+        self.gap = nn.AdaptiveAvgPool2d(output_size=(1, 42))
         # self.gap2 = nn.AvgPool1d(kernel_size=8, stride=1, padding=0)
 
         self.lstm = nn.Sequential(
