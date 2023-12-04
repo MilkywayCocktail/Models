@@ -863,7 +863,7 @@ class ImageEncoderV03d1(ImageEncoderV03c1):
         return 'ImgEnV03d1' + self.bottleneck.capitalize()
 
     def forward(self, x):
-        out = self.fclayers(x)
+        out = self.fclayers(x.view(-1, 128 * 128))
 
         mu, logvar = out.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
         z = reparameterize(mu, logvar)
