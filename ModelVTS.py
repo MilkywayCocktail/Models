@@ -799,7 +799,7 @@ class CsiEncoderV03c4(CsiEncoderV03c1):
         # self.gap2 = nn.AvgPool1d(kernel_size=8, stride=1, padding=0)
 
         self.lstm = nn.Sequential(
-            nn.LSTM(self.feature_length, 2 * self.latent_dim, 2, batch_first=True, dropout=0.1),
+            nn.LSTM(self.feature_length * 8, 2 * self.latent_dim, 2, batch_first=True, dropout=0.1),
         )
 
         # self.fclayers = nn.Sequential(
