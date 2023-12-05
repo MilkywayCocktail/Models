@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from torchinfo import summary
+import numpy as np
 
 
 def reparameterize(mu, logvar):
@@ -222,10 +223,243 @@ class ImageDecoder(nn.Module):
         return out.view(-1, 1, 128, 128)
 
 
+class MyLoss:
+    def __init__(self, loss_terms, plot_terms):
+        self.loss = {'train': {term: [] for term in loss_terms},
+                     'valid': {term: [] for term in loss_terms},
+                     'test': {term: [] for term in plot_terms}
+                     }
+        self.lr = []
+        self.epochs = [0]
+
+    def logger(self, lr, epochs):
+
+        # First round
+        if not self.lr:
+            self.lr.append(lr)
+            self.epochs.append(epochs)
+        else:
+            # Not changing learning rate
+            if lr == self.lr[-1]:
+                self.epochs[-1] += epochs
+
+            # Changing learning rate
+            if lr != self.lr[-1]:
+                last_end = self.epochs[-1]
+                self.lr.append(lr)
+                self.epochs.append(last_end + epochs)
+
+    def update(self, mode, losses):
+        if mode in ('train', 'valid', 'test'):
+            for key in losses.keys():
+                self.loss[mode][key].append(losses[key])
+
+        if mode == 'plot':
+            for key in losses.keys():
+                self.loss['test'][key].append(losses[key].cpu().detach().numpy().squeeze())
+
+
+class Trainer:
+    def __init__(self, train_loader, valid_loader, test_loader, lr=1e-4, epochs=10, cuda=1):
+        self.models = self.__gen_models__()
+        self.lr = lr
+        self.epochs = epochs
+        self.device = torch.device("cuda:" + str(cuda) if torch.cuda.is_available() else "cpu")
+        self.optimizer = torch.optim.Adam
+        self.train_loader = train_loader
+        self.valid_loader = valid_loader
+        self.test_loader = test_loader
+        self.recon_lossfun = nn.MSELoss(reduction='sum')
+        self.beta = 1.2
+
+        self.temp_loss = {}
+        self.loss = {'csi': MyLoss(loss_terms=['LOSS', 'KL', 'RECON'], plot_terms=['GT', 'PRED', 'IND']),
+                     'img': MyLoss(loss_terms=['LOSS', 'KL', 'RECON'], plot_terms=['GT', 'PRED', 'IND']),
+                     'repr': MyLoss(loss_terms=['LOSS', 'CSI_L', 'IMG_L', 'REPR'], plot_terms=['CSI_R', 'IMG_R', 'IND'])
+                     }
+
+    @staticmethod
+    def __gen_models__():
+        csien = CsiEncoder()
+        cside = CsiDecoder()
+        imgen = ImageEncoder()
+        imgde = ImageDecoder()
+        csilen = LatentEnTranslator()
+        csilde = LatentDeTranslator()
+        imglen = LatentEnTranslator()
+        imglde = LatentDeTranslator()
+        return {'csien': csien,
+                'cside': cside,
+                'imgen': imgen,
+                'imgde': imgde,
+                'csilen': csilen,
+                'csilde': csilde,
+                'imglen': imglen,
+                'imglde': imglde
+                }
+
+    def vae_loss(self, pred, gt, mu, logvar):
+        recon_loss = self.recon_lossfun(pred, gt) / pred.shape[0]
+        kl_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+        loss = recon_loss + kl_loss * self.beta
+        return loss, kl_loss, recon_loss
+
+    def calculate_csi_loss(self, x, i=None):
+        latent, z, mu, logvar = self.models['csien'](x)
+        recon_csi = self.models['cside'](z)
+        loss, kl_loss, recon_loss = self.vae_loss(recon_csi, x, mu, logvar)
+        self.temp_loss = {'LOSS': loss,
+                          'KL': kl_loss,
+                          'RECON': recon_loss}
+        return {'GT': x,
+                'PRED': recon_csi,
+                'IND': i}
+
+    def calculate_img_loss(self, y, i=None):
+        latent, z, mu, logvar = self.models['imgen'](y)
+        recon_img = self.models['imgde'](z)
+        loss, kl_loss, recon_loss = self.vae_loss(recon_img, y, mu, logvar)
+        self.temp_loss = {'LOSS': loss,
+                          'KL': kl_loss,
+                          'RECON': recon_loss}
+        return {'GT': y,
+                'PRED': recon_img,
+                'IND': i}
+
+    def train_csi_inner(self, autosave=False, notion=''):
+        optimizer = self.optimizer([{'params': self.models['csien'].parameters()},
+                                    {'params': self.models['cside'].parameters()}])
+        self.loss['csi'].logger(self.lr, self.epochs)
+        for epoch in range(self.epochs):
+            # =====================train============================
+            self.models['csien'].train()
+            self.models['cside'].train()
+            EPOCH_LOSS = {'LOSS': [],
+                          'KL': [],
+                          'RECON': []}
+            for idx, (data_x, data_y, index) in enumerate(self.train_loader, 0):
+                csi = data_x.to(torch.float32).to(self.device)
+                optimizer.zero_grad()
+
+                PREDS = self.calculate_csi_loss(x=csi)
+                self.temp_loss['LOSS'].backward()
+                optimizer.step()
+                for key in EPOCH_LOSS.keys():
+                    EPOCH_LOSS[key].append(self.temp_loss[key].item())
+
+                if idx % (len(self.train_loader) // 5) == 0:
+                    print(f"\rCSI: epoch={epoch}/{self.epochs}, batch={idx}/{len(self.train_loader)}, "
+                          f"loss={self.temp_loss['LOSS'].item()}", end='')
+
+            for key in EPOCH_LOSS.keys():
+                EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
+            self.loss['csi'].update('train', EPOCH_LOSS)
+
+            # =====================valid============================
+            self.models['csien'].eval()
+            self.models['cside'].eval()
+            EPOCH_LOSS = {'LOSS': [],
+                          'KL': [],
+                          'RECON': []}
+
+            for idx, (data_x, data_y, index) in enumerate(self.valid_loader, 0):
+                csi = data_x.to(torch.float32).to(self.device)
+                with torch.no_grad():
+                    PREDS = self.calculate_csi_loss(x=csi)
+                for key in EPOCH_LOSS.keys():
+                    EPOCH_LOSS[key].append(self.temp_loss[key].item())
+            for key in EPOCH_LOSS.keys():
+                EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
+            self.loss['csi'].update('valid', EPOCH_LOSS)
+
+    def train_img_inner(self, autosave=False, notion=''):
+        optimizer = self.optimizer([{'params': self.models['imgen'].parameters()},
+                                    {'params': self.models['imgde'].parameters()}])
+        self.loss['img'].logger(self.lr, self.epochs)
+        for epoch in range(self.epochs):
+            # =====================train============================
+            self.models['imgen'].train()
+            self.models['imgde'].train()
+            EPOCH_LOSS = {'LOSS': [],
+                          'KL': [],
+                          'RECON': []}
+            for idx, (data_x, data_y, index) in enumerate(self.train_loader, 0):
+                img = data_y.to(torch.float32).to(self.device)
+                optimizer.zero_grad()
+
+                PREDS = self.calculate_img_loss(y=img)
+                self.temp_loss['LOSS'].backward()
+                optimizer.step()
+                for key in EPOCH_LOSS.keys():
+                    EPOCH_LOSS[key].append(self.temp_loss[key].item())
+
+                if idx % (len(self.train_loader) // 5) == 0:
+                    print(f"\rIMG: epoch={epoch}/{self.epochs}, batch={idx}/{len(self.train_loader)}, "
+                          f"loss={self.temp_loss['LOSS'].item()}", end='')
+
+            for key in EPOCH_LOSS.keys():
+                EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
+            self.loss['img'].update('train', EPOCH_LOSS)
+
+            # =====================valid============================
+            self.models['imgen'].eval()
+            self.models['imgde'].eval()
+            EPOCH_LOSS = {'LOSS': [],
+                          'KL': [],
+                          'RECON': []}
+
+            for idx, (data_x, data_y, index) in enumerate(self.valid_loader, 0):
+                img = data_y.to(torch.float32).to(self.device)
+                with torch.no_grad():
+                    PREDS = self.calculate_img_loss(y=img)
+                for key in EPOCH_LOSS.keys():
+                    EPOCH_LOSS[key].append(self.temp_loss[key].item())
+            for key in EPOCH_LOSS.keys():
+                EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
+            self.loss['img'].update('valid', EPOCH_LOSS)
+
+    def test_csi_inner(self, mode='test'):
+        self.models['csien'].eval()
+        self.models['cside'].eval()
+        EPOCH_LOSS = {'LOSS': [],
+                      'KL': [],
+                      'RECON': []}
+
+        if mode == 'test':
+            loader = self.test_loader
+        elif mode == 'train':
+            loader = self.train_loader
+
+        for idx, (data_x, data_y, index) in enumerate(loader, 0):
+            csi = data_x.to(torch.float32).to(self.device)
+            with torch.no_grad():
+                for sample in range(loader.batch_size):
+                    ind = index[sample][np.newaxis, ...]
+                    gt = data_x[sample][np.newaxis, ...]
+                    PREDS = self.calculate_csi_loss(x=csi, i=ind)
+
+                    for key in EPOCH_LOSS.keys():
+                        EPOCH_LOSS[key].append(self.temp_loss[key].item())
+
+                    self.loss['csi'].update('plot', PREDS)
+
+            for key in LOSS_TERMS:
+                self.test_loss['t'][key] = EPOCH_LOSS[key]
+
+            if idx % (len(loader)//5) == 0:
+                print(f"\rTeacher: test={idx}/{len(loader)}, loss={self.temp_loss['LOSS'].item()}", end='')
+
+        for key in LOSS_TERMS:
+            EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
+        print(f"\nTest finished. Average loss={EPOCH_LOSS}")
+
+
 if __name__ == "__main__":
     IMG = (1, 1, 128, 128)
     CSI = (2, 90, 100)
     LAT = (1, 16)
+    REPR = (1, 128)
 
     m = CsiEncoder()
     summary(m, input_size=CSI)
+

@@ -795,7 +795,7 @@ class CsiEncoderV03c4(CsiEncoderV03c1):
             # 512 * 8 * 42
         )
 
-        self.gap = nn.AdaptiveAvgPool2d(output_size=(1, 42))
+        # self.gap = nn.AdaptiveAvgPool2d(output_size=(1, 42))
         # self.gap2 = nn.AvgPool1d(kernel_size=8, stride=1, padding=0)
 
         self.lstm = nn.Sequential(
@@ -814,10 +814,10 @@ class CsiEncoderV03c4(CsiEncoderV03c1):
 
     def forward(self, x):
         out = self.cnn(x)
-        out = self.gap(out)
+        # out = self.gap(out)
         # out = self.fclayers(out.view(-1, 512))
         out, (final_hidden_state, final_cell_state) = self.lstm.forward(
-            out.view(-1, self.feature_length, 42).transpose(1, 2))
+            out.view(-1, self.feature_length * 8, 42).transpose(1, 2))
 
         if self.bottleneck == 'last':
             out = out[:, -1, :]
