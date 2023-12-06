@@ -275,7 +275,8 @@ class Trainer:
         self.temp_loss = {}
         self.loss = {'csi': MyLoss(loss_terms=['LOSS', 'KL', 'RECON'], plot_terms=['GT', 'PRED', 'IND']),
                      'img': MyLoss(loss_terms=['LOSS', 'KL', 'RECON'], plot_terms=['GT', 'PRED', 'IND']),
-                     'repr': MyLoss(loss_terms=['LOSS', 'CSI_L', 'IMG_L', 'REPR'], plot_terms=['CSI_R', 'IMG_R', 'IND'])
+                     'inta': MyLoss(loss_terms=['LOSS', 'CSI_L', 'IMG_L', 'INTA'],
+                                    plot_terms=['CSI_L', 'RE_CSI_L', 'IMG_L', 'RE_IMG_L', 'CSI_R', 'IMG_R', 'IND'])
                      }
 
     @staticmethod
@@ -338,10 +339,10 @@ class Trainer:
                           'KL': [],
                           'RECON': []}
             for idx, (data_x, data_y, index) in enumerate(self.train_loader, 0):
-                csi = data_x.to(torch.float32).to(self.device)
+                data_x = data_x.to(torch.float32).to(self.device)
                 optimizer.zero_grad()
 
-                PREDS = self.calculate_csi_loss(x=csi)
+                PREDS = self.calculate_csi_loss(x=data_x)
                 self.temp_loss['LOSS'].backward()
                 optimizer.step()
                 for key in EPOCH_LOSS.keys():
@@ -384,10 +385,10 @@ class Trainer:
                           'KL': [],
                           'RECON': []}
             for idx, (data_x, data_y, index) in enumerate(self.train_loader, 0):
-                img = data_y.to(torch.float32).to(self.device)
+                data_y = data_y.to(torch.float32).to(self.device)
                 optimizer.zero_grad()
 
-                PREDS = self.calculate_img_loss(y=img)
+                PREDS = self.calculate_img_loss(y=data_y)
                 self.temp_loss['LOSS'].backward()
                 optimizer.step()
                 for key in EPOCH_LOSS.keys():
@@ -431,11 +432,11 @@ class Trainer:
             loader = self.train_loader
 
         for idx, (data_x, data_y, index) in enumerate(loader, 0):
-            csi = data_x.to(torch.float32).to(self.device)
+            data_x = data_x.to(torch.float32).to(self.device)
             with torch.no_grad():
                 for sample in range(loader.batch_size):
                     ind = index[sample][np.newaxis, ...]
-                    gt = data_x[sample][np.newaxis, ...]
+                    csi = data_x[sample][np.newaxis, ...]
                     PREDS = self.calculate_csi_loss(x=csi, i=ind)
 
                     for key in EPOCH_LOSS.keys():
@@ -443,13 +444,177 @@ class Trainer:
 
                     self.loss['csi'].update('plot', PREDS)
 
-            for key in LOSS_TERMS:
-                self.test_loss['t'][key] = EPOCH_LOSS[key]
+            if idx % (len(loader)//5) == 0:
+                print(f"\rCSI: test={idx}/{len(loader)}, loss={self.temp_loss['LOSS'].item()}", end='')
+
+        self.loss['csi'].update('test', EPOCH_LOSS)
+        for key in EPOCH_LOSS.keys():
+            EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
+        print(f"\nTest finished. Average loss={EPOCH_LOSS}")
+
+    def test_img_inner(self, mode='test'):
+        self.models['imgen'].eval()
+        self.models['imgde'].eval()
+        EPOCH_LOSS = {'LOSS': [],
+                      'KL': [],
+                      'RECON': []}
+
+        if mode == 'test':
+            loader = self.test_loader
+        elif mode == 'train':
+            loader = self.train_loader
+
+        for idx, (data_x, data_y, index) in enumerate(loader, 0):
+            data_y = data_y.to(torch.float32).to(self.device)
+            with torch.no_grad():
+                for sample in range(loader.batch_size):
+                    ind = index[sample][np.newaxis, ...]
+                    img = data_y[sample][np.newaxis, ...]
+                    PREDS = self.calculate_img_loss(y=img, i=ind)
+
+                    for key in EPOCH_LOSS.keys():
+                        EPOCH_LOSS[key].append(self.temp_loss[key].item())
+
+                    self.loss['img'].update('plot', PREDS)
 
             if idx % (len(loader)//5) == 0:
-                print(f"\rTeacher: test={idx}/{len(loader)}, loss={self.temp_loss['LOSS'].item()}", end='')
+                print(f"\rIMG: test={idx}/{len(loader)}, loss={self.temp_loss['LOSS'].item()}", end='')
 
-        for key in LOSS_TERMS:
+        self.loss['img'].update('test', EPOCH_LOSS)
+        for key in EPOCH_LOSS.keys():
+            EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
+        print(f"\nTest finished. Average loss={EPOCH_LOSS}")
+
+    def calculate_outer_loss(self, x, y, i=None):
+        with torch.no_grad():
+            latent_c, z_c, mu_c, logvar_c = self.models['csien'](x)
+            latent_i, z_i, mu_i, logvar_i = self.models['imgen'](y)
+        repr_c = self.models['csilen'](z_c)
+        repr_i = self.models['imglen'](z_i)
+        recon_z_c = self.models['csilde'](repr_c)
+        recon_z_i = self.models['imglde'](repr_i)
+        csil_loss = self.recon_lossfun(recon_z_c, z_c)
+        imgl_loss = self.recon_lossfun(recon_z_i, z_i)
+        inta_loss = self.recon_lossfun(repr_c, repr_i)
+        loss = csil_loss + imgl_loss + inta_loss
+
+        self.temp_loss = {'LOSS': loss,
+                          'CSI_L': csil_loss,
+                          'IMG_L': imgl_loss,
+                          'INTA': inta_loss}
+        return {'CSI_L': z_c,
+                'RE_CSI_L': recon_z_c,
+                'IMG_L': z_i,
+                'RE_IMG_L': recon_z_i,
+                'CSI_R': repr_c,
+                'IMG_R': repr_i,
+                'IND': i}
+
+    def train_outer(self):
+        optimizer = self.optimizer([{'params': self.models['csilen'].parameters()},
+                                    {'params': self.models['csilde'].parameters()},
+                                    {'params': self.models['imglen'].parameters()},
+                                    {'params': self.models['imglde'].parameters()},
+                                    ])
+        self.loss['inta'].logger(self.lr, self.epochs)
+
+        for epoch in range(self.epochs):
+
+            # =====================train============================
+            self.models['csien'].eval()
+            self.models['imgen'].eval()
+            self.models['csilen'].train()
+            self.models['csilde'].train()
+            self.models['imglen'].train()
+            self.models['imglde'].train()
+            EPOCH_LOSS = {'LOSS': [],
+                          'CSI_L': [],
+                          'IMG_L': [],
+                          'INTA': []}
+
+            for idx, (data_x, data_y, index) in enumerate(self.train_loader, 0):
+                data_x = data_x.to(torch.float32).to(self.device)
+                data_y = data_y.to(torch.float32).to(self.device)
+
+                PREDS = self.calculate_outer_loss(data_x, data_y, index)
+                optimizer.zero_grad()
+                self.temp_loss['LOSS'].backward()
+                optimizer.step()
+
+                for key in EPOCH_LOSS.keys():
+                    EPOCH_LOSS[key].append(self.temp_loss[key].item())
+
+                if idx % (len(self.train_loader) // 5) == 0:
+                    print(f"\rIntact: epoch={epoch}/{self.epochs}, batch={idx}/{len(self.train_loader)}, "
+                          f"loss={self.temp_loss['LOSS'].item()}", end='')
+
+            for key in EPOCH_LOSS.keys():
+                EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
+            self.loss['inta'].update('train', EPOCH_LOSS)
+
+            # =====================valid============================
+            self.models['csien'].eval()
+            self.models['imgen'].eval()
+            self.models['csilen'].eval()
+            self.models['csilde'].eval()
+            self.models['imglen'].eval()
+            self.models['imglde'].eval()
+            EPOCH_LOSS = {'LOSS': [],
+                          'CSI_L': [],
+                          'IMG_L': [],
+                          'INTA': []}
+
+            for idx, (data_x, data_y, index) in enumerate(self.valid_loader, 0):
+                data_x = data_x.to(torch.float32).to(self.device)
+                data_y = data_y.to(torch.float32).to(self.device)
+                with torch.no_grad():
+                    PREDS = self.calculate_outer_loss(data_x, data_y, index)
+
+                for key in EPOCH_LOSS.keys():
+                    EPOCH_LOSS[key].append(self.temp_loss[key].item())
+
+            for key in EPOCH_LOSS.keys():
+                EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
+            self.loss['inta'].update('valid', EPOCH_LOSS)
+
+    def test_outer(self, mode='test'):
+
+        self.models['csien'].eval()
+        self.models['imgen'].eval()
+        self.models['csilen'].eval()
+        self.models['csilde'].eval()
+        self.models['imglen'].eval()
+        self.models['imglde'].eval()
+        EPOCH_LOSS = {'LOSS': [],
+                      'CSI_L': [],
+                      'IMG_L': [],
+                      'INTA': []}
+
+        if mode == 'test':
+            loader = self.test_loader
+        elif mode == 'train':
+            loader = self.train_loader
+
+        for idx, (data_x, data_y, index) in enumerate(loader, 0):
+            data_x = data_x.to(torch.float32).to(self.device)
+            data_y = data_y.to(torch.float32).to(self.device)
+            with torch.no_grad():
+                for sample in range(loader.batch_size):
+                    ind = index[sample][np.newaxis, ...]
+                    csi = data_x[sample][np.newaxis, ...]
+                    img = data_y[sample][np.newaxis, ...]
+                    PREDS = self.calculate_outer_loss(csi, img, ind)
+
+                for key in EPOCH_LOSS.keys():
+                    EPOCH_LOSS[key].append(self.temp_loss[key].item())
+
+                self.loss['inta'].update('plot', PREDS)
+
+            if idx % (len(loader) // 5) == 0:
+                print(f"\rINTA: test={idx}/{len(loader)}, loss={self.temp_loss['LOSS'].item()}", end='')
+
+        self.loss['inta'].update('test', EPOCH_LOSS)
+        for key in EPOCH_LOSS.keys():
             EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
         print(f"\nTest finished. Average loss={EPOCH_LOSS}")
 

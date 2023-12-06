@@ -1,3 +1,6 @@
+import torch
+
+
 class MyLoss:
     def __init__(self, loss_terms, plot_terms):
         self.loss = {'train': {term: [] for term in loss_terms},
@@ -32,4 +35,5 @@ class MyLoss:
         if mode == 'plot':
             for key in losses.keys():
                 self.loss['test'][key].append(losses[key].cpu().detach().numpy().squeeze())
+
 

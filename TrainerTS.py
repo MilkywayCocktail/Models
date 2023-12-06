@@ -484,13 +484,11 @@ class TrainerTS:
                     for key in PLOT_TERMS:
                         self.test_loss['t'][key].append(PREDS[key].cpu().detach().numpy().squeeze())
 
-                    for key in LOSS_TERMS:
-                        self.test_loss['t'][key] = EPOCH_LOSS[key]
-
             if idx % (len(loader)//5) == 0:
                 print(f"\rTeacher: test={idx}/{len(loader)}, loss={self.temp_loss['LOSS'].item()}", end='')
 
         for key in LOSS_TERMS:
+            self.test_loss['t'][key] = EPOCH_LOSS[key]
             EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
         print(f"\nTest finished. Average loss={EPOCH_LOSS}")
 
@@ -527,13 +525,11 @@ class TrainerTS:
                     for key in PLOT_TERMS:
                         self.test_loss['s'][key].append(PREDS[key].cpu().detach().numpy().squeeze())
 
-            for key in LOSS_TERMS:
-                self.test_loss['s'][key] = EPOCH_LOSS[key]
-
             if idx % (len(loader) // 5) == 0:
                 print(f"\rStudent: test={idx}/{len(loader)}, loss={self.temp_loss['LOSS'].item()}", end='')
 
         for key in LOSS_TERMS:
+            self.test_loss['s'][key] = EPOCH_LOSS[key]
             EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
         print(f"\nTest finished. Average loss={EPOCH_LOSS}")
 
