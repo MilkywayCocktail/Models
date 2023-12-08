@@ -54,6 +54,7 @@ class TrainerVTS_V04c2:
                                        pred_terms=['GT', 'T_PRED', 'S_PRED', 'T_LATENT', 'S_LATENT',
                                                    'GT_BBX', 'T_BBX', 'S_BBX', 'IND']),
                      }
+        self.inds = None
 
     def current_title(self):
         """
@@ -381,45 +382,84 @@ class TrainerVTS_V04c2:
             plt.savefig(filename)
         plt.show()
 
-    def plot_test(self, mode='t', select_ind=None, select_num=8, autosave=False, notion=''):
-        title = {'t': {'PRED': f"Teacher Test Predicts",
-                       'LOSS': f"Teacher Test Loss"},
-                 's': {'PRED': f"Student Test Predicts",
-                       'LOSS': f"Student Test Loss",
-                       'LATENT': f"Student Test Latents"}}
-        filename = {'t': {'PRED': f"{notion}_T_predict_{self.current_title()}.jpg",
-                          'LOSS': f"{notion}_T_test_{self.current_title()}.jpg"},
-                    's': {'PRED': f"{notion}_S_predict_{self.current_title()}.jpg",
-                          'LOSS': f"{notion}_S_test_{self.current_title()}.jpg",
-                          'LATENT': f"{notion}_S_latent_{self.current_title()}.jpg"}}
+    def generate_indices(self, source, select_num):
+        inds = np.random.choice(list(range(len(source))), select_num, replace=False)
+        inds = np.sort(inds)
+        self.inds = inds
+        return inds
+
+    def plot_test_t(self, select_ind=None, select_num=8, autosave=False, notion=''):
+        title = {'PRED': "Teacher Test Predicts",
+                 'BBX': "Teacher Test BBX Predicts",
+                 'LOSS': "Teacher Test Loss"}
+        filename = {'PRED': f"{notion}_T_predict_{self.current_title()}.jpg",
+                    'BBX': f"{notion}_T_bbx_{self.current_title()}.jpg",
+                    'LOSS': f"{notion}_T_test_{self.current_title()}.jpg"}
 
         save_path = f'../saved/{notion}/'
         filename = f"../saved/{notion}/{filename}"
+        if autosave:
+            if not os.path.exists(save_path):
+                os.makedirs(save_path)
 
         if select_ind:
             inds = select_ind
         else:
-            inds = np.random.choice(list(range(len(self.loss[mode]['test']['IND']))), select_num, replace=False)
-        inds = np.sort(inds)
+            if self.inds:
+                inds = self.inds
+            else:
+                inds = self.generate_indices(self.loss['t']['pred']['IND'], select_num)
 
-        self.loss[mode].plot_predict(title[mode]['PRED'], filename[mode]['PRED'], inds)
+        self.loss['t'].plot_predict(title['PRED'], inds, ('GT', 'PRED'))
+        if autosave:
+            plt.savefig(filename['PRED'])
+
+        self.loss['t'].plot_bbx(title['BBX'], inds)
+        if autosave:
+            plt.savefig(filename['BBX'])
+
+        self.loss['t'].plot_test(title['BBX'], inds)
+        if autosave:
+            plt.savefig(filename['LOSS'])
+
+    def plot_test_s(self, select_ind=None, select_num=8, autosave=False, notion=''):
+        title = {'PRED': "Student Test Predicts",
+                 'BBX': "Student Test BBX Predicts",
+                 'LOSS': "Student Test Loss",
+                 'LATENT': f"Student Test Latents"}
+        filename = {'PRED': f"{notion}_S_predict_{self.current_title()}.jpg",
+                    'BBX': f"{notion}_S_bbx_{self.current_title()}.jpg",
+                    'LOSS': f"{notion}_S_test_{self.current_title()}.jpg",
+                    'LATENT': f"{notion}_S_latent_{self.current_title()}.jpg"}
+
+        save_path = f'../saved/{notion}/'
+        filename = f"../saved/{notion}/{filename}"
         if autosave:
             if not os.path.exists(save_path):
                 os.makedirs(save_path)
-            plt.savefig(filename[mode]['PRED'])
 
-        self.loss[mode].plot_test(title[mode]['LOSS'], filename[mode]['LOSS'], inds)
+        if select_ind:
+            inds = select_ind
+        else:
+            if self.inds:
+                inds = self.inds
+            else:
+                inds = self.generate_indices(self.loss['s']['pred']['IND'], select_num)
+
+        self.loss['s'].plot_predict(title['PRED'], inds, ('GT', 'T_PRED', 'S_PRED'))
         if autosave:
-            if not os.path.exists(save_path):
-                os.makedirs(save_path)
-            plt.savefig(filename[mode]['LOSS'])
+            plt.savefig(filename['PRED'])
 
-        if mode == 's':
-            self.loss[mode].plot_latent(title[mode]['LATENT'], filename[mode]['LATENT'], inds)
-            if autosave:
-                if not os.path.exists(save_path):
-                    os.makedirs(save_path)
-                plt.savefig(filename[mode]['LATENT'])
+        self.loss['s'].plot_bbx(title['BBX'], inds)
+        if autosave:
+            plt.savefig(filename['BBX'])
 
+        self.loss['s'].plot_latent(title['s']['LATENT'], inds)
+        if autosave:
+            plt.savefig(filename['LATENT'])
+
+        self.loss['t'].plot_test(title['BBX'], inds)
+        if autosave:
+            plt.savefig(filename['LOSS'])
 
 

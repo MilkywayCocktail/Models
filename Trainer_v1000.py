@@ -2,12 +2,116 @@ import torch
 import torch.nn as nn
 from torchinfo import summary
 import numpy as np
+import time
+import os
+import matplotlib.pyplot as plt
 from Loss import MyLoss
+
+
+class MyLossCSI(MyLoss):
+    def __init__(self, loss_terms, pred_terms):
+        super(MyLossCSI, self).__init__(loss_terms, pred_terms)
+
+    def plot_predict(self, title, select_ind, plot_terms):
+        self.__plot_settings__()
+
+        title = f"{title} @ep{self.epochs[-1]}"
+        samples = np.array(self.loss['pred']['IND'])[select_ind]
+
+        fig = plt.figure(constrained_layout=True)
+        fig.suptitle(title)
+        axes = fig.subplots(nrows=1, ncols=len(select_ind))
+
+        for j in range(len(axes)):
+            csidiff = self.loss['pred']['GT'][select_ind[j]] - self.loss['pred']['PRED'][select_ind[j]]
+            csidiff = np.concatenate((csidiff[0], csidiff[1]), axis=-1)
+            min_val = np.min(csidiff)
+            max_val = np.max(csidiff)
+            csidiff = (csidiff - min_val) / (max_val - min_val)
+            img = axes[j].imshow(csidiff, vmin=0, vmax=1)
+            axes[j].axis('off')
+            axes[j].set_title(f"#{samples[j]}")
+        fig.colorbar(img, ax=axes, shrink=0.8)
+        plt.show()
+
+
+class MyLossINTA(MyLoss):
+    def __init__(self, loss_terms, pred_terms):
+        super(MyLossINTA, self).__init__(loss_terms, pred_terms)
+
+    def plot_latent(self, title, select_ind):
+        self.__plot_settings__()
+
+        title = f"{title} @ep{self.epochs[-1]}"
+        samples = np.array(self.loss['pred']['IND'])[select_ind]
+
+        fig = plt.figure(constrained_layout=True)
+        fig.suptitle(title)
+        subfigs = fig.subfigures(nrows=3, ncols=1)
+
+        subfigs[0].suptitle('CSI Latent')
+        axes = subfigs[0].subplots(nrows=1, ncols=len(select_ind))
+        axes = axes.flatten()
+        for j in range(len(select_ind)):
+            axes[j].bar(range(len(self.loss['pred']['CSI_L'][select_ind[0]])),
+                        self.loss['pred']['CSI_L'][select_ind[j]],
+                        width=1, fc='blue', alpha=0.8, label='CSI_L 1st EST')
+            axes[j].bar(range(len(self.loss['pred']['RE_CSI_L'][select_ind[0]])),
+                        self.loss['pred']['RE_CSI_L'][select_ind[j]],
+                        width=1, fc='orange', alpha=0.8, label='CSI_L RECON')
+            axes[j].set_ylim(-1, 1)
+            axes[j].set_title(f"#{samples[j]}")
+            axes[j].grid()
+
+        axes[0].legend()
+        axes = subfigs[1].subplots(nrows=1, ncols=len(select_ind))
+        axes = axes.flatten()
+        for j in range(len(select_ind)):
+            axes[j].bar(range(len(self.loss['pred']['IMG_L'][select_ind[0]])),
+                        self.loss['pred']['IMG_L'][select_ind[j]],
+                        width=1, fc='blue', alpha=0.8, label='IMG_L 1st EST')
+            axes[j].bar(range(len(self.loss['pred']['RE_IMG_L'][select_ind[0]])),
+                        self.loss['pred']['RE_IMG_L'][select_ind[j]],
+                        width=1, fc='orange', alpha=0.8, label='IMG_L RECON')
+            axes[j].set_ylim(-1, 1)
+            axes[j].set_title(f"#{samples[j]}")
+            axes[j].grid()
+
+        axes[0].legend()
+        axes = subfigs[0].subplots(nrows=1, ncols=len(select_ind))
+        axes = axes.flatten()
+        for j in range(len(select_ind)):
+            axes[j].bar(range(len(self.loss['pred']['CSI_R'][select_ind[0]])),
+                        self.loss['pred']['CSI_R'][select_ind[j]],
+                        width=1, fc='blue', alpha=0.8, label='CSI INTACT')
+            axes[j].bar(range(len(self.loss['pred']['IMG_R'][select_ind[0]])),
+                        self.loss['pred']['IMG_R'][select_ind[j]],
+                        width=1, fc='orange', alpha=0.8, label='IMG INTACT')
+            axes[j].set_ylim(-1, 1)
+            axes[j].set_title(f"#{samples[j]}")
+            axes[j].grid()
+
+        axes[0].legend()
+        plt.show()
 
 
 def reparameterize(mu, logvar):
     eps = torch.randn_like(mu)
     return mu + eps * torch.exp(logvar / 2)
+
+
+def timer(func):
+    from functools import wraps
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        start = time.time()
+        result = func(*args, **kwargs)
+        end = time.time()
+        print("\nTotal training time:", end - start, "sec")
+        return result
+
+    return wrapper
 
 
 class CsiEncoder(nn.Module):
@@ -43,7 +147,7 @@ class CsiEncoder(nn.Module):
         )
 
     def __str__(self):
-        return 'CsiEnV0400'
+        return 'CsiEnV1000'
 
     def forward(self, x):
         out = self.cnn(x)
@@ -78,7 +182,7 @@ class CsiDecoder(nn.Module):
         )
 
     def __str__(self):
-        return 'CsiDeV0400'
+        return 'CsiDeV1000'
 
     def forward(self, x):
         out = self.fclayers(x)
@@ -100,7 +204,7 @@ class LatentEnTranslator(nn.Module):
         )
 
     def __str__(self):
-        return 'LatEnTrV0400'
+        return 'LatEnTrV1000'
 
     def forward(self, x):
         out = self.fclayers(x)
@@ -109,7 +213,7 @@ class LatentEnTranslator(nn.Module):
 
 
 class LatentDeTranslator(nn.Module):
-    def __init__(self, latent_dim=16, repres_dim=128):
+    def __init__(self, latent_dim=16, repres_dim=64):
         super(LatentDeTranslator, self).__init__()
 
         self.latent_dim = latent_dim
@@ -123,7 +227,7 @@ class LatentDeTranslator(nn.Module):
         )
 
     def __str__(self):
-        return 'LatDeTrV0400'
+        return 'LatDeTrV1000'
 
     def forward(self, x):
         out = self.fclayers(x)
@@ -165,7 +269,7 @@ class ImageEncoder(nn.Module):
         )
 
     def __str__(self):
-        return 'ImgEnV0400'
+        return 'ImgEnV1000'
 
     def forward(self, x):
         out = self.cnn(x)
@@ -215,7 +319,7 @@ class ImageDecoder(nn.Module):
         )
 
     def __str__(self):
-        return 'ImgDeV0400' + self.bottleneck.capitalize()
+        return 'ImgDeV1000' + self.bottleneck.capitalize()
 
     def forward(self, x):
 
@@ -238,11 +342,12 @@ class Trainer:
         self.beta = 1.2
 
         self.temp_loss = {}
-        self.loss = {'csi': MyLoss(loss_terms=['LOSS', 'KL', 'RECON'], pred_terms=['GT', 'PRED', 'IND']),
+        self.loss = {'csi': MyLossCSI(loss_terms=['LOSS', 'KL', 'RECON'], pred_terms=['GT', 'PRED', 'IND']),
                      'img': MyLoss(loss_terms=['LOSS', 'KL', 'RECON'], pred_terms=['GT', 'PRED', 'IND']),
-                     'inta': MyLoss(loss_terms=['LOSS', 'CSI_L', 'IMG_L', 'INTA'],
-                                    pred_terms=['CSI_L', 'RE_CSI_L', 'IMG_L', 'RE_IMG_L', 'CSI_R', 'IMG_R', 'IND'])
+                     'inta': MyLossINTA(loss_terms=['LOSS', 'CSI_L', 'IMG_L', 'INTA'],
+                                        pred_terms=['CSI_L', 'RE_CSI_L', 'IMG_L', 'RE_IMG_L', 'CSI_R', 'IMG_R', 'IND'])
                      }
+        self.inds = None
 
     @staticmethod
     def __gen_models__():
@@ -263,6 +368,13 @@ class Trainer:
                 'imglen': imglen,
                 'imglde': imglde
                 }
+
+    def current_title(self):
+        """
+        Shows current title
+        :return: a string including current training epochs
+        """
+        return f"Ce{self.loss['csi'].epochs[-1]}_Ie{self.loss['img'].epochs[-1]}_Oe{self.loss['inta'].epochs[-1]}"
 
     def vae_loss(self, pred, gt, mu, logvar):
         recon_loss = self.recon_lossfun(pred, gt) / pred.shape[0]
@@ -292,6 +404,7 @@ class Trainer:
                 'PRED': recon_img,
                 'IND': i}
 
+    @timer
     def train_csi_inner(self, autosave=False, notion=''):
         optimizer = self.optimizer([{'params': self.models['csien'].parameters()},
                                     {'params': self.models['cside'].parameters()}], lr=self.lr)
@@ -338,6 +451,7 @@ class Trainer:
                 EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
             self.loss['csi'].update('valid', EPOCH_LOSS)
 
+    @timer
     def train_img_inner(self, autosave=False, notion=''):
         optimizer = self.optimizer([{'params': self.models['imgen'].parameters()},
                                     {'params': self.models['imgde'].parameters()}], lr=self.lr)
@@ -475,6 +589,7 @@ class Trainer:
                 'IMG_R': repr_i,
                 'IND': i}
 
+    @timer
     def train_outer(self):
         optimizer = self.optimizer([{'params': self.models['csilen'].parameters()},
                                     {'params': self.models['csilde'].parameters()},
@@ -582,6 +697,115 @@ class Trainer:
         for key in EPOCH_LOSS.keys():
             EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
         print(f"\nTest finished. Average loss={EPOCH_LOSS}")
+
+    def plot_train_loss(self, mode='csi', double_y=False, autosave=False, notion=''):
+        title = {'csi': f"CSI Training Status",
+                 'img': f"Image Training Status",
+                 'inta': f"Intact Training Status"}
+        filename = {'csi': f"{notion}_CSI_train_{self.current_title()}.jpg",
+                    'img': f"{notion}_IMG_train_{self.current_title()}.jpg",
+                    'inta': f"{notion}_INTA_train_{self.current_title()}.jpg"}
+
+        save_path = f'../saved/{notion}/'
+        filename = f"../saved/{notion}/{filename}"
+
+        self.loss[mode].plot_train(title[mode], filename[mode], double_y, autosave, notion)
+
+        if autosave:
+            if not os.path.exists(save_path):
+                os.makedirs(save_path)
+            plt.savefig(filename)
+        plt.show()
+
+    def generate_indices(self, source, select_num):
+        inds = np.random.choice(list(range(len(source))), select_num, replace=False)
+        inds = np.sort(inds)
+        self.inds = inds
+        return inds
+
+    def plot_test_csi(self, select_ind=None, select_num=8, autosave=False, notion=''):
+        title = {'PRED': f"CSI Test Predicts",
+                 'LOSS': f"CSI Test Loss"}
+        filename = {'PRED': f"{notion}_CSI_predict_{self.current_title()}.jpg",
+                    'LOSS': f"{notion}_CSI_test_{self.current_title()}.jpg"}
+
+        save_path = f'../saved/{notion}/'
+        filename = f"../saved/{notion}/{filename}"
+        if autosave:
+            if not os.path.exists(save_path):
+                os.makedirs(save_path)
+
+        if select_ind:
+            inds = select_ind
+        else:
+            if self.inds:
+                inds = self.inds
+            else:
+                inds = self.generate_indices(self.loss['csi']['pred']['IND'], select_num)
+
+        self.loss['csi'].plot_predict(title['PRED'], inds, ('GT', 'PRED'))
+        if autosave:
+            plt.savefig(filename['PRED'])
+
+        self.loss['csi'].plot_test(title['LOSS'], inds)
+        if autosave:
+            plt.savefig(filename['LOSS'])
+
+    def plot_test_img(self, select_ind=None, select_num=8, autosave=False, notion=''):
+        title = {'PRED': f"IMG Test Predicts",
+                 'LOSS': f"IMG Test Loss"}
+        filename = {'PRED': f"{notion}_IMG_predict_{self.current_title()}.jpg",
+                    'LOSS': f"{notion}_IMG_test_{self.current_title()}.jpg"}
+
+        save_path = f'../saved/{notion}/'
+        filename = f"../saved/{notion}/{filename}"
+        if autosave:
+            if not os.path.exists(save_path):
+                os.makedirs(save_path)
+
+        if select_ind:
+            inds = select_ind
+        else:
+            if self.inds:
+                inds = self.inds
+            else:
+                inds = self.generate_indices(self.loss['img']['pred']['IND'], select_num)
+
+        self.loss['img'].plot_predict(title['PRED'], inds, ('GT', 'PRED'))
+        if autosave:
+            plt.savefig(filename['PRED'])
+
+        self.loss['img'].plot_test(title['LOSS'], inds)
+        if autosave:
+            plt.savefig(filename['LOSS'])
+
+    def plot_test_outer(self, select_ind=None, select_num=8, autosave=False, notion=''):
+        title = {'PRED': f"IMG Test Predicts",
+                 'LOSS': f"IMG Test Loss"}
+        filename = {'PRED': f"{notion}_IMG_predict_{self.current_title()}.jpg",
+                    'LOSS': f"{notion}_IMG_test_{self.current_title()}.jpg"}
+
+        save_path = f'../saved/{notion}/'
+        filename = f"../saved/{notion}/{filename}"
+        if autosave:
+            if not os.path.exists(save_path):
+                os.makedirs(save_path)
+
+        if select_ind:
+            inds = select_ind
+        else:
+            if self.inds:
+                inds = self.inds
+            else:
+                inds = self.generate_indices(self.loss['img']['pred']['IND'], select_num)
+
+        self.loss['img'].plot_predict(title['PRED'], inds, ('GT', 'PRED'))
+        if autosave:
+            plt.savefig(filename['PRED'])
+
+        self.loss['img'].plot_test(title['LOSS'], inds)
+        if autosave:
+            plt.savefig(filename['LOSS'])
 
 
 if __name__ == "__main__":
