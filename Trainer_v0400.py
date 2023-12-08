@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from torchinfo import summary
 import numpy as np
+from Loss import MyLoss
 
 
 def reparameterize(mu, logvar):
@@ -223,42 +224,6 @@ class ImageDecoder(nn.Module):
         return out.view(-1, 1, 128, 128)
 
 
-class MyLoss:
-    def __init__(self, loss_terms, plot_terms):
-        self.loss = {'train': {term: [] for term in loss_terms},
-                     'valid': {term: [] for term in loss_terms},
-                     'test': {term: [] for term in plot_terms}
-                     }
-        self.lr = []
-        self.epochs = [0]
-
-    def logger(self, lr, epochs):
-
-        # First round
-        if not self.lr:
-            self.lr.append(lr)
-            self.epochs.append(epochs)
-        else:
-            # Not changing learning rate
-            if lr == self.lr[-1]:
-                self.epochs[-1] += epochs
-
-            # Changing learning rate
-            if lr != self.lr[-1]:
-                last_end = self.epochs[-1]
-                self.lr.append(lr)
-                self.epochs.append(last_end + epochs)
-
-    def update(self, mode, losses):
-        if mode in ('train', 'valid', 'test'):
-            for key in losses.keys():
-                self.loss[mode][key].append(losses[key])
-
-        if mode == 'plot':
-            for key in losses.keys():
-                self.loss['test'][key].append(losses[key].cpu().detach().numpy().squeeze())
-
-
 class Trainer:
     def __init__(self, train_loader, valid_loader, test_loader, lr=1e-4, epochs=10, cuda=1):
         self.models = self.__gen_models__()
@@ -273,10 +238,10 @@ class Trainer:
         self.beta = 1.2
 
         self.temp_loss = {}
-        self.loss = {'csi': MyLoss(loss_terms=['LOSS', 'KL', 'RECON'], plot_terms=['GT', 'PRED', 'IND']),
-                     'img': MyLoss(loss_terms=['LOSS', 'KL', 'RECON'], plot_terms=['GT', 'PRED', 'IND']),
+        self.loss = {'csi': MyLoss(loss_terms=['LOSS', 'KL', 'RECON'], pred_terms=['GT', 'PRED', 'IND']),
+                     'img': MyLoss(loss_terms=['LOSS', 'KL', 'RECON'], pred_terms=['GT', 'PRED', 'IND']),
                      'inta': MyLoss(loss_terms=['LOSS', 'CSI_L', 'IMG_L', 'INTA'],
-                                    plot_terms=['CSI_L', 'RE_CSI_L', 'IMG_L', 'RE_IMG_L', 'CSI_R', 'IMG_R', 'IND'])
+                                    pred_terms=['CSI_L', 'RE_CSI_L', 'IMG_L', 'RE_IMG_L', 'CSI_R', 'IMG_R', 'IND'])
                      }
 
     @staticmethod
@@ -329,7 +294,7 @@ class Trainer:
 
     def train_csi_inner(self, autosave=False, notion=''):
         optimizer = self.optimizer([{'params': self.models['csien'].parameters()},
-                                    {'params': self.models['cside'].parameters()}])
+                                    {'params': self.models['cside'].parameters()}], lr=self.lr)
         self.loss['csi'].logger(self.lr, self.epochs)
         for epoch in range(self.epochs):
             # =====================train============================
@@ -375,7 +340,7 @@ class Trainer:
 
     def train_img_inner(self, autosave=False, notion=''):
         optimizer = self.optimizer([{'params': self.models['imgen'].parameters()},
-                                    {'params': self.models['imgde'].parameters()}])
+                                    {'params': self.models['imgde'].parameters()}], lr=self.lr)
         self.loss['img'].logger(self.lr, self.epochs)
         for epoch in range(self.epochs):
             # =====================train============================
@@ -442,7 +407,7 @@ class Trainer:
                     for key in EPOCH_LOSS.keys():
                         EPOCH_LOSS[key].append(self.temp_loss[key].item())
 
-                    self.loss['csi'].update('plot', PREDS)
+                    self.loss['csi'].update('pred', PREDS)
 
             if idx % (len(loader)//5) == 0:
                 print(f"\rCSI: test={idx}/{len(loader)}, loss={self.temp_loss['LOSS'].item()}", end='')
@@ -475,7 +440,7 @@ class Trainer:
                     for key in EPOCH_LOSS.keys():
                         EPOCH_LOSS[key].append(self.temp_loss[key].item())
 
-                    self.loss['img'].update('plot', PREDS)
+                    self.loss['img'].update('pred', PREDS)
 
             if idx % (len(loader)//5) == 0:
                 print(f"\rIMG: test={idx}/{len(loader)}, loss={self.temp_loss['LOSS'].item()}", end='')
@@ -515,7 +480,7 @@ class Trainer:
                                     {'params': self.models['csilde'].parameters()},
                                     {'params': self.models['imglen'].parameters()},
                                     {'params': self.models['imglde'].parameters()},
-                                    ])
+                                    ], lr=self.lr)
         self.loss['inta'].logger(self.lr, self.epochs)
 
         for epoch in range(self.epochs):

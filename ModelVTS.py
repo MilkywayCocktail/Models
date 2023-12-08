@@ -931,6 +931,91 @@ class ImageDecoderV04c1(ImageDecoderV03c2):
         out = self.cnn(out.view(-1, 256, 1, 1))
         return out.view(-1, 1, 128, 128), ib.view(-1, self.inductive_length)
 
+# -------------------------------------------------------------------------- #
+# Model v04c2
+# Estimate cropped subject and bounding box
+
+# ImageEncoder: in = 128 * 128, out = 2 * latent_dim
+# ImageDecoder: in = 1 * latent_dim, out = 128 * 128 & 1 * inductive_dim
+# CSIEncoder: in = 2 * 90 * 100, out = 2 * latent_dim
+# -------------------------------------------------------------------------- #
+
+
+class ImageEncoderV04c2(ImageEncoderV03c2):
+    def __init__(self, batchnorm=False):
+        super(ImageEncoderV04c2, self).__init__(batchnorm=batchnorm)
+
+    def __str__(self):
+        return 'ImgEnV04c2' + self.bottleneck.capitalize()
+
+
+class MaskEncoderV04c2(nn.Module):
+    def __init__(self, batchnorm=False):
+        super(MaskEncoderV04c2, self).__init__(batchnorm=batchnorm)
+
+        self.lstm = nn.Sequential(
+            nn.LSTM(128, 4, 2, batch_first=True, dropout=0.1),
+        )
+
+    def __str__(self):
+        return 'ImgEnV04c2' + self.bottleneck.capitalize()
+
+    def forward(self, x):
+        x = self.lstm(x.view(-1, 128, 128))
+        return x
+
+
+class ImageDecoderV04c2(ImageDecoderV03c2):
+    def __init__(self, batchnorm=False):
+        super(ImageDecoderV04c2, self).__init__(batchnorm=batchnorm)
+
+    def __str__(self):
+        return 'ImgDeV04c2'
+
+
+class CsiEncoderV04c2(CsiEncoderV03c4):
+    def __init__(self, batchnorm=False, feature_length=512):
+        super(CsiEncoderV04c2, self).__init__(batchnorm=batchnorm, feature_length=feature_length)
+
+        self.lstm = nn.Sequential(
+            nn.LSTM(self.feature_length, 2 * self.latent_dim + 4, 2, batch_first=True, dropout=0.1),
+        )
+
+        self.fc1 = nn.Sequential(
+            nn.Linear(2 * self.latent_dim, self.latent_dim),
+        )
+
+        self.fc2 = nn.Sequential(
+            nn.Linear(2 * self.latent_dim, self.latent_dim),
+        )
+
+        self.fc3 = nn.Sequential(
+            nn.Linear(2 * self.latent_dim, 4),
+        )
+
+    def __str__(self):
+        return 'CsiEnV04c2' + self.bottleneck.capitalize()
+
+    def forward(self, x):
+        out = self.cnn(x)
+        out = self.gap(out)
+        out, (final_hidden_state, final_cell_state) = self.lstm.forward(
+            out.view(-1, self.feature_length, 42).transpose(1, 2))
+
+        if self.bottleneck == 'last':
+            out = out[:, -1, :]
+
+        # mu = out[:, :self.latent_dim]
+        # logvar = out[:, self.latent_dim:2 * self.latent_dim]
+        # bbx = out[:, 2 * self.latent_dim:]
+
+        mu = self.fc1(out)
+        logvar = self.fc2(out)
+        bbx = self.fc3(out)
+        z = reparameterize(mu, logvar)
+
+        return out, z, mu, logvar, bbx
+
 
 if __name__ == "__main__":
     IMG = (1, 1, 128, 128)

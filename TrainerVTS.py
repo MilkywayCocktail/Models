@@ -410,7 +410,7 @@ class TrainerVTSIB1(TrainerVTS):
          )
 
         self.lb = lb
-        self.inductive_length=inductive_length
+        self.inductive_length = inductive_length
         self.memory_size = memory_size
         self.ib_loss = nn.MSELoss()
         self.memory_bank = self.__gen_memory_bank__()
@@ -647,3 +647,5 @@ class TrainerVTSMu(TrainerVTS):
                 'T_PRED': t_output,
                 'S_PRED': s_output,
                 'IND': i}
+
+
