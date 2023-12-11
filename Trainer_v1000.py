@@ -23,7 +23,7 @@ class MyLossCSI(MyLoss):
         subfigs = fig.subfigures(nrows=3, ncols=1)
 
         for i, item in enumerate(plot_terms):
-            subfigs[i].suptitle(plot_terms[item])
+            subfigs[i].suptitle(item)
             axes = subfigs[i].subplots(nrows=1, ncols=len(select_ind))
             for j in range(len(axes)):
                 img = axes[j].imshow(self.loss['pred'][item][select_ind[j]], vmin=0, vmax=1)
