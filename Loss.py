@@ -106,7 +106,7 @@ class MyLoss:
             ax_r.plot(list(range(len(self.loss['train'][loss]))),
                       self.loss['train'][loss],
                       line_color[0], label='Train')
-            axes[i].set_title(plot_terms[loss])
+            axes[i].set_title(loss)
             axes[i].set_xlabel('#Epoch')
             axes[i].set_ylabel('Loss')
             axes[i].grid()
@@ -119,7 +119,7 @@ class MyLoss:
         title = f"{title} @ep{self.epochs[-1]}"
 
         if plot_terms == 'all':
-            plot_terms = self.loss['test'].keys()
+            plot_terms = list(self.loss['test'].keys())
 
         fig = plt.figure(constrained_layout=True)
         fig.suptitle(title)
@@ -135,7 +135,7 @@ class MyLoss:
         for i, item in enumerate(plot_terms):
             axes[i].scatter(list(range(len(self.loss['test'][item]))),
                             self.loss['test'][item], alpha=0.6)
-            axes[i].set_title(plot_terms[item])
+            axes[i].set_title(item)
             axes[i].set_xlabel('#Sample')
             axes[i].set_ylabel('Loss')
             axes[i].grid()
