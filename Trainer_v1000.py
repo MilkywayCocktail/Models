@@ -26,7 +26,9 @@ class MyLossCSI(MyLoss):
             subfigs[i].suptitle(item)
             axes = subfigs[i].subplots(nrows=1, ncols=len(select_ind))
             for j in range(len(axes)):
-                img = axes[j].imshow(self.loss['pred'][item][select_ind[j]], vmin=0, vmax=1)
+                img = axes[j].imshow(np.concatenate((self.loss['pred'][item][select_ind[j]][0],
+                                                     self.loss['pred'][item][select_ind[j]][1]),
+                                                    axis=-1), vmin=0, vmax=1)
                 axes[j].axis('off')
                 axes[j].set_title(f"#{samples[j]}")
             subfigs[i].colorbar(img, ax=axes, shrink=0.8)
