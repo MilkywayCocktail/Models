@@ -31,20 +31,20 @@ class MyLossCSI(MyLoss):
                                                     axis=-1), vmin=0, vmax=1)
                 axes[j].axis('off')
                 axes[j].set_title(f"#{samples[j]}")
-            subfigs[i].colorbar(img, ax=axes, shrink=0.8)
+            subfigs[i].colorbar(img, ax=axes, shrink=0.6)
 
         subfigs[-1].suptitle('DIFF')
         axes = subfigs[-1].subplots(nrows=1, ncols=len(select_ind))
-        for j in range(len(axes)):
-            csidiff = self.loss['pred']['GT'][select_ind[j]] - self.loss['pred']['PRED'][select_ind[j]]
+        for jj in range(len(axes)):
+            csidiff = self.loss['pred']['GT'][select_ind[jj]] - self.loss['pred']['PRED'][select_ind[j]]
             csidiff = np.concatenate((csidiff[0], csidiff[1]), axis=-1)
             min_val = np.min(csidiff)
             max_val = np.max(csidiff)
             csidiff = (csidiff - min_val) / (max_val - min_val)
-            img = axes[j].imshow(csidiff, vmin=0, vmax=1)
-            axes[j].axis('off')
-            axes[j].set_title(f"#{samples[j]}")
-            subfigs[-1].colorbar(img, ax=axes, shrink=0.8)
+            img = axes[jj].imshow(csidiff, vmin=0, vmax=1)
+            axes[jj].axis('off')
+            axes[jj].set_title(f"#{samples[j]}")
+            #subfigs[-1].colorbar(img, ax=axes, shrink=0.6)
         plt.show()
 
 
