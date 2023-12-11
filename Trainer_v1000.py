@@ -44,7 +44,7 @@ class MyLossCSI(MyLoss):
             img = axes[jj].imshow(csidiff, vmin=0, vmax=1)
             axes[jj].axis('off')
             axes[jj].set_title(f"#{samples[j]}")
-            #subfigs[-1].colorbar(img, ax=axes, shrink=0.6)
+        subfigs[-1].colorbar(img, ax=axes, shrink=0.6)
         plt.show()
 
 
@@ -533,7 +533,7 @@ class Trainer:
                     PREDS = self.calculate_csi_loss(x=csi, i=ind)
 
                     for key in EPOCH_LOSS.keys():
-                        EPOCH_LOSS[key].append(self.temp_loss[key].item())
+                        EPOCH_LOSS[key].append(np.array(self.temp_loss[key].item()))
 
                     self.loss['csi'].update('pred', PREDS)
 
@@ -566,7 +566,7 @@ class Trainer:
                     PREDS = self.calculate_img_loss(y=img, i=ind)
 
                     for key in EPOCH_LOSS.keys():
-                        EPOCH_LOSS[key].append(self.temp_loss[key].item())
+                        EPOCH_LOSS[key].append(np.array(self.temp_loss[key].item()))
 
                     self.loss['img'].update('pred', PREDS)
 
