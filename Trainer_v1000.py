@@ -350,7 +350,7 @@ class Trainer:
                      }
         self.inds = None
 
-    def __gen_models__():
+    def __gen_models__(self):
         csien = CsiEncoder().to(self.device)
         cside = CsiDecoder().to(self.device)
         imgen = ImageEncoder().to(self.device)
