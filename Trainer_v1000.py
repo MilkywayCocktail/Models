@@ -287,10 +287,11 @@ class ImageEncoder(nn.Module):
 
 
 class ImageDecoder(nn.Module):
-    def __init__(self, latent_dim=16):
+    def __init__(self, latent_dim=16, active_func=nn.Sigmoid()):
         super(ImageDecoder, self).__init__()
 
         self.latent_dim = latent_dim
+        self.active_func = active_func
 
         self.fclayers = nn.Sequential(
             nn.Linear(self.latent_dim, 4096),
