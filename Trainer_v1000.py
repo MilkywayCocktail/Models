@@ -533,7 +533,7 @@ class Trainer:
                     PREDS = self.calculate_csi_loss(x=csi, i=ind)
 
                     for key in EPOCH_LOSS.keys():
-                        EPOCH_LOSS[key].append(np.array(self.temp_loss[key].item()))
+                        EPOCH_LOSS[key].append(self.temp_loss[key].item())
 
                     self.loss['csi'].update('pred', PREDS)
 
@@ -566,7 +566,7 @@ class Trainer:
                     PREDS = self.calculate_img_loss(y=img, i=ind)
 
                     for key in EPOCH_LOSS.keys():
-                        EPOCH_LOSS[key].append(np.array(self.temp_loss[key].item()))
+                        EPOCH_LOSS[key].append(self.temp_loss[key].item())
 
                     self.loss['img'].update('pred', PREDS)
 
