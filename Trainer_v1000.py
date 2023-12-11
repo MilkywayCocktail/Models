@@ -12,7 +12,7 @@ class MyLossCSI(MyLoss):
     def __init__(self, loss_terms, pred_terms):
         super(MyLossCSI, self).__init__(loss_terms, pred_terms)
 
-    def plot_predict(self, title, select_ind, plot_terms):
+    def plot_predict(self, title, select_ind):
         self.__plot_settings__()
 
         title = f"{title} @ep{self.epochs[-1]}"
@@ -22,7 +22,7 @@ class MyLossCSI(MyLoss):
         fig.suptitle(title)
         subfigs = fig.subfigures(nrows=3, ncols=1)
 
-        for i, item in enumerate(plot_terms):
+        for i, item in enumerate(('GT', 'PRED')):
             subfigs[i].suptitle(item)
             axes = subfigs[i].subplots(nrows=1, ncols=len(select_ind))
             for j in range(len(axes)):
@@ -34,7 +34,7 @@ class MyLossCSI(MyLoss):
             subfigs[i].colorbar(img, ax=axes, shrink=0.8)
 
         subfigs[-1].suptitle('DIFF')
-        axes = subfigs[i].subplots(nrows=1, ncols=len(select_ind))
+        axes = subfigs[-1].subplots(nrows=1, ncols=len(select_ind))
         for j in range(len(axes)):
             csidiff = self.loss['pred']['GT'][select_ind[j]] - self.loss['pred']['PRED'][select_ind[j]]
             csidiff = np.concatenate((csidiff[0], csidiff[1]), axis=-1)
@@ -44,7 +44,7 @@ class MyLossCSI(MyLoss):
             img = axes[j].imshow(csidiff, vmin=0, vmax=1)
             axes[j].axis('off')
             axes[j].set_title(f"#{samples[j]}")
-            fig.colorbar(img, ax=axes, shrink=0.8)
+            subfigs[-1].colorbar(img, ax=axes, shrink=0.8)
         plt.show()
 
 
@@ -755,7 +755,7 @@ class Trainer:
             else:
                 inds = self.generate_indices(self.loss['csi'].loss['pred']['IND'], select_num)
 
-        self.loss['csi'].plot_predict(title['PRED'], inds, ('GT', 'PRED'))
+        self.loss['csi'].plot_predict(title['PRED'], inds)
         if autosave:
             plt.savefig(f"{save_path}{filename['PRED']}")
 
