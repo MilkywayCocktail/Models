@@ -75,7 +75,7 @@ class MyLoss:
         title = f"{title} @ep{self.epochs[-1]}"
 
         if plot_terms == 'all':
-            plot_terms = self.loss['train'].keys()
+            plot_terms = list(self.loss['train'].keys())
 
         fig = plt.figure(constrained_layout=True)
         fig.suptitle(title)
