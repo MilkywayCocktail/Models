@@ -14,6 +14,8 @@ class MyLoss:
                      }
         self.lr = []
         self.epochs = [0]
+        self.loss_terms = loss_terms
+        self.pred_terms = pred_terms
 
     @staticmethod
     def __plot_settings__():
@@ -69,6 +71,12 @@ class MyLoss:
         elif mode == 'pred':
             for key in losses.keys():
                 self.loss[mode][key].append(losses[key].cpu().detach().numpy().squeeze())
+
+    def reset(self, mode):
+        if mode in ('train', 'valid', 'test'):
+            self.loss[mode] = {term: [] for term in self.loss_terms}
+        elif mode == 'pred':
+            self.loss[mode] = {term: [] for term in self.pred_terms}
 
     def plot_train(self, title, plot_terms='all', double_y=False):
         self.__plot_settings__()

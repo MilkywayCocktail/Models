@@ -523,6 +523,8 @@ class Trainer:
             loader = self.test_loader
         elif mode == 'train':
             loader = self.train_loader
+        self.loss['csi'].reset('test')
+        self.loss['csi'].reset('pred')
 
         for idx, (data_x, data_y, index) in enumerate(loader, 0):
             data_x = data_x.to(torch.float32).to(self.device)
@@ -556,6 +558,8 @@ class Trainer:
             loader = self.test_loader
         elif mode == 'train':
             loader = self.train_loader
+        self.loss['img'].reset('test')
+        self.loss['img'].reset('pred')
 
         for idx, (data_x, data_y, index) in enumerate(loader, 0):
             data_y = data_y.to(torch.float32).to(self.device)
@@ -688,6 +692,8 @@ class Trainer:
             loader = self.test_loader
         elif mode == 'train':
             loader = self.train_loader
+        self.loss['inta'].reset('test')
+        self.loss['inta'].reset('pred')
 
         for idx, (data_x, data_y, index) in enumerate(loader, 0):
             data_x = data_x.to(torch.float32).to(self.device)
