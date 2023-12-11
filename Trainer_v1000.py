@@ -36,14 +36,14 @@ class MyLossCSI(MyLoss):
         subfigs[-1].suptitle('DIFF')
         axes = subfigs[-1].subplots(nrows=1, ncols=len(select_ind))
         for jj in range(len(axes)):
-            csidiff = self.loss['pred']['GT'][select_ind[jj]] - self.loss['pred']['PRED'][select_ind[j]]
+            csidiff = self.loss['pred']['GT'][select_ind[jj]] - self.loss['pred']['PRED'][select_ind[jj]]
             csidiff = np.concatenate((csidiff[0], csidiff[1]), axis=-1)
             min_val = np.min(csidiff)
             max_val = np.max(csidiff)
             csidiff = (csidiff - min_val) / (max_val - min_val)
             img = axes[jj].imshow(csidiff, vmin=0, vmax=1)
             axes[jj].axis('off')
-            axes[jj].set_title(f"#{samples[j]}")
+            axes[jj].set_title(f"#{samples[jj]}")
         subfigs[-1].colorbar(img, ax=axes, shrink=0.6)
         plt.show()
 
