@@ -62,7 +62,10 @@ class MyLoss:
     def update(self, mode, losses):
         if mode in ('train', 'valid', 'test', 'pred'):
             for key in losses.keys():
-                self.loss[mode][key].append(losses[key].cpu().detach().numpy().squeeze())
+                if isinstance(losses[key], np.float64):
+                    self.loss[mode][key].append(losses[key].squeeze())
+                else:
+                    self.loss[mode][key].append(losses[key].cpu().detach().numpy().squeeze())
 
     def plot_train(self, title, plot_terms='all', double_y=False):
         self.__plot_settings__()
