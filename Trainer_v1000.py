@@ -708,14 +708,13 @@ class Trainer:
                     'inta': f"{notion}_INTA_train_{self.current_title()}.jpg"}
 
         save_path = f'../saved/{notion}/'
-        filename = f"../saved/{notion}/{filename}"
 
-        self.loss[mode].plot_train(title[mode], filename[mode], double_y, autosave, notion)
+        self.loss[mode].plot_train(title[mode], double_y, autosave, notion)
 
         if autosave:
             if not os.path.exists(save_path):
                 os.makedirs(save_path)
-            plt.savefig(filename)
+            plt.savefig(f"{save_path}{filename[mode]}")
         plt.show()
 
     def generate_indices(self, source, select_num):
@@ -731,7 +730,6 @@ class Trainer:
                     'LOSS': f"{notion}_CSI_test_{self.current_title()}.jpg"}
 
         save_path = f'../saved/{notion}/'
-        filename = f"../saved/{notion}/{filename}"
         if autosave:
             if not os.path.exists(save_path):
                 os.makedirs(save_path)
@@ -746,11 +744,11 @@ class Trainer:
 
         self.loss['csi'].plot_predict(title['PRED'], inds, ('GT', 'PRED'))
         if autosave:
-            plt.savefig(filename['PRED'])
+            plt.savefig(f"{save_path}{filename['PRED']}")
 
         self.loss['csi'].plot_test(title['LOSS'], inds)
         if autosave:
-            plt.savefig(filename['LOSS'])
+            plt.savefig(f"{save_path}{filename['LOSS']}")
 
     def plot_test_img(self, select_ind=None, select_num=8, autosave=False, notion=''):
         title = {'PRED': f"IMG Test Predicts",
@@ -759,7 +757,6 @@ class Trainer:
                     'LOSS': f"{notion}_IMG_test_{self.current_title()}.jpg"}
 
         save_path = f'../saved/{notion}/'
-        filename = f"../saved/{notion}/{filename}"
         if autosave:
             if not os.path.exists(save_path):
                 os.makedirs(save_path)
@@ -774,11 +771,11 @@ class Trainer:
 
         self.loss['img'].plot_predict(title['PRED'], inds, ('GT', 'PRED'))
         if autosave:
-            plt.savefig(filename['PRED'])
+            plt.savefig(f"{save_path}{filename['PRED']}")
 
         self.loss['img'].plot_test(title['LOSS'], inds)
         if autosave:
-            plt.savefig(filename['LOSS'])
+            plt.savefig(f"{save_path}{filename['LOSS']}")
 
     def plot_test_outer(self, select_ind=None, select_num=8, autosave=False, notion=''):
         title = {'PRED': f"IMG Test Predicts",
@@ -787,7 +784,6 @@ class Trainer:
                     'LOSS': f"{notion}_IMG_test_{self.current_title()}.jpg"}
 
         save_path = f'../saved/{notion}/'
-        filename = f"../saved/{notion}/{filename}"
         if autosave:
             if not os.path.exists(save_path):
                 os.makedirs(save_path)
@@ -802,11 +798,11 @@ class Trainer:
 
         self.loss['img'].plot_predict(title['PRED'], inds, ('GT', 'PRED'))
         if autosave:
-            plt.savefig(filename['PRED'])
+            plt.savefig(f"{save_path}{filename['PRED']}")
 
         self.loss['img'].plot_test(title['LOSS'], inds)
         if autosave:
-            plt.savefig(filename['LOSS'])
+            plt.savefig(f"{save_path}{filename['LOSS']}")
 
 
 if __name__ == "__main__":
