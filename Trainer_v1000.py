@@ -350,7 +350,6 @@ class Trainer:
                      }
         self.inds = None
 
-    @staticmethod
     def __gen_models__():
         csien = CsiEncoder().to(self.device)
         cside = CsiDecoder().to(self.device)
