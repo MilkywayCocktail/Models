@@ -750,7 +750,7 @@ class Trainer:
         if select_ind:
             inds = select_ind
         else:
-            if self.inds:
+            if self.inds is not None:
                 inds = self.inds
             else:
                 inds = self.generate_indices(self.loss['csi'].loss['pred']['IND'], select_num)
@@ -777,7 +777,7 @@ class Trainer:
         if select_ind:
             inds = select_ind
         else:
-            if self.inds:
+            if self.inds is not None:
                 inds = self.inds
             else:
                 inds = self.generate_indices(self.loss['img'].loss['pred']['IND'], select_num)
@@ -804,7 +804,7 @@ class Trainer:
         if select_ind:
             inds = select_ind
         else:
-            if self.inds:
+            if self.inds is not None:
                 inds = self.inds
             else:
                 inds = self.generate_indices(self.loss['img']['pred']['IND'], select_num)
