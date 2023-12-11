@@ -20,8 +20,19 @@ class MyLossCSI(MyLoss):
 
         fig = plt.figure(constrained_layout=True)
         fig.suptitle(title)
-        axes = fig.subplots(nrows=1, ncols=len(select_ind))
+        subfigs = fig.subfigures(nrows=3, ncols=1)
 
+        for i, item in enumerate(plot_terms):
+            subfigs[i].suptitle(plot_terms[item])
+            axes = subfigs[i].subplots(nrows=1, ncols=len(select_ind))
+            for j in range(len(axes)):
+                img = axes[j].imshow(self.loss['pred'][item][select_ind[j]], vmin=0, vmax=1)
+                axes[j].axis('off')
+                axes[j].set_title(f"#{samples[j]}")
+            subfigs[i].colorbar(img, ax=axes, shrink=0.8)
+
+        subfigs[-1].suptitle('DIFF')
+        axes = subfigs[i].subplots(nrows=1, ncols=len(select_ind))
         for j in range(len(axes)):
             csidiff = self.loss['pred']['GT'][select_ind[j]] - self.loss['pred']['PRED'][select_ind[j]]
             csidiff = np.concatenate((csidiff[0], csidiff[1]), axis=-1)
@@ -31,7 +42,7 @@ class MyLossCSI(MyLoss):
             img = axes[j].imshow(csidiff, vmin=0, vmax=1)
             axes[j].axis('off')
             axes[j].set_title(f"#{samples[j]}")
-        fig.colorbar(img, ax=axes, shrink=0.8)
+            fig.colorbar(img, ax=axes, shrink=0.8)
         plt.show()
 
 

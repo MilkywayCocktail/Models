@@ -65,7 +65,7 @@ class MyLoss:
                 if isinstance(losses[key], np.float64):
                     self.loss[mode][key].append(losses[key].squeeze())
                 elif isinstance(losses[key], list):
-                    self.loss[mode][key].append(losses[key])
+                    self.loss[mode][key].append(np.array(losses[key]).squeeze())
                 else:
                     self.loss[mode][key].append(losses[key].cpu().detach().numpy().squeeze())
 
