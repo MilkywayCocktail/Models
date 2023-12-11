@@ -352,14 +352,14 @@ class Trainer:
 
     @staticmethod
     def __gen_models__():
-        csien = CsiEncoder()
-        cside = CsiDecoder()
-        imgen = ImageEncoder()
-        imgde = ImageDecoder()
-        csilen = LatentEnTranslator()
-        csilde = LatentDeTranslator()
-        imglen = LatentEnTranslator()
-        imglde = LatentDeTranslator()
+        csien = CsiEncoder().to(self.device)
+        cside = CsiDecoder().to(self.device)
+        imgen = ImageEncoder().to(self.device)
+        imgde = ImageDecoder().to(self.device)
+        csilen = LatentEnTranslator().to(self.device)
+        csilde = LatentDeTranslator().to(self.device)
+        imglen = LatentEnTranslator().to(self.device)
+        imglde = LatentDeTranslator().to(self.device)
         return {'csien': csien,
                 'cside': cside,
                 'imgen': imgen,
