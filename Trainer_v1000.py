@@ -331,7 +331,6 @@ class ImageDecoder(nn.Module):
 
 class Trainer:
     def __init__(self, train_loader, valid_loader, test_loader, lr=1e-4, epochs=10, cuda=1):
-        self.models = self.__gen_models__()
         self.lr = lr
         self.epochs = epochs
         self.device = torch.device("cuda:" + str(cuda) if torch.cuda.is_available() else "cpu")
@@ -341,6 +340,8 @@ class Trainer:
         self.test_loader = test_loader
         self.recon_lossfun = nn.MSELoss(reduction='sum')
         self.beta = 1.2
+
+        self.models = self.__gen_models__()
 
         self.temp_loss = {}
         self.loss = {'csi': MyLossCSI(loss_terms=['LOSS', 'KL', 'RECON'], pred_terms=['GT', 'PRED', 'IND']),
