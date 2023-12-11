@@ -60,14 +60,15 @@ class MyLoss:
                 self.epochs.append(last_end + epochs)
 
     def update(self, mode, losses):
-        if mode in ('train', 'valid', 'test', 'pred'):
+        if mode in ('train', 'valid'):
             for key in losses.keys():
-                if isinstance(losses[key], np.float64):
-                    self.loss[mode][key].append(losses[key].squeeze())
-                elif isinstance(losses[key], list):
-                    self.loss[mode][key].append(np.array(losses[key]).squeeze())
-                else:
-                    self.loss[mode][key].append(losses[key].cpu().detach().numpy().squeeze())
+                self.loss[mode][key].append(losses[key].squeeze())
+        elif mode == 'test':
+            for key in losses.keys():
+                self.loss[mode][key] = losses[key]
+        elif mode == 'pred':
+            for key in losses.keys():
+                self.loss[mode][key].append(losses[key].cpu().detach().numpy().squeeze())
 
     def plot_train(self, title, plot_terms='all', double_y=False):
         self.__plot_settings__()
