@@ -134,57 +134,44 @@ class TrainerVTS_V04c2:
         loss = self.alpha * mu_loss + (1 - self.alpha) * logvar_loss
         return loss, mu_loss, logvar_loss
 
-    def calculate_loss_t(self, y, b, i=None):
-        """
-        Calculates loss function for back propagation,
-        :param y: y data (image)
-        :param b: b data (bounding box)
-        :param i: index of data
-        :return: loss object
-        """
-        mask = torch.where(y > 0, 1., 0.)
-        latent_i, z_i, mu_i, logvar_i = self.models['imgen'](y)
+    def calculate_loss_t(self, c_img, r_img, bbx, i=None):
+
+        mask = torch.where(r_img > 0, 1., 0.)
+        latent_i, z_i, mu_i, logvar_i = self.models['imgen'](c_img)
         output = self.models['imgde'](z_i)
         latent_b, z_b, mu_b, logvar_b = self.models['msken'](mask)
-        bbx = self.models['mskde'](z_b)
-        loss, kl_loss_i, recon_loss_i = self.vae_loss(output, y, mu_i, logvar_i)
-        loss_b, kl_loss_b, recon_loss_b = self.vae_loss(bbx, b, mu_b, logvar_b)
+        bbx_ = self.models['mskde'](z_b)
+        loss, kl_loss_i, recon_loss_i = self.vae_loss(output, c_img, mu_i, logvar_i)
+        loss_b, kl_loss_b, recon_loss_b = self.vae_loss(bbx_, bbx, mu_b, logvar_b)
         loss += loss_b
         with torch.no_grad():
-            bbx_loss = self.bbx_loss(bbx, b)
+            bbx_loss = self.bbx_loss(bbx_, bbx)
         self.temp_loss = {'LOSS': loss,
                           'KL_I': kl_loss_i,
                           'RECON_I': recon_loss_i,
                           'KL_B': kl_loss_b,
                           'RECON_B': recon_loss_b,
                           'BBX': bbx_loss}
-        return {'GT': y,
+        return {'GT': c_img,
                 'PRED': output,
-                'GT_BBX': b,
-                'BBX': bbx,
+                'GT_BBX': bbx,
+                'BBX': bbx_,
                 'IND': i}
 
-    def calculate_loss_s(self, x, y, b, i=None):
-        """
-        Calculates loss function for back propagation.
-        :param x: x data (CSI)
-        :param y: y data (image)
-        :param b:: b data (bounding box)
-        :param i: index of data
-        :return: loss object
-        """
-        s_z_i, s_latent_i, s_mu_i, s_logvar_i, s_z_b, s_latent_b, s_mu_b, s_logvar_b = self.models['csien'](x)
+    def calculate_loss_s(self, csi, c_img, r_img, bbx, i=None):
+
+        s_z_i, s_latent_i, s_mu_i, s_logvar_i, s_z_b, s_latent_b, s_mu_b, s_logvar_b = self.models['csien'](csi)
 
         with torch.no_grad():
-            mask = torch.where(y > 0, 1., 0.)
-            t_latent_i, t_z_i, t_mu_i, t_logvar_i = self.models['imgen'](y)
+            mask = torch.where(r_img > 0, 1., 0.)
+            t_latent_i, t_z_i, t_mu_i, t_logvar_i = self.models['imgen'](c_img)
             s_output = self.models['imgde'](s_z_i)
             t_output = self.models['imgde'](t_z_i)
             t_latent_b, t_z_b, t_mu_b, t_logvar_b = self.models['msken'](mask)
             t_bbx = self.models['mskde'](t_z_b)
             s_bbx = self.models['mskde'](s_z_b)
-            image_loss = self.recon_lossfun(s_output, y)
-            bbx_loss = self.bbx_loss(s_bbx, b)
+            image_loss = self.recon_lossfun(s_output, c_img)
+            bbx_loss = self.bbx_loss(s_bbx, bbx)
         loss_i, mu_loss_i, logvar_loss_i = self.kd_loss(s_mu_i, s_logvar_i, t_mu_i, t_logvar_i)
         loss_b, mu_loss_b, logvar_loss_b = self.kd_loss(s_mu_b, s_logvar_b, t_mu_b, t_logvar_b)
         loss = loss_i + loss_b
@@ -196,8 +183,8 @@ class TrainerVTS_V04c2:
                           'LOGVAR_B': logvar_loss_b,
                           'BBX': bbx_loss,
                           'IMG': image_loss}
-        return {'GT': y,
-                'GT_BBX': b,
+        return {'GT': c_img,
+                'GT_BBX': bbx,
                 'T_LATENT_I': t_latent_i,
                 'S_LATENT_I': s_latent_i,
                 'T_LATENT_B': t_latent_b,
@@ -234,12 +221,13 @@ class TrainerVTS_V04c2:
                           'KL_B': [],
                           'RECON_B': [],
                           'BBX': []}
-            for idx, (data_x, data_y, data_b, index) in enumerate(self.train_loader, 0):
-                data_y = data_y.to(torch.float32).to(self.device)
-                data_b = data_b.to(torch.float32).to(self.device)
+            for idx, (csi, r_img, c_img, bbx, index) in enumerate(self.train_loader, 0):
+                r_img = r_img.to(torch.float32).to(self.device)
+                c_img = c_img.to(torch.float32).to(self.device)
+                bbx = bbx.to(torch.float32).to(self.device)
                 optimizer.zero_grad()
 
-                PREDS = self.calculate_loss_t(data_y, data_b)
+                PREDS = self.calculate_loss_t(c_img, r_img, bbx)
                 self.temp_loss['LOSS'].backward()
                 optimizer.step()
                 for key in EPOCH_LOSS.keys():
@@ -265,11 +253,12 @@ class TrainerVTS_V04c2:
                           'RECON_B': [],
                           'BBX': []}
 
-            for idx, (data_x, data_y, data_b, index) in enumerate(self.valid_loader, 0):
-                data_y = data_y.to(torch.float32).to(self.device)
-                data_b = data_b.to(torch.float32).to(self.device)
+            for idx, (csi, r_img, c_img, bbx, index) in enumerate(self.train_loader, 0):
+                r_img = r_img.to(torch.float32).to(self.device)
+                c_img = c_img.to(torch.float32).to(self.device)
+                bbx = bbx.to(torch.float32).to(self.device)
                 with torch.no_grad():
-                    PREDS = self.calculate_loss_t(data_y, data_b)
+                    PREDS = self.calculate_loss_t(c_img, r_img, bbx)
                 for key in EPOCH_LOSS.keys():
                     EPOCH_LOSS[key].append(self.temp_loss[key].item())
             for key in EPOCH_LOSS.keys():
@@ -314,12 +303,13 @@ class TrainerVTS_V04c2:
                           'BBX': [],
                           'IMG': []}
 
-            for idx, (data_x, data_y, data_b, index) in enumerate(self.train_loader, 0):
-                data_x = data_x.to(torch.float32).to(self.device)
-                data_y = data_y.to(torch.float32).to(self.device)
-                data_b = data_b.to(torch.float32).to(self.device)
+            for idx, (csi, r_img, c_img, bbx, index) in enumerate(self.train_loader, 0):
+                csi = csi.to(torch.float32).to(self.device)
+                r_img = r_img.to(torch.float32).to(self.device)
+                c_img = c_img.to(torch.float32).to(self.device)
+                bbx = bbx.to(torch.float32).to(self.device)
 
-                PREDS = self.calculate_loss_s(data_x, data_y, data_b)
+                PREDS = self.calculate_loss_s(csi, c_img, r_img, bbx)
                 optimizer.zero_grad()
                 self.temp_loss['LOSS'].backward()
                 optimizer.step()
@@ -350,12 +340,13 @@ class TrainerVTS_V04c2:
                           'BBX': [],
                           'IMG': []}
 
-            for idx, (data_x, data_y, data_b, index) in enumerate(self.valid_loader, 0):
-                data_x = data_x.to(torch.float32).to(self.device)
-                data_y = data_y.to(torch.float32).to(self.device)
-                data_b = data_b.to(torch.float32).to(self.device)
+            for idx, (csi, r_img, c_img, bbx, index) in enumerate(self.train_loader, 0):
+                csi = csi.to(torch.float32).to(self.device)
+                r_img = r_img.to(torch.float32).to(self.device)
+                c_img = c_img.to(torch.float32).to(self.device)
+                bbx = bbx.to(torch.float32).to(self.device)
                 with torch.no_grad():
-                    PREDS = self.calculate_loss_s(data_x, data_y, data_b)
+                    PREDS = self.calculate_loss_s(csi, c_img, r_img, bbx)
 
                 for key in EPOCH_LOSS.keys():
                     EPOCH_LOSS[key].append(self.temp_loss[key].item())
@@ -389,15 +380,17 @@ class TrainerVTS_V04c2:
         elif mode == 'train':
             loader = self.train_loader
 
-        for idx, (data_x, data_y, data_b, index) in enumerate(loader, 0):
-            data_y = data_y.to(torch.float32).to(self.device)
-            data_b = data_b.to(torch.float32).to(self.device)
+        for idx, (csi, r_img, c_img, bbx, index) in enumerate(self.train_loader, 0):
+            r_img = r_img.to(torch.float32).to(self.device)
+            c_img = c_img.to(torch.float32).to(self.device)
+            bbx = bbx.to(torch.float32).to(self.device)
             with torch.no_grad():
                 for sample in range(loader.batch_size):
                     ind = index[sample][np.newaxis, ...]
-                    img = data_y[sample][np.newaxis, ...]
-                    bbx = data_b[sample][np.newaxis, ...]
-                    PREDS = self.calculate_loss_t(y=img, b=bbx, i=ind)
+                    r_img = r_img[sample][np.newaxis, ...]
+                    c_img = c_img[sample][np.newaxis, ...]
+                    bbx = bbx[sample][np.newaxis, ...]
+                    PREDS = self.calculate_loss_t(c_img, r_img, bbx, ind)
 
                     for key in EPOCH_LOSS.keys():
                         EPOCH_LOSS[key].append(self.temp_loss[key].item())
@@ -432,17 +425,19 @@ class TrainerVTS_V04c2:
         elif mode == 'train':
             loader = self.train_loader
 
-        for idx, (data_x, data_y, data_b, index) in enumerate(loader, 0):
-            data_x = data_x.to(torch.float32).to(self.device)
-            data_y = data_y.to(torch.float32).to(self.device)
-            data_b = data_b.to(torch.float32).to(self.device)
+        for idx, (csi, r_img, c_img, bbx, index) in enumerate(self.train_loader, 0):
+            csi = csi.to(torch.float32).to(self.device)
+            r_img = r_img.to(torch.float32).to(self.device)
+            c_img = c_img.to(torch.float32).to(self.device)
+            bbx = bbx.to(torch.float32).to(self.device)
             with torch.no_grad():
                 for sample in range(loader.batch_size):
                     ind = index[sample][np.newaxis, ...]
-                    csi = data_x[sample][np.newaxis, ...]
-                    img = data_y[sample][np.newaxis, ...]
-                    bbx = data_b[sample][np.newaxis, ...]
-                    PREDS = self.calculate_loss_s(x=csi, y=img, b=bbx, i=ind)
+                    csi = csi[sample][np.newaxis, ...]
+                    r_img = r_img[sample][np.newaxis, ...]
+                    c_img = c_img[sample][np.newaxis, ...]
+                    bbx = bbx[sample][np.newaxis, ...]
+                    PREDS = self.calculate_loss_s(csi, c_img, r_img, bbx, ind)
 
                     for key in EPOCH_LOSS.keys():
                         EPOCH_LOSS[key].append(self.temp_loss[key].item())
