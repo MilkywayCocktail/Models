@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
+
 from matplotlib import cm
 
 
@@ -180,22 +180,24 @@ class MyLoss_S(MyLoss):
     def __init__(self, loss_terms, pred_terms):
         super(MyLoss_S, self).__init__(loss_terms, pred_terms)
 
-    def plot_latent(self, title, select_ind):
+    def plot_latent(self, title, select_ind, plot_items):
         self.__plot_settings__()
 
         title = f"{title} @ep{self.epochs[-1]}"
         samples = np.array(self.loss['pred']['IND'])[select_ind]
+
+        t_latent, s_latent = plot_items
 
         fig = plt.figure(constrained_layout=True)
         fig.suptitle(title)
         axes = fig.subplots(nrows=2, ncols=np.ceil(len(select_ind) / 2).astype(int))
         axes = axes.flatten()
         for j in range(len(select_ind)):
-            axes[j].bar(range(len(self.loss['pred']['T_LATENT'][select_ind[0]])),
-                        self.loss['pred']['T_LATENT'][select_ind[j]],
+            axes[j].bar(range(len(self.loss['pred'][t_latent][select_ind[0]])),
+                        self.loss['pred'][t_latent][select_ind[j]],
                         width=1, fc='blue', alpha=0.8, label='Teacher')
-            axes[j].bar(range(len(self.loss['pred']['S_LATENT'][select_ind[0]])),
-                        self.loss['pred']['S_LATENT'][select_ind[j]],
+            axes[j].bar(range(len(self.loss['pred'][s_latent][select_ind[0]])),
+                        self.loss['pred'][s_latent][select_ind[j]],
                         width=1, fc='orange', alpha=0.8, label='Student')
             axes[j].set_ylim(-1, 1)
             axes[j].set_title(f"#{samples[j]}")
@@ -204,58 +206,3 @@ class MyLoss_S(MyLoss):
         axes[0].legend()
         plt.show()
 
-
-class MyLoss_T_BBX(MyLoss):
-    def __init__(self, loss_terms, pred_terms):
-        super(MyLoss_T_BBX, self).__init__(loss_terms, pred_terms)
-
-    def plot_bbx(self, title, select_ind):
-        self.__plot_settings__()
-
-        title = f"{title} @ep{self.epochs[-1]}"
-        samples = np.array(self.loss['pred']['IND'])[select_ind]
-
-        fig = plt.figure(constrained_layout=True)
-        fig.suptitle(title)
-        axes = fig.subplots(nrows=2, ncols=np.ceil(len(select_ind) / 2).astype(int))
-        axes = axes.flatten()
-        for j in range(len(select_ind)):
-            axes[j].plot([0, 128], [0, 128])
-            x, y, w, h = self.loss['pred']['GT_BBX'][select_ind]
-            axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='red', fill=False, lw=4, label='GroundTruth'))
-            x, y, w, h = self.loss['pred']['PRED_BBX'][select_ind]
-            axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='blue', fill=False, lw=4, label='Teacher'))
-            axes[j].axis('off')
-            axes[j].set_title(f"#{samples[j]}")
-
-        axes[0].legend()
-        plt.show()
-
-
-class MyLoss_S_BBX(MyLoss_S):
-    def __init__(self, loss_terms, pred_terms):
-        super(MyLoss_S_BBX, self).__init__(loss_terms, pred_terms)
-
-    def plot_bbx(self, title, select_ind):
-        self.__plot_settings__()
-
-        title = f"{title} @ep{self.epochs[-1]}"
-        samples = np.array(self.loss['pred']['IND'])[select_ind]
-
-        fig = plt.figure(constrained_layout=True)
-        fig.suptitle(title)
-        axes = fig.subplots(nrows=2, ncols=np.ceil(len(select_ind) / 2).astype(int))
-        axes = axes.flatten()
-        for j in range(len(select_ind)):
-            axes.plot([0, 128], [0, 128])
-            x, y, w, h = self.loss['pred']['GT_BBX'][select_ind]
-            axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='red', fill=False, lw=4, label='GroundTruth'))
-            x, y, w, h = self.loss['pred']['T_BBX'][select_ind]
-            axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='blue', fill=False, lw=4, label='Teacher'))
-            x, y, w, h = self.loss['pred']['S_BBX'][select_ind]
-            axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='orange', fill=False, lw=4, label='Student'))
-            axes[j].axis('off')
-            axes[j].set_title(f"#{samples[j]}")
-
-        axes[0].legend()
-        plt.show()

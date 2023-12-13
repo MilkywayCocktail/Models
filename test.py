@@ -16,11 +16,7 @@ s = samples[inds]
 #print(s)
 #print(a1[inds[np.argsort(s)]])
 
-ones = np.ones((3, 3))
+sdf = ('a', 'b')
 
-twos = np.ones((3, 3)) * 2
-
-m = np.concatenate((ones[np.newaxis, ...], twos[np.newaxis, ...]), axis=0)
-print(m.shape)
-n = np.concatenate((m[0], m[1]), axis=-1)
-print(n.shape)
+a, b = sdf
+print(a, b)

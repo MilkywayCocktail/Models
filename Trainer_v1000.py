@@ -813,7 +813,7 @@ class Trainer:
             if self.inds is not None:
                 inds = self.inds
             else:
-                inds = self.generate_indices(self.loss['img']['pred']['IND'], select_num)
+                inds = self.generate_indices(self.loss['img'].loss['pred']['IND'], select_num)
 
         self.loss['img'].plot_predict(title['PRED'], inds, ('GT', 'PRED'))
         if autosave:

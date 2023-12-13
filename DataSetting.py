@@ -215,3 +215,39 @@ class DataSplitter:
         print(f"Exported loader len: train {len(train_dataset)}, valid {len(valid_dataset)}, test {len(test_dataset)}")
 
         return train_loader, valid_loader, test_loader
+
+
+class MyDatasetBBX(MyDataset):
+    def __init__(self, name, x_path, y_path, b_path, img_size=(128, 128), transform=None, int_image=False, number=0):
+        super(MyDatasetBBX, self).__init__(name=name, x_path=x_path, y_path=y_path,
+                                           img_size=img_size,
+                                           transform=transform,
+                                           int_image=int_image,
+                                           number=number)
+        self.b_path = b_path
+        self.data = self.__load_data__(x_path, y_path, b_path, number=number)
+
+    def __getitem__(self, index):
+
+        return self.data['x'][index], self.__transform__(self.data['y'][index]), self.data['b'][index], index
+
+    def __load_data__(self, x_path, y_path, b_path, number):
+        print(f"{self.name} loading...")
+        x = np.load(x_path)
+        y = np.load(y_path)
+        b = np.load(b_path)
+        print(f"{self.name}: loaded x {x.shape}, y {y.shape}, b {b.shape}")
+        y = y.reshape((-1, 1, self.img_size[0], self.img_size[1]))
+
+        if number != 0:
+            if x.shape[0] == y.shape[0]:
+                total_count = x.shape[0]
+                picked = np.random.choice(list(range(total_count)), size=number, replace=False)
+                self.seeds = picked
+                x = x[picked]
+                y = y[picked]
+                b = b[picked]
+            else:
+                print("Lengths not equal!")
+
+        return {'x': x, 'y': y, 'b': b}

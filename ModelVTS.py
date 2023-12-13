@@ -950,19 +950,24 @@ class ImageEncoderV04c2(ImageEncoderV03c2):
 
 
 class MaskEncoderV04c2(nn.Module):
-    def __init__(self, batchnorm=False):
+    def __init__(self, batchnorm=False, latent_dim=16):
         super(MaskEncoderV04c2, self).__init__(batchnorm=batchnorm)
+        self.latent_dim = latent_dim
 
         self.lstm = nn.Sequential(
-            nn.LSTM(128, 4, 2, batch_first=True, dropout=0.1),
+            nn.LSTM(128, 2 * self.latent_dim, 2, batch_first=True, dropout=0.1),
         )
 
     def __str__(self):
         return 'ImgEnV04c2' + self.bottleneck.capitalize()
 
     def forward(self, x):
-        x = self.lstm(x.view(-1, 128, 128))
-        return x
+        out = self.lstm(x.view(-1, 128, 128))
+
+        mu, logvar = out.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
+        z = reparameterize(mu, logvar)
+
+        return out, z, mu, logvar
 
 
 class ImageDecoderV04c2(ImageDecoderV03c2):
@@ -973,24 +978,49 @@ class ImageDecoderV04c2(ImageDecoderV03c2):
         return 'ImgDeV04c2'
 
 
+class MaskDecoderV04c2(nn.Module):
+    def __init__(self, latent_dim=16):
+        super(MaskDecoderV04c2, self).__init__()
+        self.latent_dim = latent_dim
+
+        self.fc = nn.Sequential(
+            nn.Linear(self.latent_dim, 8),
+            nn.ReLU(),
+            nn.Linear(8, 4),
+            nn.ReLU()
+        )
+
+    def __str__(self):
+        return 'MskDeV04c2'
+
+    def forward(self, x):
+        out = self.fc(x.view(-1, self.latent_dim))
+        return out
+
+
 class CsiEncoderV04c2(CsiEncoderV03c4):
-    def __init__(self, batchnorm=False, feature_length=512):
+    def __init__(self, batchnorm=False, feature_length=512, middle_length=128):
         super(CsiEncoderV04c2, self).__init__(batchnorm=batchnorm, feature_length=feature_length)
 
+        self.middle_length = middle_length
         self.lstm = nn.Sequential(
-            nn.LSTM(self.feature_length, 2 * self.latent_dim + 4, 2, batch_first=True, dropout=0.1),
+            nn.LSTM(self.feature_length, 128, 2, batch_first=True, dropout=0.1),
         )
 
         self.fc1 = nn.Sequential(
-            nn.Linear(2 * self.latent_dim, self.latent_dim),
+            nn.Linear(self.middle_length, self.latent_dim),
         )
 
         self.fc2 = nn.Sequential(
-            nn.Linear(2 * self.latent_dim, self.latent_dim),
+            nn.Linear(self.middle_length, self.latent_dim),
         )
 
         self.fc3 = nn.Sequential(
-            nn.Linear(2 * self.latent_dim, 4),
+            nn.Linear(self.middle_length, self.latent_dim),
+        )
+
+        self.fc4 = nn.Sequential(
+            nn.Linear(self.middle_length, self.latent_dim),
         )
 
     def __str__(self):
@@ -1009,12 +1039,16 @@ class CsiEncoderV04c2(CsiEncoderV03c4):
         # logvar = out[:, self.latent_dim:2 * self.latent_dim]
         # bbx = out[:, 2 * self.latent_dim:]
 
-        mu = self.fc1(out)
-        logvar = self.fc2(out)
-        bbx = self.fc3(out)
-        z = reparameterize(mu, logvar)
+        mu_i = self.fc1(out)
+        logvar_i = self.fc2(out)
+        mu_b = self.fc3(out)
+        logvar_b = self.fc4(out)
+        z_i = reparameterize(mu_i, logvar_i)
+        z_b = reparameterize(mu_b, logvar_b)
+        latent_i = torch.cat((mu_i, logvar_i), -1)
+        latent_b = torch.cat((mu_b, logvar_b), -1)
 
-        return out, z, mu, logvar, bbx
+        return z_i, latent_i, mu_i, logvar_i, z_b, latent_b, mu_b, logvar_b
 
 
 if __name__ == "__main__":
