@@ -243,6 +243,7 @@ class MyDatasetBBX(MyDataset):
 
     def __load_data__(self):
         print(f"{self.name} loading...")
+        print(self.csi_path, self.raw_img_path, self.crop_img_path, self.bbx_path)
         csi = np.load(self.csi_path)
         r_img = np.load(self.raw_img_path)
         c_img = np.load(self.crop_img_path)
