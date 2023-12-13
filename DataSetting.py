@@ -231,7 +231,7 @@ class MyDatasetBBX(MyDataset):
         self.raw_img_path = raw_img_path
         self.crop_img_path = crop_img_path
         self.bbx_path = bbx_path
-        self.data = self.__load_data__(csi_path, raw_img_path, crop_img_path, bbx_path, number=number)
+        self.data = self.__load_data__()
 
     def __getitem__(self, index):
 
