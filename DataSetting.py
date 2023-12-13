@@ -21,12 +21,15 @@ class MyDataset(Data.Dataset):
         :param number: select a number of samples. Default is 0 (all)
         """
         self.name = name
+        self.x_path = x_path
+        self.y_path = y_path
+        self.number = number
         self.seeds = None
         self.img_size = img_size
         self.transform = transform
         self.img = img
         self.int_img = int_image
-        self.data = self.__load_data__(x_path, y_path, number=number)
+        self.data = self.__load_data__()
 
     def __convert__(self, sample):
         """
@@ -64,27 +67,24 @@ class MyDataset(Data.Dataset):
     def __len__(self):
         return self.data['x'].shape[0]
 
-    def __load_data__(self, x_path, y_path, number):
+    def __load_data__(self):
         """
         Load data.\n
-        :param x_path: path of x file (npy)
-        :param y_path: path of y file (npy)
-        :param number: select a number of samples. Default is 0 (all)
         :return: loaded dataset
         """
         print(f"{self.name} loading...")
-        x = np.load(x_path)
-        y = np.load(y_path)
+        x = np.load(self.x_path)
+        y = np.load(self.y_path)
         print(f"{self.name}: loaded x {x.shape}, y {y.shape}")
         if self.img == 'x':
             x = x.reshape((-1, 1, self.img_size[0], self.img_size[1]))
         elif self.img == 'y':
             y = y.reshape((-1, 1, self.img_size[0], self.img_size[1]))
 
-        if number != 0:
+        if self.number != 0:
             if x.shape[0] == y.shape[0]:
                 total_count = x.shape[0]
-                picked = np.random.choice(list(range(total_count)), size=number, replace=False)
+                picked = np.random.choice(list(range(total_count)), size=self.number, replace=False)
                 self.seeds = picked
                 x = x[picked]
                 y = y[picked]
@@ -218,7 +218,9 @@ class DataSplitter:
 
 
 class MyDatasetBBX(MyDataset):
-    def __init__(self, name, csi_path, raw_img_path, crop_img_path, bbx_path, img_size=(128, 128), transform=None, int_image=False, number=0):
+    def __init__(self, name,
+                 csi_path, raw_img_path, crop_img_path, bbx_path,
+                 img_size=(128, 128), transform=None, int_image=False, number=0):
         super(MyDatasetBBX, self).__init__(name=name, x_path=None, y_path=None,
                                            img_size=img_size,
                                            transform=transform,
@@ -239,20 +241,20 @@ class MyDatasetBBX(MyDataset):
                self.data['b'][index], \
                index
 
-    def __load_data__(self, csi_path, raw_img_path, crop_img_path, bbx_path, number):
+    def __load_data__(self):
         print(f"{self.name} loading...")
-        csi = np.load(csi_path)
-        r_img = np.load(raw_img_path)
-        c_img = np.load(crop_img_path)
-        bbx = np.load(bbx_path)
+        csi = np.load(self.csi_path)
+        r_img = np.load(self.raw_img_path)
+        c_img = np.load(self.crop_img_path)
+        bbx = np.load(self.bbx_path)
         print(f"{self.name}: loaded csi {csi.shape}, img {r_img.shape}, cropped_img {c_img.shape}, bbx {bbx.shape}")
         r_img = r_img.reshape((-1, 1, self.img_size[0], self.img_size[1]))
         c_img = c_img.reshape((-1, 1, self.img_size[0], self.img_size[1]))
 
-        if number != 0:
+        if self.number != 0:
             if csi.shape[0] == r_img.shape[0]:
                 total_count = csi.shape[0]
-                picked = np.random.choice(list(range(total_count)), size=number, replace=False)
+                picked = np.random.choice(list(range(total_count)), size=self.number, replace=False)
                 self.seeds = picked
                 csi = csi[picked]
                 r_img = r_img[picked]
@@ -263,4 +265,3 @@ class MyDatasetBBX(MyDataset):
                 print("Lengths not equal!")
 
         return {'csi': csi, 'r_img': r_img, 'c_img': c_img, 'bbx': bbx}
-    
