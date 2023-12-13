@@ -221,16 +221,16 @@ class MyDatasetBBX(MyDataset):
     def __init__(self, name,
                  csi_path, raw_img_path, crop_img_path, bbx_path,
                  img_size=(128, 128), transform=None, int_image=False, number=0):
-        super(MyDatasetBBX, self).__init__(name=name, x_path=None, y_path=None,
-                                           img_size=img_size,
-                                           transform=transform,
-                                           int_image=int_image,
-                                           number=number)
 
         self.csi_path = csi_path
         self.raw_img_path = raw_img_path
         self.crop_img_path = crop_img_path
         self.bbx_path = bbx_path
+        super(MyDatasetBBX, self).__init__(name=name, x_path=None, y_path=None,
+                                           img_size=img_size,
+                                           transform=transform,
+                                           int_image=int_image,
+                                           number=number)
         self.data = self.__load_data__()
 
     def __getitem__(self, index):
