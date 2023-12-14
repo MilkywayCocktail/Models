@@ -950,8 +950,8 @@ class ImageEncoderV04c2(ImageEncoderV03c2):
 
 
 class MaskEncoderV04c2(nn.Module):
-    def __init__(self, batchnorm=False, latent_dim=16):
-        super(MaskEncoderV04c2, self).__init__(batchnorm=batchnorm)
+    def __init__(self, latent_dim=16):
+        super(MaskEncoderV04c2, self).__init__()
         self.latent_dim = latent_dim
 
         self.lstm = nn.Sequential(
@@ -959,11 +959,11 @@ class MaskEncoderV04c2(nn.Module):
         )
 
     def __str__(self):
-        return 'ImgEnV04c2' + self.bottleneck.capitalize()
+        return 'MskEnV04c2' + self.bottleneck.capitalize()
 
     def forward(self, x):
-        out = self.lstm(x.view(-1, 128, 128))
-
+        out, (final_hidden_state, final_cell_state) = self.lstm(x.view(-1, 128, 128))
+        out = out[:, -1, :]
         mu, logvar = out.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
         z = reparameterize(mu, logvar)
 
@@ -1056,5 +1056,5 @@ if __name__ == "__main__":
     CSI = (2, 90, 100)
     LAT = (1, 16)
 
-    m = CsiEncoderV03c4()
-    summary(m, input_size=CSI)
+    m = MaskEncoderV04c2()
+    summary(m, input_size=IMG)
