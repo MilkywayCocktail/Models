@@ -396,6 +396,9 @@ class TrainerVTS_V04c2:
         elif mode == 'train':
             loader = self.train_loader
 
+        self.loss['t'].reset('test')
+        self.loss['t'].reset('pred')
+
         for idx, (csi, r_img, c_img, bbx, index) in enumerate(loader, 0):
             r_img = r_img.to(torch.float32).to(self.device)
             c_img = c_img.to(torch.float32).to(self.device)
@@ -440,6 +443,8 @@ class TrainerVTS_V04c2:
             loader = self.test_loader
         elif mode == 'train':
             loader = self.train_loader
+        self.loss['s'].reset('test')
+        self.loss['s'].reset('pred')
 
         for idx, (csi, r_img, c_img, bbx, index) in enumerate(loader, 0):
             csi = csi.to(torch.float32).to(self.device)
