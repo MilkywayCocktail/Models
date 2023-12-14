@@ -87,7 +87,7 @@ class TrainerVTS_V04c2:
     def __init__(self, img_encoder, img_decoder, csi_encoder, msk_encoder, msk_decoder,
                  lr, epochs, cuda,
                  train_loader, valid_loader, test_loader,
-                 weight_t1, weight_t2
+                 weight_i, weight_b
                  ):
 
         self.lr = lr
@@ -107,8 +107,8 @@ class TrainerVTS_V04c2:
 
         self.alpha = 0.8
         self.beta = 1.2
-        self.weight_t1 = weight_t1
-        self.weight_t2 = weight_t2
+        self.weight_i = weight_i
+        self.weight_b = weight_b
 
         self.recon_lossfun = nn.MSELoss(reduction='sum')
 
@@ -157,9 +157,9 @@ class TrainerVTS_V04c2:
         output = self.models['imgde'](z_i)
         latent_b, z_b, mu_b, logvar_b = self.models['msken'](mask)
         bbx_ = self.models['mskde'](z_b)
-        loss, kl_loss_i, recon_loss_i = self.vae_loss(output, c_img, mu_i, logvar_i)
+        loss_i, kl_loss_i, recon_loss_i = self.vae_loss(output, c_img, mu_i, logvar_i)
         loss_b, kl_loss_b, recon_loss_b = self.vae_loss(bbx_, bbx, mu_b, logvar_b)
-        loss = loss * self.weight_t1 + loss_b * self.weight_t2
+        loss = loss_i * self.weight_i + loss_b * self.weight_b
         with torch.no_grad():
             bbx_loss = self.bbx_loss(bbx_, bbx)
         self.temp_loss = {'LOSS': loss,
