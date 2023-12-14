@@ -231,7 +231,6 @@ class MyDatasetBBX(MyDataset):
                                            transform=transform,
                                            int_image=int_image,
                                            number=number)
-        self.data = self.__load_data__()
 
     def __getitem__(self, index):
 
@@ -240,6 +239,9 @@ class MyDatasetBBX(MyDataset):
                self.__transform__(self.data['c_img'][index]), \
                self.data['b'][index], \
                index
+
+    def __len__(self):
+        return self.data['csi'].shape[0]
 
     def __load_data__(self):
         print(f"{self.name} loading...")
