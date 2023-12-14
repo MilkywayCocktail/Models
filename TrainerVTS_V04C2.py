@@ -24,7 +24,8 @@ class MyLoss_T_BBX(MyLoss):
         axes = fig.subplots(nrows=2, ncols=np.ceil(len(select_ind) / 2).astype(int))
         axes = axes.flatten()
         for j in range(len(select_ind)):
-            axes[j].plot([0, 128], [0, 128])
+            axes[j].set_xlim([0, 128])
+            axes[j].set_ylim([0, 128])
             x, y, x_, y_ = self.loss['pred']['GT_BBX'][select_ind[j]]
             w, h = x_ - x, y_ - y
             axes[j].add_patch(Rectangle((int(x), int(y)), int(w), int(h), edgecolor='red', fill=False, lw=4, label='GroundTruth'))
@@ -53,7 +54,8 @@ class MyLoss_S_BBX(MyLoss_S):
         axes = fig.subplots(nrows=2, ncols=np.ceil(len(select_ind) / 2).astype(int))
         axes = axes.flatten()
         for j in range(len(select_ind)):
-            axes.plot([0, 128], [0, 128])
+            axes[j].set_xlim([0, 128])
+            axes[j].set_ylim([0, 128])
             x, y, w, h = self.loss['pred']['GT_BBX'][select_ind[j]]
             axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='red', fill=False, lw=4, label='GroundTruth'))
             x, y, w, h = self.loss['pred']['T_BBX'][select_ind[j]]
