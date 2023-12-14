@@ -399,6 +399,7 @@ class TrainerVTS_V04c2:
             bbx = bbx.to(torch.float32).to(self.device)
             with torch.no_grad():
                 for sample in range(loader.batch_size):
+                    print(f"sample {sample} of batch {idx}")
                     ind = index[sample][np.newaxis, ...]
                     r_img = r_img[sample][np.newaxis, ...]
                     c_img = c_img[sample][np.newaxis, ...]
