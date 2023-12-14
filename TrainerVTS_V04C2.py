@@ -393,7 +393,7 @@ class TrainerVTS_V04c2:
         elif mode == 'train':
             loader = self.train_loader
 
-        for idx, (csi, r_img, c_img, bbx, index) in enumerate(self.train_loader, 0):
+        for idx, (csi, r_img, c_img, bbx, index) in enumerate(loader, 0):
             r_img = r_img.to(torch.float32).to(self.device)
             c_img = c_img.to(torch.float32).to(self.device)
             bbx = bbx.to(torch.float32).to(self.device)
@@ -438,7 +438,7 @@ class TrainerVTS_V04c2:
         elif mode == 'train':
             loader = self.train_loader
 
-        for idx, (csi, r_img, c_img, bbx, index) in enumerate(self.train_loader, 0):
+        for idx, (csi, r_img, c_img, bbx, index) in enumerate(loader, 0):
             csi = csi.to(torch.float32).to(self.device)
             r_img = r_img.to(torch.float32).to(self.device)
             c_img = c_img.to(torch.float32).to(self.device)
