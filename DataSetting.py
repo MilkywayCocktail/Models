@@ -8,7 +8,8 @@ class MyDataset(Data.Dataset):
     """
     DATASET READER
     """
-    def __init__(self, name, x_path, y_path, img_size=(128, 128), transform=None, img='y', int_image=False, number=0):
+    def __init__(self, name, x_path, y_path, img_size=(128, 128), transform=None, img='y', int_image=False, number=0,
+                 mmap_mode='r'):
         """
         Wraps a dataset.\n
         :param name: the name of the dataset
@@ -19,6 +20,7 @@ class MyDataset(Data.Dataset):
         :param img: whether 'y' or 'x'. Default is 'y'
         :param int_image: whether convert images to np.uint8. Default is False
         :param number: select a number of samples. Default is 0 (all)
+        :param mmap_mode: mmap_mode='r' makes loading faster for large files
         """
         self.name = name
         self.x_path = x_path
@@ -29,6 +31,7 @@ class MyDataset(Data.Dataset):
         self.transform = transform
         self.img = img
         self.int_img = int_image
+        self.mmap_mode = mmap_mode
         self.data = self.__load_data__()
 
     def __convert__(self, sample):
@@ -73,8 +76,8 @@ class MyDataset(Data.Dataset):
         :return: loaded dataset
         """
         print(f"{self.name} loading...")
-        x = np.load(self.x_path)
-        y = np.load(self.y_path)
+        x = np.load(self.x_path, mmap_mode=self.mmap_mode)
+        y = np.load(self.y_path, mmap_mode=self.mmap_mode)
         print(f"{self.name}: loaded x {x.shape}, y {y.shape}")
         if self.img == 'x':
             x = x.reshape((-1, 1, self.img_size[0], self.img_size[1]))
@@ -181,13 +184,14 @@ class DataSplitter:
         print(f"Exported loader of len {len(self.data)}...", end='')
         return loader
 
-    def split_loader(self, batch_size=None, random=None, shuffle=None, generator=None):
+    def split_loader(self, batch_size=None, random=None, shuffle=None, generator=None, num_workers=14):
         """
         Split the dataset into train, validation and test.
         :param batch_size: default is 64
         :param random: whether to split the dataset randomly. Default is True
         :param shuffle: whether to shuffle samples. Default is True
         :param generator: random seed generator for random split. Default is None
+        :param num_workers: number of workers in DataLoader. Default is 14 (Server CPU is 32)
         :return: train/valid/test dataloaders
         """
         if not batch_size:
@@ -209,9 +213,9 @@ class DataSplitter:
             valid_dataset = torch.utils.data.Subset(self.data, range(r1, r2))
             test_dataset = torch.utils.data.Subset(self.data, range(r2, r3))
 
-        train_loader = Data.DataLoader(train_dataset, batch_size=batch_size, shuffle=shuffle, drop_last=True)
-        valid_loader = Data.DataLoader(valid_dataset, batch_size=batch_size, shuffle=shuffle, drop_last=True)
-        test_loader = Data.DataLoader(test_dataset, batch_size=1, shuffle=shuffle)
+        train_loader = Data.DataLoader(train_dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers,drop_last=True)
+        valid_loader = Data.DataLoader(valid_dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers,drop_last=True)
+        test_loader = Data.DataLoader(test_dataset, batch_size=1, num_workers=num_workers, shuffle=shuffle)
         print(f"Exported loader len: train {len(train_dataset)}, valid {len(valid_dataset)}, test {len(test_dataset)}")
 
         return train_loader, valid_loader, test_loader
@@ -222,7 +226,8 @@ class MyDatasetBBX(MyDataset):
                  csi_path, raw_img_path, crop_img_path, bbx_path,
                  img_size=(128, 128), transform=None, int_image=False,
                  bbx_ver='xywh',
-                 number=0):
+                 number=0,
+                 mmap_mode='r'):
 
         self.csi_path = csi_path
         self.raw_img_path = raw_img_path
@@ -233,7 +238,8 @@ class MyDatasetBBX(MyDataset):
                                            img_size=img_size,
                                            transform=transform,
                                            int_image=int_image,
-                                           number=number)
+                                           number=number,
+                                           mmap_mode=mmap_mode)
 
     def __getitem__(self, index):
 
@@ -248,10 +254,10 @@ class MyDatasetBBX(MyDataset):
 
     def __load_data__(self):
         print(f"{self.name} loading...")
-        csi = np.load(self.csi_path)
-        r_img = np.load(self.raw_img_path)
-        c_img = np.load(self.crop_img_path)
-        bbx = np.load(self.bbx_path)
+        csi = np.load(self.csi_path, mmap_mode=self.mmap_mode)
+        r_img = np.load(self.raw_img_path, mmap_mode=self.mmap_mode)
+        c_img = np.load(self.crop_img_path, mmap_mode=self.mmap_mode)
+        bbx = np.load(self.bbx_path, mmap_mode=self.mmap_mode)
         print(f"{self.name}: loaded csi {csi.shape}, raw_img {r_img.shape}, cropped_img {c_img.shape}, bbx {bbx.shape}")
         r_img = r_img.reshape((-1, 1, self.img_size[0], self.img_size[1]))
         c_img = c_img.reshape((-1, 1, self.img_size[0], self.img_size[1]))

@@ -402,7 +402,10 @@ class TrainerVTS_V04c2:
                 for sample in range(loader.batch_size):
                     print(f"sample {sample} of batch {idx}")
                     ind = index[sample][np.newaxis, ...]
-                    r_img = r_img[sample][np.newaxis, ...]
+                    try:
+                        r_img = r_img[sample][np.newaxis, ...]
+                    except Exception:
+                        print(sample, r_img.shape)
                     c_img = c_img[sample][np.newaxis, ...]
                     bbx = bbx[sample][np.newaxis, ...]
                     PREDS = self.calculate_loss_t(c_img, r_img, bbx, ind)
