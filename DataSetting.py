@@ -237,7 +237,7 @@ class MyDatasetBBX(MyDataset):
         return self.data['csi'][index],\
                self.data['r_img'][index], \
                self.__transform__(self.data['c_img'][index]), \
-               self.data['b'][index], \
+               self.data['bbx'][index], \
                index
 
     def __len__(self):
