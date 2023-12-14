@@ -217,7 +217,7 @@ class TrainerVTS_V04c2:
                                     {'params': self.models['imgde'].parameters()},
                                     {'params': self.models['msken'].parameters()},
                                     {'params': self.models['mskde'].parameters()}], lr=self.lr)
-        self.loss['teacher'].logger(self.lr, self.epochs)
+        self.loss['t'].logger(self.lr, self.epochs)
         for epoch in range(self.epochs):
             # =====================train============================
             self.models['imgen'].train()
