@@ -129,7 +129,7 @@ class TrainerVTS_V04c2:
         # bbx1[-2] = bbx1[-2] + bbx1[-4]
         # bbx2[-1] = bbx2[-1] + bbx2[-3]
         # bbx2[-2] = bbx2[-2] + bbx2[-4]
-        return generalized_box_iou_loss(bbx1, bbx2)
+        return generalized_box_iou_loss(bbx1, bbx2, reduction='sum')
 
     def vae_loss(self, pred, gt, mu, logvar):
         recon_loss = self.recon_lossfun(pred, gt) / pred.shape[0]
