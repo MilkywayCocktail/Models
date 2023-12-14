@@ -25,9 +25,11 @@ class MyLoss_T_BBX(MyLoss):
         axes = axes.flatten()
         for j in range(len(select_ind)):
             axes[j].plot([0, 128], [0, 128])
-            x, y, w, h = self.loss['pred']['GT_BBX'][select_ind]
-            axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='red', fill=False, lw=4, label='GroundTruth'))
-            x, y, w, h = self.loss['pred']['PRED_BBX'][select_ind]
+            x, y, x_, y_ = self.loss['pred']['GT_BBX'][select_ind[j]]
+            w, h = x_ - x, y_ - y
+            axes[j].add_patch(Rectangle((int(x), int(y)), int(w), int(h), edgecolor='red', fill=False, lw=4, label='GroundTruth'))
+            x, y, w, h = self.loss['pred']['PRED_BBX'][select_ind[j]]
+            w, h = x_ - x, y_ - y
             axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='blue', fill=False, lw=4, label='Teacher'))
             axes[j].axis('off')
             axes[j].set_title(f"#{samples[j]}")
@@ -52,11 +54,11 @@ class MyLoss_S_BBX(MyLoss_S):
         axes = axes.flatten()
         for j in range(len(select_ind)):
             axes.plot([0, 128], [0, 128])
-            x, y, w, h = self.loss['pred']['GT_BBX'][select_ind]
+            x, y, w, h = self.loss['pred']['GT_BBX'][select_ind[j]]
             axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='red', fill=False, lw=4, label='GroundTruth'))
-            x, y, w, h = self.loss['pred']['T_BBX'][select_ind]
+            x, y, w, h = self.loss['pred']['T_BBX'][select_ind[j]]
             axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='blue', fill=False, lw=4, label='Teacher'))
-            x, y, w, h = self.loss['pred']['S_BBX'][select_ind]
+            x, y, w, h = self.loss['pred']['S_BBX'][select_ind[j]]
             axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='orange', fill=False, lw=4, label='Student'))
             axes[j].axis('off')
             axes[j].set_title(f"#{samples[j]}")
