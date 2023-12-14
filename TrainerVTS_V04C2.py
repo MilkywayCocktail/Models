@@ -164,7 +164,7 @@ class TrainerVTS_V04c2:
         return {'GT': c_img,
                 'PRED': output,
                 'GT_BBX': bbx,
-                'BBX': bbx_,
+                'PRED_BBX': bbx_,
                 'IND': i}
 
     def calculate_loss_s(self, csi, c_img, r_img, bbx, i=None):
