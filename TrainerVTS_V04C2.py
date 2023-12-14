@@ -397,6 +397,7 @@ class TrainerVTS_V04c2:
             r_img = r_img.to(torch.float32).to(self.device)
             c_img = c_img.to(torch.float32).to(self.device)
             bbx = bbx.to(torch.float32).to(self.device)
+            print(r_img.shape, c_img.shape, bbx.shape)
             with torch.no_grad():
                 for sample in range(loader.batch_size):
                     print(f"sample {sample} of batch {idx}")
@@ -504,7 +505,7 @@ class TrainerVTS_V04c2:
         if select_ind:
             inds = select_ind
         else:
-            if self.inds:
+            if self.inds is not None:
                 inds = self.inds
             else:
                 inds = self.generate_indices(self.loss['t'].loss['pred']['IND'], select_num)
@@ -541,7 +542,7 @@ class TrainerVTS_V04c2:
         if select_ind:
             inds = select_ind
         else:
-            if self.inds:
+            if self.inds is not None:
                 inds = self.inds
             else:
                 inds = self.generate_indices(self.loss['s'].loss['pred']['IND'], select_num)
