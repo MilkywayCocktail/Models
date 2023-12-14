@@ -403,12 +403,12 @@ class TrainerVTS_V04c2:
                     print(f"sample {sample} of batch {idx}")
                     ind = index[sample][np.newaxis, ...]
                     try:
-                        r_img = r_img[sample][np.newaxis, ...]
+                        r_img_ = r_img[sample][np.newaxis, ...]
                     except Exception:
-                        print(sample, r_img.shape)
-                    c_img = c_img[sample][np.newaxis, ...]
-                    bbx = bbx[sample][np.newaxis, ...]
-                    PREDS = self.calculate_loss_t(c_img, r_img, bbx, ind)
+                        print(sample, r_img_.shape)
+                    c_img_ = c_img[sample][np.newaxis, ...]
+                    bbx_ = bbx[sample][np.newaxis, ...]
+                    PREDS = self.calculate_loss_t(c_img_, r_img_, bbx_, ind_)
 
                     for key in EPOCH_LOSS.keys():
                         EPOCH_LOSS[key].append(self.temp_loss[key].item())
