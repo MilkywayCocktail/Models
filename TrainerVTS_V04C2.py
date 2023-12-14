@@ -400,12 +400,8 @@ class TrainerVTS_V04c2:
             print(r_img.shape, c_img.shape, bbx.shape)
             with torch.no_grad():
                 for sample in range(loader.batch_size):
-                    print(f"sample {sample} of batch {idx}")
-                    ind = index[sample][np.newaxis, ...]
-                    try:
-                        r_img_ = r_img[sample][np.newaxis, ...]
-                    except Exception:
-                        print(sample, r_img_.shape)
+                    ind_ = index[sample][np.newaxis, ...]
+                    r_img_ = r_img[sample][np.newaxis, ...]
                     c_img_ = c_img[sample][np.newaxis, ...]
                     bbx_ = bbx[sample][np.newaxis, ...]
                     PREDS = self.calculate_loss_t(c_img_, r_img_, bbx_, ind_)
