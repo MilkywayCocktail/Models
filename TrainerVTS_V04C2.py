@@ -103,7 +103,6 @@ class TrainerVTS_V04c2:
         self.beta = 1.2
 
         self.recon_lossfun = nn.MSELoss(reduction='sum')
-        self.bbx_loss = generalized_box_iou_loss
 
         self.temp_loss = {}
         self.loss = {'t': MyLoss_T_BBX(loss_terms=['LOSS', 'KL_I', 'RECON_I', 'KL_B', 'RECON_B', 'BBX'],
@@ -121,6 +120,15 @@ class TrainerVTS_V04c2:
         :return: a string including current training epochs
         """
         return f"Te{self.loss['t'].epochs[-1]}_Se{self.loss['s'].epochs[-1]}"
+
+    @staticmethod
+    def bbx_loss(bbx1, bbx2):
+        # x, y, w, h to x1, y1, x2, y2
+        bbx1[-1] = bbx1[-1] + bbx1[-3]
+        bbx1[-2] = bbx1[-2] + bbx1[-4]
+        bbx2[-1] = bbx2[-1] + bbx2[-3]
+        bbx2[-2] = bbx2[-2] + bbx2[-4]
+        return generalized_box_iou_loss(bbx1, bbx2)
 
     def vae_loss(self, pred, gt, mu, logvar):
         recon_loss = self.recon_lossfun(pred, gt) / pred.shape[0]
