@@ -446,12 +446,12 @@ class TrainerVTS_V04c2:
             bbx = bbx.to(torch.float32).to(self.device)
             with torch.no_grad():
                 for sample in range(loader.batch_size):
-                    ind = index[sample][np.newaxis, ...]
-                    csi = csi[sample][np.newaxis, ...]
-                    r_img = r_img[sample][np.newaxis, ...]
-                    c_img = c_img[sample][np.newaxis, ...]
-                    bbx = bbx[sample][np.newaxis, ...]
-                    PREDS = self.calculate_loss_s(csi, c_img, r_img, bbx, ind)
+                    ind_ = index[sample][np.newaxis, ...]
+                    csi_ = csi[sample][np.newaxis, ...]
+                    r_img_ = r_img[sample][np.newaxis, ...]
+                    c_img_ = c_img[sample][np.newaxis, ...]
+                    bbx_ = bbx[sample][np.newaxis, ...]
+                    PREDS = self.calculate_loss_s(csi_, c_img_, r_img_, bbx_, ind_)
 
                     for key in EPOCH_LOSS.keys():
                         EPOCH_LOSS[key].append(self.temp_loss[key].item())
