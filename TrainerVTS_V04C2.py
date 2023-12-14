@@ -511,7 +511,7 @@ class TrainerVTS_V04c2:
         if select_ind:
             inds = select_ind
         else:
-            if self.inds is not None:
+            if self.inds is not None and select_num == len(self.inds):
                 inds = self.inds
             else:
                 inds = self.generate_indices(self.loss['t'].loss['pred']['IND'], select_num)
@@ -548,7 +548,7 @@ class TrainerVTS_V04c2:
         if select_ind:
             inds = select_ind
         else:
-            if self.inds is not None:
+            if self.inds is not None and select_num == len(self.inds):
                 inds = self.inds
             else:
                 inds = self.generate_indices(self.loss['s'].loss['pred']['IND'], select_num)
