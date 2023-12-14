@@ -469,7 +469,7 @@ class TrainerVTS_V04c2:
 
         save_path = f'../saved/{notion}/'
 
-        self.loss[mode].plot_train(title[mode], double_y)
+        self.loss[mode].plot_train(title[mode], 'all', double_y)
 
         if autosave:
             if not os.path.exists(save_path):
