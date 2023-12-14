@@ -85,15 +85,16 @@ class TrainerVTS_V04c2:
                  train_loader, valid_loader, test_loader,
                  ):
 
-        self.models = {'imgen': img_encoder,
-                       'imgde': img_decoder,
-                       'csien': csi_encoder,
-                       'msken': msk_encoder,
-                       'mskde': msk_decoder}
         self.lr = lr
         self.epochs = epochs
         self.device = torch.device("cuda:" + str(cuda) if torch.cuda.is_available() else "cpu")
         self.optimizer = torch.optim.Adam
+
+        self.models = {'imgen': img_encoder.to(self.device),
+                       'imgde': img_decoder.to(self.device),
+                       'csien': csi_encoder.to(self.device),
+                       'msken': msk_encoder.to(self.device),
+                       'mskde': msk_decoder.to(self.device)}
 
         self.train_loader = train_loader
         self.valid_loader = valid_loader
