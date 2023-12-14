@@ -220,7 +220,9 @@ class DataSplitter:
 class MyDatasetBBX(MyDataset):
     def __init__(self, name,
                  csi_path, raw_img_path, crop_img_path, bbx_path,
-                 img_size=(128, 128), transform=None, int_image=False, number=0):
+                 img_size=(128, 128), transform=None, int_image=False,
+                 bbx_ver = 'xywh',
+                 number=0):
 
         self.csi_path = csi_path
         self.raw_img_path = raw_img_path
@@ -231,6 +233,7 @@ class MyDatasetBBX(MyDataset):
                                            transform=transform,
                                            int_image=int_image,
                                            number=number)
+        self.bbx_ver = bbx_ver
 
     def __getitem__(self, index):
 
@@ -252,6 +255,9 @@ class MyDatasetBBX(MyDataset):
         print(f"{self.name}: loaded csi {csi.shape}, img {r_img.shape}, cropped_img {c_img.shape}, bbx {bbx.shape}")
         r_img = r_img.reshape((-1, 1, self.img_size[0], self.img_size[1]))
         c_img = c_img.reshape((-1, 1, self.img_size[0], self.img_size[1]))
+        if self.bbx_ver == 'xyxy':
+            bbx[..., -1] = bbx[..., -1] + bbx[..., -3]
+            bbx[..., -2] = bbx[..., -2] + bbx[..., -4]
 
         if self.number != 0:
             if csi.shape[0] == r_img.shape[0]:

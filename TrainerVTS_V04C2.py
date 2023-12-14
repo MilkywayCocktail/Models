@@ -125,10 +125,10 @@ class TrainerVTS_V04c2:
     @staticmethod
     def bbx_loss(bbx1, bbx2):
         # x, y, w, h to x1, y1, x2, y2
-        bbx1[-1] = bbx1[-1] + bbx1[-3]
-        bbx1[-2] = bbx1[-2] + bbx1[-4]
-        bbx2[-1] = bbx2[-1] + bbx2[-3]
-        bbx2[-2] = bbx2[-2] + bbx2[-4]
+        # bbx1[-1] = bbx1[-1] + bbx1[-3]
+        # bbx1[-2] = bbx1[-2] + bbx1[-4]
+        # bbx2[-1] = bbx2[-1] + bbx2[-3]
+        # bbx2[-2] = bbx2[-2] + bbx2[-4]
         return generalized_box_iou_loss(bbx1, bbx2)
 
     def vae_loss(self, pred, gt, mu, logvar):
