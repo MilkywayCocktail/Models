@@ -974,6 +974,33 @@ class ImageDecoderV04c2(ImageDecoderV03c2):
     def __init__(self, batchnorm=False):
         super(ImageDecoderV04c2, self).__init__(batchnorm=batchnorm)
 
+        self.cnn = nn.Sequential(
+            # 256 * 4 * 4
+            nn.ConvTranspose2d(256, 256, kernel_size=4, stride=2, padding=1),
+            bn(256, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            # 256 * 8 * 8
+            nn.ConvTranspose2d(256, 256, kernel_size=4, stride=2, padding=1),
+            bn(256, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            # 256 * 16 * 16
+            nn.ConvTranspose2d(256, 256, kernel_size=4, stride=2, padding=1),
+            bn(256, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            # 256 * 32 * 32
+            nn.ConvTranspose2d(256, 128, kernel_size=4, stride=2, padding=1),
+            bn(128, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            # 128 * 64 * 64
+            nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
+            bn(128, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            # 128 * 128 * 128
+            nn.Conv2d(128, out_channels=1, kernel_size=3, stride=11, padding=1),
+            self.active_func,
+            # 1 * 128 * 128
+        )
+
     def __str__(self):
         return 'ImgDeV04c2'
 
