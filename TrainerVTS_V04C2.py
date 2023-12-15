@@ -164,7 +164,7 @@ class TrainerVTS_V04c2:
         latent_b, z_b, mu_b, logvar_b = self.models['msken'](mask)
         bbx_ = self.models['mskde'](z_b)
         loss_i, kl_loss_i, recon_loss_i = self.vae_loss(output, c_img, mu_i, logvar_i)
-        loss_b, kl_loss_b, recon_loss_b = self.vae_loss_b(bbx_, bbx, mu_b, logvar_b)
+        loss_b, kl_loss_b, recon_loss_b = self.vae_loss(bbx_, bbx, mu_b, logvar_b)
         loss = loss_i * self.weight_i + loss_b * self.weight_b
         with torch.no_grad():
             bbx_loss = self.bbx_loss(bbx_, bbx)
