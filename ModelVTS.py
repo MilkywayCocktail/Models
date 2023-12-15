@@ -364,8 +364,8 @@ class ImageEncoderV03b2(ImageEncoderV03b1):
 
 
 class ImageDecoderV03b2(ImageDecoderV03b1):
-    def __init__(self, batchnorm=False):
-        super(ImageDecoderV03b2, self).__init__(batchnorm=batchnorm)
+    def __init__(self, batchnorm=False, active_func=nn.Sigmoid()):
+        super(ImageDecoderV03b2, self).__init__(batchnorm=batchnorm, active_func=active_func)
 
         self.fclayers = nn.Sequential(
             nn.Linear(self.latent_dim, 4096),
@@ -534,8 +534,8 @@ class ImageEncoderV03c2(ImageEncoderV03c1):
 
 
 class ImageDecoderV03c2(ImageDecoderV03b2):
-    def __init__(self, batchnorm=False):
-        super(ImageDecoderV03c2, self).__init__(batchnorm=batchnorm)
+    def __init__(self, batchnorm=False, active_func=nn.Sigmoid()):
+        super(ImageDecoderV03c2, self).__init__(batchnorm=batchnorm, active_func=active_func)
 
         self.fclayers = nn.Sequential(
             nn.Linear(self.latent_dim, 4096),
