@@ -37,6 +37,7 @@ class MyLoss_T_BBX(MyLoss):
 
         axes[0].legend()
         plt.show()
+        return plt.gcf()
 
 
 class MyLoss_S_BBX(MyLoss_S):
@@ -67,6 +68,7 @@ class MyLoss_S_BBX(MyLoss_S):
 
         axes[0].legend()
         plt.show()
+        return plt.gcf()
 
 
 def timer(func):
@@ -522,17 +524,17 @@ class TrainerVTS_V04c2:
             else:
                 inds = self.generate_indices(self.loss['t'].loss['pred']['IND'], select_num)
 
-        self.loss['t'].plot_predict(title['PRED'], inds, ('GT', 'PRED'))
+        fig = self.loss['t'].plot_predict(title['PRED'], inds, ('GT', 'PRED'))
         if autosave:
-            plt.savefig(f"{save_path}{filename['PRED']}")
+            fig.savefig(f"{save_path}{filename['PRED']}")
 
-        self.loss['t'].plot_bbx(title['BBX'], inds)
+        fig = self.loss['t'].plot_bbx(title['BBX'], inds)
         if autosave:
-            plt.savefig(f"{save_path}{filename['BBX']}")
+            fig.savefig(f"{save_path}{filename['BBX']}")
 
-        self.loss['t'].plot_test(title['BBX'], inds)
+        fig = self.loss['t'].plot_test(title['BBX'], inds)
         if autosave:
-            plt.savefig(f"{save_path}{filename['LOSS']}")
+            fig.savefig(f"{save_path}{filename['LOSS']}")
 
     def plot_test_s(self, select_ind=None, select_num=8, autosave=False, notion=''):
         title = {'PRED': "Student Test IMG Predicts",
@@ -559,25 +561,25 @@ class TrainerVTS_V04c2:
             else:
                 inds = self.generate_indices(self.loss['s'].loss['pred']['IND'], select_num)
 
-        self.loss['s'].plot_predict(title['PRED'], inds, ('GT', 'T_PRED', 'S_PRED'))
+        fig = self.loss['s'].plot_predict(title['PRED'], inds, ('GT', 'T_PRED', 'S_PRED'))
         if autosave:
-            plt.savefig(f"{save_path}{filename['PRED']}")
+            fig.savefig(f"{save_path}{filename['PRED']}")
 
-        self.loss['s'].plot_bbx(title['BBX'], inds)
+        fig = self.loss['s'].plot_bbx(title['BBX'], inds)
         if autosave:
-            plt.savefig(f"{save_path}{filename['BBX']}")
+            fig.savefig(f"{save_path}{filename['BBX']}")
 
-        self.loss['s'].plot_latent(title['s']['LATENT_I'], inds, ('T_LATENT_I', 'S_LATENT_I'))
+        fig = self.loss['s'].plot_latent(title['s']['LATENT_I'], inds, ('T_LATENT_I', 'S_LATENT_I'))
         if autosave:
-            plt.savefig(f"{save_path}{filename['LATENT_I']}")
+            fig.savefig(f"{save_path}{filename['LATENT_I']}")
 
-        self.loss['s'].plot_latent(title['s']['LATENT_B'], inds, ('T_LATENT_B', 'S_LATENT_B'))
+        fig = self.loss['s'].plot_latent(title['s']['LATENT_B'], inds, ('T_LATENT_B', 'S_LATENT_B'))
         if autosave:
-            plt.savefig(f"{save_path}{filename['LATENT_B']}")
+            fig.savefig(f"{save_path}{filename['LATENT_B']}")
 
-        self.loss['t'].plot_test(title['BBX'], inds)
+        fig = self.loss['t'].plot_test(title['BBX'], inds)
         if autosave:
-            plt.savefig(f"{save_path}{filename['LOSS']}")
+            fig.savefig(f"{save_path}{filename['LOSS']}")
 
     def scheduler(self, train_t=True, train_s=True,
                   t_turns=10, s_turns=10,
