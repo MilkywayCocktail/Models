@@ -971,11 +971,11 @@ class ImageDecoderV04c2(ImageDecoderV03c2):
             bn(128, batchnorm),
             nn.LeakyReLU(inplace=True),
             # 128 * 64 * 64
-            nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
+            nn.ConvTranspose2d(128, 1, kernel_size=4, stride=2, padding=1),
             bn(128, batchnorm),
-            nn.LeakyReLU(inplace=True),
+            #nn.LeakyReLU(inplace=True),
             # 128 * 128 * 128
-            nn.Conv2d(128, out_channels=1, kernel_size=3, stride=1, padding=1),
+            # nn.Conv2d(128, out_channels=1, kernel_size=3, stride=1, padding=1),
             self.active_func,
             # 1 * 128 * 128
         )
