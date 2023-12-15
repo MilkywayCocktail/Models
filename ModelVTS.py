@@ -971,8 +971,8 @@ class MaskEncoderV04c2(nn.Module):
 
 
 class ImageDecoderV04c2(ImageDecoderV03c2):
-    def __init__(self, batchnorm=False):
-        super(ImageDecoderV04c2, self).__init__(batchnorm=batchnorm)
+    def __init__(self, batchnorm=False, active_func=nn.Sigmoid()):
+        super(ImageDecoderV04c2, self).__init__(batchnorm=batchnorm, active_func=active_func)
 
         self.cnn = nn.Sequential(
             # 256 * 4 * 4
