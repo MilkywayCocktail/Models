@@ -985,9 +985,10 @@ class ImageDecoderV04c2(ImageDecoderV03c2):
 
 
 class MaskEncoderV04c2(nn.Module):
-    def __init__(self, latent_dim=16):
+    def __init__(self, latent_dim=16, image_width=128):
         super(MaskEncoderV04c2, self).__init__()
         self.latent_dim = latent_dim
+        self.image_width = image_width
 
         self.lstm = nn.Sequential(
             nn.LSTM(128, 2 * self.latent_dim, 2, batch_first=True, dropout=0.1),
@@ -997,7 +998,7 @@ class MaskEncoderV04c2(nn.Module):
         return 'MskEnV04c2' + self.bottleneck.capitalize()
 
     def forward(self, x):
-        out, (final_hidden_state, final_cell_state) = self.lstm(x.view(-1, 128, 226).transpose(1, 2))
+        out, (final_hidden_state, final_cell_state) = self.lstm(x.view(-1, 128, self.image_width).transpose(1, 2))
         out = out[:, -1, :]
         mu, logvar = out.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
         z = reparameterize(mu, logvar)
