@@ -123,7 +123,7 @@ class MyLoss:
             axes[i].grid()
             axes[i].legend()
         plt.show()
-        return plt.gcf()
+        return fig
 
     def plot_test(self, title, select_ind, plot_terms='all'):
         self.__plot_settings__()
@@ -155,7 +155,7 @@ class MyLoss:
                 axes[i].scatter(select_ind[j], self.loss['test'][item][select_ind[j]],
                                 c='magenta', marker=(5, 1), linewidths=4)
         plt.show()
-        return plt.gcf()
+        return fig
 
     def plot_predict(self, title, select_ind, plot_terms):
         self.__plot_settings__()
@@ -176,7 +176,7 @@ class MyLoss:
                 axes[j].set_title(f"#{samples[j]}")
             subfigs[i].colorbar(img, ax=axes, shrink=0.8)
         plt.show()
-        return plt.gcf()
+        return fig
 
 
 class MyLoss_S(MyLoss):
@@ -208,5 +208,5 @@ class MyLoss_S(MyLoss):
 
         axes[0].legend()
         plt.show()
-        return plt.gcf()
+        return fig
 

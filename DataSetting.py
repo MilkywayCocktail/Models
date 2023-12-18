@@ -184,18 +184,16 @@ class DataSplitter:
         print(f"Exported loader of len {len(self.data)}...", end='')
         return loader
 
-    def split_loader(self, batch_size=None, random=None, shuffle=None, generator=None, num_workers=14):
+    def split_loader(self, test_batch_size=1, random=None, shuffle=None, generator=None, num_workers=14, pin_memory=False):
         """
         Split the dataset into train, validation and test.
-        :param batch_size: default is 64
+        :param test_batch_size: default is 1
         :param random: whether to split the dataset randomly. Default is True
         :param shuffle: whether to shuffle samples. Default is True
         :param generator: random seed generator for random split. Default is None
         :param num_workers: number of workers in DataLoader. Default is 14 (Server CPU is 32)
         :return: train/valid/test dataloaders
         """
-        if not batch_size:
-            batch_size = self.batch_size
         if not random:
             random = self.random
         if not shuffle:
@@ -213,9 +211,12 @@ class DataSplitter:
             valid_dataset = torch.utils.data.Subset(self.data, range(r1, r2))
             test_dataset = torch.utils.data.Subset(self.data, range(r2, r3))
 
-        train_loader = Data.DataLoader(train_dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers,drop_last=True)
-        valid_loader = Data.DataLoader(valid_dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers,drop_last=True)
-        test_loader = Data.DataLoader(test_dataset, batch_size=1, num_workers=num_workers, shuffle=shuffle)
+        train_loader = Data.DataLoader(train_dataset, batch_size=self.batch_size, shuffle=shuffle,
+                                       num_workers=num_workers, drop_last=True, pin_memory=pin_memory)
+        valid_loader = Data.DataLoader(valid_dataset, batch_size=self.batch_size, shuffle=shuffle,
+                                       num_workers=num_workers, drop_last=True, pin_memory=pin_memory)
+        test_loader = Data.DataLoader(test_dataset, batch_size=test_batch_size, num_workers=num_workers, shuffle=shuffle,
+                                      pin_memory=pin_memory)
         print(f"Exported loader len: train {len(train_dataset)}, valid {len(valid_dataset)}, test {len(test_dataset)}")
 
         return train_loader, valid_loader, test_loader

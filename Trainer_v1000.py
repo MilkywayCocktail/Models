@@ -46,6 +46,7 @@ class MyLossCSI(MyLoss):
             axes[jj].set_title(f"#{samples[jj]}")
         subfigs[-1].colorbar(img, ax=axes, shrink=0.6)
         plt.show()
+        return fig
 
 
 class MyLossINTA(MyLoss):
@@ -106,6 +107,7 @@ class MyLossINTA(MyLoss):
 
         axes[0].legend()
         plt.show()
+        return fig
 
 
 def reparameterize(mu, logvar):

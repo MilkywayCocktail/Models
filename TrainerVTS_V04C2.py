@@ -37,7 +37,7 @@ class MyLoss_T_BBX(MyLoss):
 
         axes[0].legend()
         plt.show()
-        return plt.gcf()
+        return fig
 
 
 class MyLoss_S_BBX(MyLoss_S):
@@ -68,7 +68,7 @@ class MyLoss_S_BBX(MyLoss_S):
 
         axes[0].legend()
         plt.show()
-        return plt.gcf()
+        return fig
 
 
 def timer(func):
