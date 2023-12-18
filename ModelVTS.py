@@ -936,8 +936,10 @@ class ImageDecoderV04c1(ImageDecoderV03c2):
 # Estimate cropped subject and bounding box
 
 # ImageEncoder: in = 128 * 128, out = 2 * latent_dim
-# ImageDecoder: in = 1 * latent_dim, out = 128 * 128 & 1 * inductive_dim
+# ImageDecoder: in = 1 * latent_dim, out = 128 * 128
 # CSIEncoder: in = 2 * 90 * 100, out = 2 * latent_dim
+# MaskEncoder: in = img_width * 128, out = 128
+# MaskDecoder: in = 128, out = 4
 # -------------------------------------------------------------------------- #
 
 
@@ -1078,6 +1080,101 @@ class CsiEncoderV04c2(CsiEncoderV03c4):
 
         return z_i, latent_i, mu_i, logvar_i, z_b, latent_b, mu_b, logvar_b
 
+
+# -------------------------------------------------------------------------- #
+# Model v05c1
+# Added channel attention
+# CSIEncoder estimates BBX
+
+# ImageEncoder: in = 128 * 128, out = 2 * latent_dim
+# ImageDecoder: in = 1 * latent_dim, out = 128 * 128
+# CSIEncoder: in = 2 * 90 * 100, out = 2 * latent_dim
+# -------------------------------------------------------------------------- #
+
+class SelfAttention(nn.Module):
+    def __init__(self, in_channels):
+        super(SelfAttention, self).__init__()
+        self.query_conv = nn.Conv2d(in_channels, in_channels//8, kernel_size=1)
+        self.key_conv = nn.Conv2d(in_channels, in_channels//8, kernel_size=1)
+        self.value_conv = nn.Conv2d(in_channels, in_channels, kernel_size=1)
+        self.gamma = nn.Parameter(torch.zeros(1))
+
+    def forward(self, x):
+        batch_size, channels, height, width = x.size()
+
+        proj_query = self.query_conv(x).view(batch_size, -1, height * width).permute(0, 2, 1)
+        proj_key = self.key_conv(x).view(batch_size, -1, height * width)
+
+        energy = torch.bmm(proj_query, proj_key)
+        attention = torch.softmax(energy, dim=2)
+
+        proj_value = self.value_conv(x).view(batch_size, -1, height * width)
+
+        out = torch.bmm(proj_value, attention.permute(0, 2, 1))
+        out = out.view(batch_size, channels, height, width)
+
+        out = self.gamma * out + x
+        return out
+
+
+class ImageEncoderV05c1(nn.Module):
+    def __init__(self, batchnorm=False):
+        super(ImageEncoderV05c1, self).__init__()
+
+        self.active_func = None
+
+        self.cnn = nn.Sequential(
+            # 1 * 128 * 128
+            nn.Conv2d(1, 32, kernel_size=3, stride=2, padding=1),
+            bn(128, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            # 32 * 64 * 64
+            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),
+            bn(64, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            # 64 * 32 * 32
+            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),
+            bn(128, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            # 128 * 16 * 16
+            nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1),
+            bn(256, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            # 256 * 8 * 8
+            nn.Conv2d(256, 512, kernel_size=3, stride=2, padding=1),
+            bn(512, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            # 512 * 4 * 4
+        )
+
+        self.attn = SelfAttention(512)
+
+        self.fc_mu = nn.Sequential(
+            nn.Linear(4 * 4 * 512, 4096),
+            nn.ReLU(),
+            nn.Linear(4096, self.latent_dim),
+            # self.active_func
+        )
+
+        self.fc_logvar = nn.Sequential(
+            nn.Linear(4 * 4 * 512, 4096),
+            nn.ReLU(),
+            nn.Linear(4096, self.latent_dim),
+            # self.active_func
+        )
+
+    def __str__(self):
+        return 'ImgEnV05c1' + self.bottleneck.capitalize()
+
+    def forward(self, x):
+        out = self.cnn(x)
+        out = self.attn(out)
+        mu = self.fc_mu(out.view(-1, 4 * 4 * 512))
+        logvar = self.fc_logvar(out.view(-1, 4 * 4 * 512))
+        z = reparameterize(mu, logvar)
+
+        return out, z, mu, logvar
+        
 
 if __name__ == "__main__":
     IMG = (1, 1, 128, 128)
