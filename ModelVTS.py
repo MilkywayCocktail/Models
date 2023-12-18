@@ -1118,9 +1118,9 @@ class SelfAttention(nn.Module):
 
 
 class ImageEncoderV05c1(nn.Module):
-    def __init__(self, batchnorm=False):
+    def __init__(self, batchnorm=False, latent_dim=16):
         super(ImageEncoderV05c1, self).__init__()
-
+        self.latent_dim = latent_dim
         self.active_func = None
 
         self.cnn = nn.Sequential(
@@ -1174,7 +1174,7 @@ class ImageEncoderV05c1(nn.Module):
         z = reparameterize(mu, logvar)
 
         return out, z, mu, logvar
-        
+
 
 if __name__ == "__main__":
     IMG = (1, 1, 128, 128)
