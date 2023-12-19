@@ -8,13 +8,13 @@ class MyDataset(Data.Dataset):
     """
     DATASET READER
     """
-    def __init__(self, name, x_path, y_path, img_size=(128, 128), transform=None, img='y', int_image=False, number=0,
+    def __init__(self, name, csi_path, img_path, img_size=(128, 128), transform=None, img='y', int_image=False, number=0,
                  mmap_mode='r'):
         """
         Wraps a dataset.\n
         :param name: the name of the dataset
-        :param x_path: path of x file (npy)
-        :param y_path: path of y file (npy)
+        :param csi_path: path of x file (npy)
+        :param img_path: path of y file (npy)
         :param img_size: original image size (height * width)
         :param transform: apply torchvision.transforms
         :param img: whether 'y' or 'x'. Default is 'y'
@@ -23,8 +23,8 @@ class MyDataset(Data.Dataset):
         :param mmap_mode: mmap_mode='r' makes loading faster for large files
         """
         self.name = name
-        self.x_path = x_path
-        self.y_path = y_path
+        self.x_path = csi_path
+        self.y_path = img_path
         self.number = number
         self.seeds = None
         self.img_size = img_size
