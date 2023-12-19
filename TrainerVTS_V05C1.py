@@ -270,3 +270,42 @@ class TrainerVTS_V05c1:
         fig = self.loss['t'].plot_test(title['LOSS'], inds)
         if autosave:
             fig.savefig(f"{save_path}{filename['LOSS']}")
+
+    def scheduler(self, train_t=True, train_s=True,
+                  t_turns=10, s_turns=10,
+                  lr_decay=False, decay_rate=0.4,
+                  test_mode='train', select_num=8,
+                  autosave=False, notion=''):
+        """
+        Schedules the process of training and testing.
+        :param train_t: whether to train the teacher. True or False. Default is True
+        :param train_s: whether to train the student. True or False. Default is True
+        :param t_turns: number of turns to run teacher train-test operations. Default is 10
+        :param s_turns: number of turns to run student train-test operations. Default is 10
+        :param lr_decay: whether to decay learning rate in training. Default is False
+        :param decay_rate: decay rate of learning rate. Default it 0.4
+        :param test_mode: 'train' or 'test' (data loader). Default is 'train'
+        :param select_num: Number of samples to show in results. Default is 8
+        :param autosave: whether to save the plots. Default is False
+        :param notion: additional notes in save name
+        :return: trained models and test results
+        """
+        if train_t:
+            for i in range(t_turns):
+                self.train_teacher()
+                self.test_teacher(mode=test_mode)
+                self.plot_test_t(select_num=select_num, autosave=autosave, notion=notion)
+                self.plot_train_loss(mode='t', autosave=autosave, notion=notion)
+                if lr_decay:
+                    self.lr *= decay_rate
+
+        if train_s:
+            for i in range(s_turns):
+                self.train_student()
+                self.test_student(mode=test_mode)
+                self.plot_test_s(select_num=select_num, autosave=autosave, notion=notion)
+                self.plot_train_loss(mode='s', autosave=autosave, notion=notion)
+                if lr_decay:
+                    self.lr *= decay_rate
+
+        print("\nSchedule Completed!")
