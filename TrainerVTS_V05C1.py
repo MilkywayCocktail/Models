@@ -74,8 +74,8 @@ class TrainerVTS_V05c1:
         self.recon_lossfun = nn.MSELoss(reduction='sum')
 
         self.temp_loss = {}
-        self.loss = {'t': MyLoss(loss_terms=['LOSS', 'KL', 'RECON'],
-                                 pred_terms=['GT', 'PRED', 'LAT', 'IND']),
+        self.loss = {'t': MyLoss_T(loss_terms=['LOSS', 'KL', 'RECON'],
+                                   pred_terms=['GT', 'PRED', 'LAT', 'IND']),
                      's': MyLoss_S(loss_terms=['LOSS', 'MU_I', 'LOGVAR_I', 'MU_B', 'LOGVAR_B', 'BBX', 'IMG'],
                                        pred_terms=['GT', 'T_PRED', 'S_PRED', 'T_LATENT_I', 'S_LATENT_I',
                                                    'T_LATENT_B', 'S_LATENT_B',
@@ -264,7 +264,7 @@ class TrainerVTS_V05c1:
         if autosave:
             fig.savefig(f"{save_path}{filename['PRED']}")
 
-        fig = self.loss['t'].plot_predict(title['LAT'], inds)
+        fig = self.loss['t'].plot_latent(title['LAT'], inds)
         if autosave:
             fig.savefig(f"{save_path}{filename['LAT']}")
 
