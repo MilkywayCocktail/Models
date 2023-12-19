@@ -262,6 +262,7 @@ class MyDatasetBBX(MyDataset):
         print(f"{self.name}: loaded csi {csi.shape}, raw_img {r_img.shape}, cropped_img {c_img.shape}, bbx {bbx.shape}")
         r_img = r_img.reshape((-1, 1, self.img_size[0], self.img_size[1]))
         c_img = c_img.reshape((-1, 1, 128, 128))
+        # bbx is 'xywh' or 'xyxy'
         if self.bbx_ver == 'xyxy':
             bbx[..., -1] = bbx[..., -1] + bbx[..., -3]
             bbx[..., -2] = bbx[..., -2] + bbx[..., -4]

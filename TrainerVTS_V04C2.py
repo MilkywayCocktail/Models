@@ -277,7 +277,7 @@ class TrainerVTS_V04c2:
                           'RECON_B': [],
                           'BBX': []}
 
-            for idx, (csi, r_img, c_img, bbx, index) in enumerate(self.train_loader, 0):
+            for idx, (csi, r_img, c_img, bbx, index) in enumerate(self.valid_loader, 0):
                 r_img = r_img.to(torch.float32).to(self.device)
                 c_img = c_img.to(torch.float32).to(self.device)
                 bbx = bbx.to(torch.float32).to(self.device)
@@ -364,7 +364,7 @@ class TrainerVTS_V04c2:
                           'BBX': [],
                           'IMG': []}
 
-            for idx, (csi, r_img, c_img, bbx, index) in enumerate(self.train_loader, 0):
+            for idx, (csi, r_img, c_img, bbx, index) in enumerate(self.valid_loader, 0):
                 csi = csi.to(torch.float32).to(self.device)
                 r_img = r_img.to(torch.float32).to(self.device)
                 c_img = c_img.to(torch.float32).to(self.device)
@@ -532,7 +532,7 @@ class TrainerVTS_V04c2:
         if autosave:
             fig.savefig(f"{save_path}{filename['BBX']}")
 
-        fig = self.loss['t'].plot_test(title['BBX'], inds)
+        fig = self.loss['t'].plot_test(title['LOSS'], inds)
         if autosave:
             fig.savefig(f"{save_path}{filename['LOSS']}")
 
@@ -577,7 +577,7 @@ class TrainerVTS_V04c2:
         if autosave:
             fig.savefig(f"{save_path}{filename['LATENT_B']}")
 
-        fig = self.loss['t'].plot_test(title['BBX'], inds)
+        fig = self.loss['t'].plot_test(title['LOSS'], inds)
         if autosave:
             fig.savefig(f"{save_path}{filename['LOSS']}")
 
