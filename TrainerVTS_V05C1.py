@@ -108,6 +108,7 @@ class TrainerVTS_V05c1:
                           }
         return {'GT': img,
                 'PRED': output,
+                'LAT': latent,
                 'IND': i
                 }
 
