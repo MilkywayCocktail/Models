@@ -332,8 +332,8 @@ class CsiEncoderV03b1(nn.Module):
 # -------------------------------------------------------------------------- #
 
 class ImageEncoderV03b2(ImageEncoderV03b1):
-    def __init__(self, batchnorm=False):
-        super(ImageEncoderV03b2, self).__init__(batchnorm=batchnorm)
+    def __init__(self, batchnorm=False, latent_dim=16):
+        super(ImageEncoderV03b2, self).__init__(batchnorm=batchnorm, latent_dim=latent_dim)
 
         self.cnn = nn.Sequential(
             # 1 * 128 * 128
@@ -364,8 +364,8 @@ class ImageEncoderV03b2(ImageEncoderV03b1):
 
 
 class ImageDecoderV03b2(ImageDecoderV03b1):
-    def __init__(self, batchnorm=False, active_func=nn.Sigmoid()):
-        super(ImageDecoderV03b2, self).__init__(batchnorm=batchnorm, active_func=active_func)
+    def __init__(self, batchnorm=False, active_func=nn.Sigmoid(), latent_dim=16):
+        super(ImageDecoderV03b2, self).__init__(batchnorm=batchnorm, active_func=active_func, latent_dim=latent_dim)
 
         self.fclayers = nn.Sequential(
             nn.Linear(self.latent_dim, 4096),
@@ -420,8 +420,8 @@ class ImageDecoderV03b2(ImageDecoderV03b1):
 
 
 class ImageEncoderV03c1(ImageEncoderV03b1):
-    def __init__(self, batchnorm=False):
-        super(ImageEncoderV03c1, self).__init__(batchnorm=batchnorm)
+    def __init__(self, batchnorm=False, latent_dim=16):
+        super(ImageEncoderV03c1, self).__init__(batchnorm=batchnorm, latent_dim=latent_dim)
 
         self.fclayers = nn.Sequential(
             nn.Linear(4 * 4 * 256, 4096),
@@ -449,16 +449,16 @@ class ImageEncoderV03c1(ImageEncoderV03b1):
 
 
 class ImageDecoderV03c1(ImageDecoderV03b1):
-    def __init__(self):
-        super(ImageDecoderV03c1, self).__init__()
+    def __init__(self, *args, **kwargs):
+        super(ImageDecoderV03c1, self).__init__(*args, **kwargs)
 
     def __str__(self):
         return 'ImgDeV03c1'
 
 
 class ImageDecoderIntV03c1(ImageDecoderIntV03b1):
-    def __init__(self, batchnorm=False):
-        super(ImageDecoderIntV03c1, self).__init__(batchnorm=batchnorm)
+    def __init__(self, *args, **kwargs):
+        super(ImageDecoderIntV03c1, self).__init__(*args, **kwargs)
 
     def __str__(self):
         return 'ImgDeIntV03c1'
@@ -502,8 +502,8 @@ class CsiEncoderV03c1(CsiEncoderV03b1):
 
 
 class ImageEncoderV03c2(ImageEncoderV03c1):
-    def __init__(self, batchnorm=False):
-        super(ImageEncoderV03c2, self).__init__()
+    def __init__(self, batchnorm=False, latent_dim=16):
+        super(ImageEncoderV03c2, self).__init__(batchnorm=batchnorm, latent_dim=latent_dim)
 
         self.cnn = nn.Sequential(
             # 1 * 128 * 128
@@ -534,8 +534,8 @@ class ImageEncoderV03c2(ImageEncoderV03c1):
 
 
 class ImageDecoderV03c2(ImageDecoderV03b2):
-    def __init__(self, batchnorm=False, active_func=nn.Sigmoid()):
-        super(ImageDecoderV03c2, self).__init__(batchnorm=batchnorm, active_func=active_func)
+    def __init__(self, batchnorm=False, active_func=nn.Sigmoid(), latent_dim=16):
+        super(ImageDecoderV03c2, self).__init__(batchnorm=batchnorm, active_func=active_func, latent_dim=latent_dim)
 
         self.fclayers = nn.Sequential(
             nn.Linear(self.latent_dim, 4096),
@@ -591,8 +591,8 @@ class ImageDecoderV03c2(ImageDecoderV03b2):
 
 
 class ImageEncoderV03c3(ImageEncoderV03c2):
-    def __init__(self, batchnorm=False):
-        super(ImageEncoderV03c3, self).__init__(batchnorm=batchnorm)
+    def __init__(self, batchnorm=False, latent_dim=16):
+        super(ImageEncoderV03c3, self).__init__(batchnorm=batchnorm, latent_dim=latent_dim)
 
         self.cnn = nn.Sequential(
             # In = 128 * 128 *
@@ -635,8 +635,8 @@ class ImageEncoderV03c3(ImageEncoderV03c2):
 
 
 class ImageDecoderV03c3(ImageDecoderV03c2):
-    def __init__(self, batchnorm=False):
-        super(ImageDecoderV03c3, self).__init__(batchnorm=batchnorm)
+    def __init__(self, batchnorm=False, latent_dim=16):
+        super(ImageDecoderV03c3, self).__init__(batchnorm=batchnorm, latent_dim=latent_dim)
 
         self.cnn = nn.Sequential(
             # In = 4 * 4 * 128
@@ -668,8 +668,8 @@ class ImageDecoderV03c3(ImageDecoderV03c2):
 
 
 class ImageDecoderIntV03c3(ImageDecoderV03c2):
-    def __init__(self, batchnorm=False):
-        super(ImageDecoderIntV03c3, self).__init__(batchnorm=batchnorm)
+    def __init__(self, batchnorm=False, latent_dim=16):
+        super(ImageDecoderIntV03c3, self).__init__(batchnorm=batchnorm, latent_dim=latent_dim)
 
         self.cnn = nn.Sequential(
             ResidualBlock(128, 128, batchnorm),
@@ -903,8 +903,8 @@ class ImageDecoderV03d1(ImageDecoderV03c1):
 
 
 class ImageEncoderV04c1(ImageEncoderV03c2):
-    def __init__(self, batchnorm=False):
-        super(ImageEncoderV04c1, self).__init__(batchnorm=batchnorm)
+    def __init__(self, *args, **kwargs):
+        super(ImageEncoderV04c1, self).__init__(*args, **kwargs)
 
     def __str__(self):
         return 'ImgEnV04c1' + self.bottleneck.capitalize()
@@ -944,16 +944,16 @@ class ImageDecoderV04c1(ImageDecoderV03c2):
 
 
 class ImageEncoderV04c2(ImageEncoderV03c2):
-    def __init__(self, batchnorm=False):
-        super(ImageEncoderV04c2, self).__init__(batchnorm=batchnorm)
+    def __init__(self, *args, **kwargs):
+        super(ImageEncoderV04c2, self).__init__(*args, **kwargs)
 
     def __str__(self):
         return 'ImgEnV04c2' + self.bottleneck.capitalize()
 
 
 class ImageDecoderV04c2(ImageDecoderV03c2):
-    def __init__(self, batchnorm=False, active_func=nn.Sigmoid()):
-        super(ImageDecoderV04c2, self).__init__(batchnorm=batchnorm, active_func=active_func)
+    def __init__(self, batchnorm=False, active_func=nn.Sigmoid(), latent_dim=16):
+        super(ImageDecoderV04c2, self).__init__(batchnorm=batchnorm, active_func=active_func, latent_dim=latent_dim)
 
         self.cnn = nn.Sequential(
             # 256 * 4 * 4
@@ -1164,7 +1164,7 @@ class ImageEncoderV05c1(nn.Module):
         )
 
     def __str__(self):
-        return 'ImgEnV05c1' + self.bottleneck.capitalize()
+        return 'ImgEnV05c1'
 
     def forward(self, x):
         out = self.cnn(x)
