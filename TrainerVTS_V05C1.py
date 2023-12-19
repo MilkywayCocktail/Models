@@ -98,7 +98,7 @@ class TrainerVTS_V05c1:
 
     def calculate_loss_t(self, img, i=None):
 
-        latent, z, mu, logvar = self.models['imgen'](img)
+        z, mu, logvar = self.models['imgen'](img)
         output = self.models['imgde'](z)
         loss, kl_loss, recon_loss = self.vae_loss(output, img, mu, logvar)
 
@@ -108,7 +108,7 @@ class TrainerVTS_V05c1:
                           }
         return {'GT': img,
                 'PRED': output,
-                'LAT': latent,
+                'LAT': torch.cat((mu, logvar), -1),
                 'IND': i
                 }
 

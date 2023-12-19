@@ -1173,7 +1173,7 @@ class ImageEncoderV05c1(nn.Module):
         logvar = self.fc_logvar(out.view(-1, 4 * 4 * 512))
         z = reparameterize(mu, logvar)
 
-        return out, z, mu, logvar
+        return z, mu, logvar
 
 
 if __name__ == "__main__":
@@ -1182,5 +1182,5 @@ if __name__ == "__main__":
     LAT = (1, 16)
     RIMG = (1, 1, 128, 226)
 
-    m = MaskEncoderV04c2()
-    summary(m, input_size=RIMG)
+    m = ImageEncoderV05c1()
+    summary(m, input_size=IMG)
