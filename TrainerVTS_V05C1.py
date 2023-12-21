@@ -3,6 +3,8 @@ import torch.nn as nn
 from torchvision.ops import generalized_box_iou_loss
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
+from torchvision.ops import generalized_box_iou_loss
 import os
 import time
 from Loss import MyLoss, MyLoss_S
@@ -48,6 +50,35 @@ class MyLoss_T(MyLoss):
         return fig
 
 
+class MyLoss_S_BBX(MyLoss_S):
+    def __init__(self, loss_terms, pred_terms):
+        super(MyLoss_S_BBX, self).__init__(loss_terms, pred_terms)
+
+    def plot_bbx(self, title, select_ind):
+        self.__plot_settings__()
+
+        title = f"{title} @ep{self.epochs[-1]}"
+        samples = np.array(self.loss['pred']['IND'])[select_ind]
+
+        fig = plt.figure(constrained_layout=True)
+        fig.suptitle(title)
+        axes = fig.subplots(nrows=2, ncols=np.ceil(len(select_ind) / 2).astype(int))
+        axes = axes.flatten()
+        for j in range(len(select_ind)):
+            axes[j].set_xlim([0, 226])
+            axes[j].set_ylim([0, 128])
+            x, y, w, h = self.loss['pred']['GT_BBX'][select_ind[j]]
+            axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='blue', fill=False, lw=4, label='GroundTruth'))
+            x, y, w, h = self.loss['pred']['S_BBX'][select_ind[j]]
+            axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='orange', fill=False, lw=4, label='Student'))
+            axes[j].axis('off')
+            axes[j].set_title(f"#{samples[j]}")
+
+        axes[0].legend()
+        plt.show()
+        return fig
+
+
 class TrainerVTS_V05c1:
     def __init__(self, img_encoder, img_decoder, csi_encoder,
                  lr, epochs, cuda,
@@ -70,16 +101,16 @@ class TrainerVTS_V05c1:
 
         self.alpha = 0.8
         self.beta = 1.2
+        self.gamma = 1
 
         self.recon_lossfun = nn.MSELoss(reduction='sum')
 
         self.temp_loss = {}
         self.loss = {'t': MyLoss_T(loss_terms=['LOSS', 'KL', 'RECON'],
                                    pred_terms=['GT', 'PRED', 'LAT', 'IND']),
-                     's': MyLoss_S(loss_terms=['LOSS', 'MU_I', 'LOGVAR_I', 'MU_B', 'LOGVAR_B', 'BBX', 'IMG'],
-                                       pred_terms=['GT', 'T_PRED', 'S_PRED', 'T_LATENT_I', 'S_LATENT_I',
-                                                   'T_LATENT_B', 'S_LATENT_B',
-                                                   'GT_BBX', 'T_BBX', 'S_BBX', 'IND']),
+                     's': MyLoss_S_BBX(loss_terms=['LOSS', 'MU', 'LOGVAR', 'BBX', 'IMG'],
+                                   pred_terms=['GT', 'T_PRED', 'S_PRED', 'T_LATENT', 'S_LATENT',
+                                               'GT_BBX', 'S_BBX', 'IND']),
                      }
         self.inds = None
 
@@ -90,11 +121,26 @@ class TrainerVTS_V05c1:
         """
         return f"Te{self.loss['t'].epochs[-1]}_Se{self.loss['s'].epochs[-1]}"
 
+    @staticmethod
+    def bbx_loss(bbx1, bbx2):
+        # x, y, w, h to x1, y1, x2, y2
+        # bbx1[-1] = bbx1[-1] + bbx1[-3]
+        # bbx1[-2] = bbx1[-2] + bbx1[-4]
+        # bbx2[-1] = bbx2[-1] + bbx2[-3]
+        # bbx2[-2] = bbx2[-2] + bbx2[-4]
+        return generalized_box_iou_loss(bbx1, bbx2, reduction='sum')
+
     def vae_loss(self, pred, gt, mu, logvar):
         recon_loss = self.recon_lossfun(pred, gt) / pred.shape[0]
         kl_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
         loss = recon_loss + kl_loss * self.beta
         return loss, kl_loss, recon_loss
+
+    def kd_loss(self, mu_s, logvar_s, mu_t, logvar_t):
+        mu_loss = self.recon_lossfun(mu_s, mu_t) / mu_s.shape[0]
+        logvar_loss = self.recon_lossfun(logvar_s, logvar_t) / logvar_s.shape[0]
+        loss = self.alpha * mu_loss + (1 - self.alpha) * logvar_loss
+        return loss, mu_loss, logvar_loss
 
     def calculate_loss_t(self, img, i=None):
 
@@ -111,6 +157,33 @@ class TrainerVTS_V05c1:
                 'LAT': torch.cat((mu, logvar), -1),
                 'IND': i
                 }
+
+    def calculate_loss_s(self, csi, c_img, bbx, i=None):
+
+        s_z, s_mu, s_logvar, s_bbx = self.models['csien'](csi)
+
+        with torch.no_grad():
+            t_z, t_mu, t_logvar = self.models['imgen'](c_img)
+            s_output = self.models['imgde'](s_z)
+            t_output = self.models['imgde'](t_z)
+            image_loss = self.recon_lossfun(s_output, c_img)
+        bbx_loss = self.bbx_loss(s_bbx, bbx)
+        loss_i, mu_loss_i, logvar_loss_i = self.kd_loss(s_mu, s_logvar, t_mu, t_logvar)
+        loss = loss_i + bbx_loss * self.gamma
+
+        self.temp_loss = {'LOSS': loss,
+                          'MU': mu_loss_i,
+                          'LOGVAR': logvar_loss_i,
+                          'BBX': bbx_loss,
+                          'IMG': image_loss}
+        return {'GT': c_img,
+                'GT_BBX': bbx,
+                'T_LATENT': torch.cat((t_mu, t_logvar), -1),
+                'S_LATENT': torch.cat((s_mu, s_logvar), -1),
+                'T_PRED': t_output,
+                'S_PRED': s_output,
+                'S_BBX': s_bbx,
+                'IND': i}
 
     @timer
     def train_teacher(self, autosave=False, notion=''):
@@ -176,6 +249,82 @@ class TrainerVTS_V05c1:
                        f"{save_path}{notion}_{self.models['imgen']}_{self.current_title()}.pth")
             torch.save(self.models['imgde'].state_dict(),
                        f"{save_path}{notion}_{self.models['imgde']}_{self.current_title()}.pth")
+
+    @timer
+    def train_student(self, autosave=False, notion=''):
+        """
+        Trains the student.
+        :param autosave: whether to save model parameters. Default is False
+        :param notion: additional notes in save name
+        :return: trained student
+        """
+        optimizer = self.optimizer([{'params': self.models['csien'].parameters()}], lr=self.lr)
+        self.loss['s'].logger(self.lr, self.epochs)
+        for epoch in range(self.epochs):
+
+            # =====================train============================
+            self.models['imgen'].eval()
+            self.models['imgde'].eval()
+            self.models['csien'].train()
+
+            EPOCH_LOSS = {'LOSS': [],
+                          'MU': [],
+                          'LOGVAR': [],
+                          'BBX': [],
+                          'IMG': []}
+
+            for idx, (csi, r_img, c_img, bbx, index) in enumerate(self.train_loader, 0):
+                csi = csi.to(torch.float32).to(self.device)
+                c_img = c_img.to(torch.float32).to(self.device)
+                bbx = bbx.to(torch.float32).to(self.device)
+
+                PREDS = self.calculate_loss_s(csi, c_img, bbx)
+                optimizer.zero_grad()
+                self.temp_loss['LOSS'].backward()
+                optimizer.step()
+
+                for key in EPOCH_LOSS.keys():
+                    EPOCH_LOSS[key].append(self.temp_loss[key].item())
+
+                if idx % (len(self.train_loader) // 5) == 0:
+                    print(f"\rStudent: epoch={epoch}/{self.epochs}, batch={idx}/{len(self.train_loader)}, "
+                          f"loss={self.temp_loss['LOSS'].item()}", end='')
+
+            for key in EPOCH_LOSS.keys():
+                EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
+            self.loss['s'].update('train', EPOCH_LOSS)
+
+            # =====================valid============================
+            self.models['imgen'].eval()
+            self.models['imgde'].eval()
+            self.models['csien'].eval()
+
+            EPOCH_LOSS = {'LOSS': [],
+                          'MU': [],
+                          'LOGVAR': [],
+                          'BBX': [],
+                          'IMG': []}
+
+            for idx, (csi, r_img, c_img, bbx, index) in enumerate(self.valid_loader, 0):
+                csi = csi.to(torch.float32).to(self.device)
+                c_img = c_img.to(torch.float32).to(self.device)
+                bbx = bbx.to(torch.float32).to(self.device)
+                with torch.no_grad():
+                    PREDS = self.calculate_loss_s(csi, c_img, bbx)
+
+                for key in EPOCH_LOSS.keys():
+                    EPOCH_LOSS[key].append(self.temp_loss[key].item())
+
+            for key in EPOCH_LOSS.keys():
+                EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
+            self.loss['s'].update('valid', EPOCH_LOSS)
+
+        if autosave:
+            save_path = f'../saved/{notion}/'
+            if not os.path.exists(save_path):
+                os.makedirs(save_path)
+            torch.save(self.models['csien'].state_dict(),
+                       f"{save_path}{notion}_{self.models['csien']}_{self.current_title()}.pth")
 
     def test_teacher(self, mode='test'):
         self.models['imgen'].eval()
@@ -265,6 +414,39 @@ class TrainerVTS_V05c1:
             fig1.savefig(f"{save_path}{filename['PRED']}")
             fig2.savefig(f"{save_path}{filename['LAT']}")
             fig3.savefig(f"{save_path}{filename['LOSS']}")
+
+    def plot_test_s(self, select_ind=None, select_num=8, autosave=False, notion=''):
+        title = {'PRED': "Student Test IMG Predicts",
+                 'BBX': "Student Test BBX Predicts",
+                 'LOSS': "Student Test Loss",
+                 'LATENT': f"Student Test Latents for IMG"}
+        filename = {'PRED': f"{notion}_S_img_{self.current_title()}.jpg",
+                    'BBX': f"{notion}_S_bbx_{self.current_title()}.jpg",
+                    'LOSS': f"{notion}_S_test_{self.current_title()}.jpg",
+                    'LATENT': f"{notion}_S_latent_{self.current_title()}.jpg",}
+
+        save_path = f'../saved/{notion}/'
+
+        if select_ind:
+            inds = select_ind
+        else:
+            if self.inds is not None and select_num == len(self.inds):
+                inds = self.inds
+            else:
+                inds = self.generate_indices(self.loss['s'].loss['pred']['IND'], select_num)
+
+        fig1 = self.loss['s'].plot_predict(title['PRED'], inds, ('GT', 'T_PRED', 'S_PRED'))
+        fig2 = self.loss['s'].plot_bbx(title['BBX'], inds)
+        fig3 = self.loss['s'].plot_latent(title['s']['LATENT'], inds, ('T_LATENT', 'S_LATENT'))
+        fig4 = self.loss['s'].plot_test(title['LOSS'], inds)
+
+        if autosave:
+            if not os.path.exists(save_path):
+                os.makedirs(save_path)
+            fig1.savefig(f"{save_path}{filename['PRED']}")
+            fig2.savefig(f"{save_path}{filename['BBX']}")
+            fig3.savefig(f"{save_path}{filename['LATENT_I']}")
+            fig4.savefig(f"{save_path}{filename['LOSS']}")
 
     def scheduler(self, train_t=True, train_s=True,
                   t_turns=10, s_turns=10,

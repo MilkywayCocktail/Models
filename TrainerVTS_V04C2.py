@@ -549,9 +549,6 @@ class TrainerVTS_V04c2:
                     'LATENT_B': f"{notion}_S_latent_b_{self.current_title()}.jpg"}
 
         save_path = f'../saved/{notion}/'
-        if autosave:
-            if not os.path.exists(save_path):
-                os.makedirs(save_path)
 
         if select_ind:
             inds = select_ind
@@ -561,25 +558,20 @@ class TrainerVTS_V04c2:
             else:
                 inds = self.generate_indices(self.loss['s'].loss['pred']['IND'], select_num)
 
-        fig = self.loss['s'].plot_predict(title['PRED'], inds, ('GT', 'T_PRED', 'S_PRED'))
-        if autosave:
-            fig.savefig(f"{save_path}{filename['PRED']}")
+        fig1 = self.loss['s'].plot_predict(title['PRED'], inds, ('GT', 'T_PRED', 'S_PRED'))
+        fig2 = self.loss['s'].plot_bbx(title['BBX'], inds)
+        fig3 = self.loss['s'].plot_latent(title['s']['LATENT_I'], inds, ('T_LATENT_I', 'S_LATENT_I'))
+        fig4 = self.loss['s'].plot_latent(title['s']['LATENT_B'], inds, ('T_LATENT_B', 'S_LATENT_B'))
+        fig5 = self.loss['s'].plot_test(title['LOSS'], inds)
 
-        fig = self.loss['s'].plot_bbx(title['BBX'], inds)
         if autosave:
-            fig.savefig(f"{save_path}{filename['BBX']}")
-
-        fig = self.loss['s'].plot_latent(title['s']['LATENT_I'], inds, ('T_LATENT_I', 'S_LATENT_I'))
-        if autosave:
-            fig.savefig(f"{save_path}{filename['LATENT_I']}")
-
-        fig = self.loss['s'].plot_latent(title['s']['LATENT_B'], inds, ('T_LATENT_B', 'S_LATENT_B'))
-        if autosave:
-            fig.savefig(f"{save_path}{filename['LATENT_B']}")
-
-        fig = self.loss['t'].plot_test(title['LOSS'], inds)
-        if autosave:
-            fig.savefig(f"{save_path}{filename['LOSS']}")
+            if not os.path.exists(save_path):
+                os.makedirs(save_path)
+            fig1.savefig(f"{save_path}{filename['PRED']}")
+            fig2.savefig(f"{save_path}{filename['BBX']}")
+            fig3.savefig(f"{save_path}{filename['LATENT_I']}")
+            fig4.savefig(f"{save_path}{filename['LATENT_B']}")
+            fig5.savefig(f"{save_path}{filename['LOSS']}")
 
     def scheduler(self, train_t=True, train_s=True,
                   t_turns=10, s_turns=10,

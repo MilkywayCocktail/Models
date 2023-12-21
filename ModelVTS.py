@@ -773,8 +773,8 @@ class CsiEncoderV03c4(CsiEncoderV03c1):
 
         self.cnn = nn.Sequential(
             # 2 * 90 * 100
-            nn.Conv2d(2, 16, kernel_size=3, stride=(3, 1), padding=0),
-            bn(16, batchnorm),
+            nn.Conv2d(2, 32, kernel_size=3, stride=(3, 1), padding=0),
+            bn(32, batchnorm),
             nn.LeakyReLU(inplace=True),
             # 16 * 30 * 98
             nn.Conv2d(16, 64, kernel_size=3, stride=(2, 2), padding=0),
@@ -1174,6 +1174,49 @@ class ImageEncoderV05c1(nn.Module):
         z = reparameterize(mu, logvar)
 
         return z, mu, logvar
+
+
+class CsiEncoderV05c1(CsiEncoderV03c4):
+    def __init__(self, batchnorm=False, feature_length=512, middle_length=128):
+        super(CsiEncoderV05c1, self).__init__(batchnorm=batchnorm, feature_length=feature_length)
+
+        self.middle_length = middle_length
+        self.attn = SelfAttention(512)
+        self.lstm = nn.Sequential(
+            nn.LSTM(self.feature_length, 128, 2, batch_first=True, dropout=0.1),
+        )
+
+        self.fc1 = nn.Sequential(
+            nn.Linear(self.middle_length, self.latent_dim),
+        )
+
+        self.fc2 = nn.Sequential(
+            nn.Linear(self.middle_length, self.latent_dim),
+        )
+
+        self.fc3 = nn.Sequential(
+            nn.Linear(self.middle_length, 4),
+        )
+
+    def __str__(self):
+        return 'CsiEnV05c1'
+
+    def forward(self, x):
+        out = self.cnn(x)
+        out = self.attn(out)
+        # out = self.gap(out)
+        out, (final_hidden_state, final_cell_state) = self.lstm.forward(
+            out.view(-1, self.feature_length * 8, 42).transpose(1, 2))
+
+        out = out[:, -1, :]
+
+        mu_i = self.fc1(out)
+        logvar_i = self.fc2(out)
+        bbx = self.fc3(out)
+
+        z_i = reparameterize(mu_i, logvar_i)
+
+        return z_i, mu_i, logvar_i, bbx
 
 
 if __name__ == "__main__":
