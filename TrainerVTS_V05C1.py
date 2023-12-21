@@ -488,7 +488,7 @@ class TrainerVTS_V05c1:
                 os.makedirs(save_path)
             fig1.savefig(f"{save_path}{filename['PRED']}")
             fig2.savefig(f"{save_path}{filename['BBX']}")
-            fig3.savefig(f"{save_path}{filename['LATENT_I']}")
+            fig3.savefig(f"{save_path}{filename['LATENT']}")
             fig4.savefig(f"{save_path}{filename['LOSS']}")
 
     def scheduler(self, train_t=True, train_s=True,
