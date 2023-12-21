@@ -144,7 +144,7 @@ class TrainerVTS_V05c1:
 
                 if idx % (len(self.train_loader) // 5) == 0:
                     print(f"\rTeacher: epoch={epoch}/{self.epochs}, batch={idx}/{len(self.train_loader)}, "
-                          f"loss={self.temp_loss['LOSS'].item()}", end='')
+                          f"loss={self.temp_loss['LOSS'].item():.4f}", end='')
 
             for key in EPOCH_LOSS.keys():
                 EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
@@ -176,8 +176,6 @@ class TrainerVTS_V05c1:
                        f"{save_path}{notion}_{self.models['imgen']}_{self.current_title()}.pth")
             torch.save(self.models['imgde'].state_dict(),
                        f"{save_path}{notion}_{self.models['imgde']}_{self.current_title()}.pth")
-            torch.save(self.models['msken'].state_dict(),
-                       f"{save_path}{notion}_{self.models['msken']}_{self.current_title()}.pth")
 
     def test_teacher(self, mode='test'):
         self.models['imgen'].eval()
@@ -210,7 +208,7 @@ class TrainerVTS_V05c1:
                     self.loss['t'].update('pred', PREDS)
 
             if idx % (len(loader)//5) == 0:
-                print(f"\rTeacher: test={idx}/{len(loader)}, loss={self.temp_loss['LOSS'].item()}", end='')
+                print(f"\rTeacher: test={idx}/{len(loader)}, loss={self.temp_loss['LOSS'].item():.4f}", end='')
 
         self.loss['t'].update('test', EPOCH_LOSS)
         for key in EPOCH_LOSS.keys():
@@ -225,12 +223,12 @@ class TrainerVTS_V05c1:
 
         save_path = f'../saved/{notion}/'
 
-        self.loss[mode].plot_train(title[mode], 'all', double_y)
+        fig = self.loss[mode].plot_train(title[mode], 'all', double_y)
 
         if autosave:
             if not os.path.exists(save_path):
                 os.makedirs(save_path)
-            plt.savefig(f"{save_path}{filename[mode]}")
+            fig.savefig(f"{save_path}{filename[mode]}")
         plt.show()
 
     def generate_indices(self, source, select_num):
@@ -248,9 +246,6 @@ class TrainerVTS_V05c1:
                     'LOSS': f"{notion}_T_test_{self.current_title()}.jpg"}
 
         save_path = f'../saved/{notion}/'
-        if autosave:
-            if not os.path.exists(save_path):
-                os.makedirs(save_path)
 
         if select_ind:
             inds = select_ind
@@ -260,17 +255,16 @@ class TrainerVTS_V05c1:
             else:
                 inds = self.generate_indices(self.loss['t'].loss['pred']['IND'], select_num)
 
-        fig = self.loss['t'].plot_predict(title['PRED'], inds, ('GT', 'PRED'))
-        if autosave:
-            fig.savefig(f"{save_path}{filename['PRED']}")
+        fig1 = self.loss['t'].plot_predict(title['PRED'], inds, ('GT', 'PRED'))
+        fig2 = self.loss['t'].plot_latent(title['LAT'], inds)
+        fig3 = self.loss['t'].plot_test(title['LOSS'], inds)
 
-        fig = self.loss['t'].plot_latent(title['LAT'], inds)
         if autosave:
-            fig.savefig(f"{save_path}{filename['LAT']}")
-
-        fig = self.loss['t'].plot_test(title['LOSS'], inds)
-        if autosave:
-            fig.savefig(f"{save_path}{filename['LOSS']}")
+            if not os.path.exists(save_path):
+                os.makedirs(save_path)
+            fig1.savefig(f"{save_path}{filename['PRED']}")
+            fig2.savefig(f"{save_path}{filename['LAT']}")
+            fig3.savefig(f"{save_path}{filename['LOSS']}")
 
     def scheduler(self, train_t=True, train_s=True,
                   t_turns=10, s_turns=10,
