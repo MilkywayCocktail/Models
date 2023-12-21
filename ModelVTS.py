@@ -776,8 +776,8 @@ class CsiEncoderV03c4(CsiEncoderV03c1):
             nn.Conv2d(2, 32, kernel_size=3, stride=(3, 1), padding=0),
             bn(32, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # 16 * 30 * 98
-            nn.Conv2d(16, 64, kernel_size=3, stride=(2, 2), padding=0),
+            # 32 * 30 * 98
+            nn.Conv2d(32, 64, kernel_size=3, stride=(2, 2), padding=0),
             bn(64, batchnorm),
             nn.LeakyReLU(inplace=True),
             # 64 * 14 * 48
@@ -1183,7 +1183,7 @@ class CsiEncoderV05c1(CsiEncoderV03c4):
         self.middle_length = middle_length
         self.attn = SelfAttention(512)
         self.lstm = nn.Sequential(
-            nn.LSTM(self.feature_length, 128, 2, batch_first=True, dropout=0.1),
+            nn.LSTM(self.feature_length * 8, 128, 2, batch_first=True, dropout=0.1),
         )
 
         self.fc1 = nn.Sequential(
@@ -1221,9 +1221,9 @@ class CsiEncoderV05c1(CsiEncoderV03c4):
 
 if __name__ == "__main__":
     IMG = (1, 1, 128, 128)
-    CSI = (2, 90, 100)
+    CSI = (1, 2, 90, 100)
     LAT = (1, 16)
     RIMG = (1, 1, 128, 226)
 
-    m = ImageEncoderV05c1()
-    summary(m, input_size=IMG)
+    m = CsiEncoderV05c1()
+    summary(m, input_size=CSI)
