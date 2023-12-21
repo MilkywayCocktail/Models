@@ -205,7 +205,7 @@ class TrainerVTS_V05c1:
                           'KL': [],
                           'RECON': []
                           }
-            for idx, (csi, img, index) in enumerate(self.train_loader, 0):
+            for idx, (csi, img, bbx, index) in enumerate(self.train_loader, 0):
                 img = img.to(torch.float32).to(self.device)
                 optimizer.zero_grad()
 
@@ -231,7 +231,7 @@ class TrainerVTS_V05c1:
                           'RECON': []
                           }
 
-            for idx, (csi, img, index) in enumerate(self.valid_loader, 0):
+            for idx, (csi, img, bbx, index) in enumerate(self.valid_loader, 0):
                 img = img.to(torch.float32).to(self.device)
                 with torch.no_grad():
                     PREDS = self.calculate_loss_t(img)
@@ -273,12 +273,12 @@ class TrainerVTS_V05c1:
                           'BBX': [],
                           'IMG': []}
 
-            for idx, (csi, r_img, c_img, bbx, index) in enumerate(self.train_loader, 0):
+            for idx, (csi, img, bbx, index) in enumerate(self.train_loader, 0):
                 csi = csi.to(torch.float32).to(self.device)
-                c_img = c_img.to(torch.float32).to(self.device)
+                img = c_img.to(torch.float32).to(self.device)
                 bbx = bbx.to(torch.float32).to(self.device)
 
-                PREDS = self.calculate_loss_s(csi, c_img, bbx)
+                PREDS = self.calculate_loss_s(csi, img, bbx)
                 optimizer.zero_grad()
                 self.temp_loss['LOSS'].backward()
                 optimizer.step()
@@ -305,12 +305,12 @@ class TrainerVTS_V05c1:
                           'BBX': [],
                           'IMG': []}
 
-            for idx, (csi, r_img, c_img, bbx, index) in enumerate(self.valid_loader, 0):
+            for idx, (csi, img, bbx, index) in enumerate(self.valid_loader, 0):
                 csi = csi.to(torch.float32).to(self.device)
-                c_img = c_img.to(torch.float32).to(self.device)
+                img = img.to(torch.float32).to(self.device)
                 bbx = bbx.to(torch.float32).to(self.device)
                 with torch.no_grad():
-                    PREDS = self.calculate_loss_s(csi, c_img, bbx)
+                    PREDS = self.calculate_loss_s(csi, img, bbx)
 
                 for key in EPOCH_LOSS.keys():
                     EPOCH_LOSS[key].append(self.temp_loss[key].item())
@@ -343,7 +343,7 @@ class TrainerVTS_V05c1:
         self.loss['t'].reset('test')
         self.loss['t'].reset('pred')
 
-        for idx, (csi, img, index) in enumerate(loader, 0):
+        for idx, (csi, img, bbx, index) in enumerate(loader, 0):
             img = img.to(torch.float32).to(self.device)
             with torch.no_grad():
                 for sample in range(loader.batch_size):
@@ -360,6 +360,49 @@ class TrainerVTS_V05c1:
                 print(f"\rTeacher: test={idx}/{len(loader)}, loss={self.temp_loss['LOSS'].item():.4f}", end='')
 
         self.loss['t'].update('test', EPOCH_LOSS)
+        for key in EPOCH_LOSS.keys():
+            EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
+        print(f"\nTest finished. Average loss={EPOCH_LOSS}")
+
+    def test_student(self, mode='test'):
+        self.models['imgen'].eval()
+        self.models['imgde'].eval()
+        self.models['csien'].eval()
+
+        EPOCH_LOSS = {'LOSS': [],
+                      'MU': [],
+                      'LOGVAR': [],
+                      'BBX': [],
+                      'IMG': []}
+
+        if mode == 'test':
+            loader = self.test_loader
+        elif mode == 'train':
+            loader = self.train_loader
+        self.loss['s'].reset('test')
+        self.loss['s'].reset('pred')
+
+        for idx, (csi, img, bbx, index) in enumerate(loader, 0):
+            csi = csi.to(torch.float32).to(self.device)
+            img = img.to(torch.float32).to(self.device)
+            bbx = bbx.to(torch.float32).to(self.device)
+            with torch.no_grad():
+                for sample in range(loader.batch_size):
+                    ind_ = index[sample][np.newaxis, ...]
+                    csi_ = csi[sample][np.newaxis, ...]
+                    img_ = img[sample][np.newaxis, ...]
+                    bbx_ = bbx[sample][np.newaxis, ...]
+                    PREDS = self.calculate_loss_s(csi_, img_, bbx_, ind_)
+
+                    for key in EPOCH_LOSS.keys():
+                        EPOCH_LOSS[key].append(self.temp_loss[key].item())
+
+                    self.loss['s'].update('pred', PREDS)
+
+            if idx % (len(loader) // 5) == 0:
+                print(f"\rStudent: test={idx}/{len(loader)}, loss={self.temp_loss['LOSS'].item()}", end='')
+
+        self.loss['s'].update('test', EPOCH_LOSS)
         for key in EPOCH_LOSS.keys():
             EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
         print(f"\nTest finished. Average loss={EPOCH_LOSS}")
