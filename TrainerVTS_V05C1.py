@@ -480,7 +480,7 @@ class TrainerVTS_V05c1:
 
         fig1 = self.loss['s'].plot_predict(title['PRED'], inds, ('GT', 'T_PRED', 'S_PRED'))
         fig2 = self.loss['s'].plot_bbx(title['BBX'], inds)
-        fig3 = self.loss['s'].plot_latent(title['s']['LATENT'], inds, ('T_LATENT', 'S_LATENT'))
+        fig3 = self.loss['s'].plot_latent(title['LATENT'], inds, ('T_LATENT', 'S_LATENT'))
         fig4 = self.loss['s'].plot_test(title['LOSS'], inds)
 
         if autosave:
