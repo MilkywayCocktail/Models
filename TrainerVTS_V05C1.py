@@ -275,7 +275,7 @@ class TrainerVTS_V05c1:
 
             for idx, (csi, img, bbx, index) in enumerate(self.train_loader, 0):
                 csi = csi.to(torch.float32).to(self.device)
-                img = c_img.to(torch.float32).to(self.device)
+                img = img.to(torch.float32).to(self.device)
                 bbx = bbx.to(torch.float32).to(self.device)
 
                 PREDS = self.calculate_loss_s(csi, img, bbx)
