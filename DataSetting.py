@@ -110,7 +110,7 @@ class MnistDataset(MyDataset):
         :param swap_xy: whether swap the x and y in dataset. Default is False
         :param number: select a number of samples. Default is 0 (all)
         """
-        MyDataset.__init__(name=name, x_path=None, y_path=None, img_size=img_size)
+        MyDataset.__init__(name=name, csi_path=None, img_path=None, img_size=img_size)
         self.swap_xy = swap_xy
         self.data = self.__load_data__(mnist, number=number)
         print('loaded')
@@ -184,7 +184,8 @@ class DataSplitter:
         print(f"Exported loader of len {len(self.data)}...", end='')
         return loader
 
-    def split_loader(self, test_batch_size=1, random=None, shuffle=None, generator=None, num_workers=14, pin_memory=False):
+    def split_loader(self, test_batch_size=1, random=None, shuffle=None, generator=None,
+                     num_workers=14, pin_memory=False):
         """
         Split the dataset into train, validation and test.
         :param test_batch_size: default is 1
@@ -235,7 +236,7 @@ class MyDatasetBBX(MyDataset):
         self.crop_img_path = crop_img_path
         self.bbx_path = bbx_path
         self.bbx_ver = bbx_ver
-        super(MyDatasetBBX, self).__init__(name=name, x_path=None, y_path=None,
+        super(MyDatasetBBX, self).__init__(name=name, csi_path=csi_path, img_path=None,
                                            img_size=img_size,
                                            transform=transform,
                                            int_image=int_image,
@@ -244,7 +245,7 @@ class MyDatasetBBX(MyDataset):
 
     def __getitem__(self, index):
 
-        return self.data['csi'][index],\
+        return self.data['csi'][index], \
                self.data['r_img'][index], \
                self.__transform__(self.data['c_img'][index]), \
                self.data['bbx'][index], \
@@ -259,7 +260,8 @@ class MyDatasetBBX(MyDataset):
         r_img = np.load(self.raw_img_path, mmap_mode=self.mmap_mode)
         c_img = np.load(self.crop_img_path, mmap_mode=self.mmap_mode)
         bbx = np.load(self.bbx_path, mmap_mode=self.mmap_mode)
-        print(f"{self.name}: loaded csi {csi.shape}, raw_img {r_img.shape}, cropped_img {c_img.shape}, bbx {bbx.shape}")
+        print(
+            f"{self.name}: loaded csi {csi.shape}, raw_img {r_img.shape}, cropped_img {c_img.shape}, bbx {bbx.shape}")
         r_img = r_img.reshape((-1, 1, self.img_size[0], self.img_size[1]))
         c_img = c_img.reshape((-1, 1, 128, 128))
         # bbx is 'xywh' or 'xyxy'
@@ -281,3 +283,59 @@ class MyDatasetBBX(MyDataset):
                 print("Lengths not equal!")
 
         return {'csi': csi, 'r_img': r_img, 'c_img': c_img, 'bbx': bbx}
+
+
+class MyDatasetBBX2(MyDataset):
+    def __init__(self, name,
+                 csi_path, img_path, bbx_path,
+                 img_size=(128, 128), transform=None, int_image=False,
+                 bbx_ver='xywh',
+                 number=0,
+                 mmap_mode='r'):
+
+        self.csi_path = csi_path
+        self.img_path = img_path
+        self.bbx_path = bbx_path
+        self.bbx_ver = bbx_ver
+        super(MyDatasetBBX2, self).__init__(name=name, csi_path=csi_path, img_path=img_path,
+                                            img_size=img_size,
+                                            transform=transform,
+                                            int_image=int_image,
+                                            number=number,
+                                            mmap_mode=mmap_mode)
+
+    def __getitem__(self, index):
+
+        return self.data['csi'][index], \
+               self.__transform__(self.data['img'][index]), \
+               self.data['bbx'][index], \
+               index
+
+    def __len__(self):
+        return self.data['csi'].shape[0]
+
+    def __load_data__(self):
+        print(f"{self.name} loading...")
+        csi = np.load(self.csi_path, mmap_mode=self.mmap_mode)
+        img = np.load(self.img_path, mmap_mode=self.mmap_mode)
+        bbx = np.load(self.bbx_path, mmap_mode=self.mmap_mode)
+        print(f"{self.name}: loaded csi {csi.shape}, img {img.shape}, bbx {bbx.shape}")
+        r_img = img.reshape((-1, 1, self.img_size[0], self.img_size[1]))
+        # bbx is 'xywh' or 'xyxy'
+        if self.bbx_ver == 'xyxy':
+            bbx[..., -1] = bbx[..., -1] + bbx[..., -3]
+            bbx[..., -2] = bbx[..., -2] + bbx[..., -4]
+
+        if self.number != 0:
+            if csi.shape[0] == r_img.shape[0]:
+                total_count = csi.shape[0]
+                picked = np.random.choice(list(range(total_count)), size=self.number, replace=False)
+                self.seeds = picked
+                csi = csi[picked]
+                img = r_img[picked]
+                bbx = bbx[picked]
+
+            else:
+                print("Lengths not equal!")
+
+        return {'csi': csi, 'img': img, 'bbx': bbx}
