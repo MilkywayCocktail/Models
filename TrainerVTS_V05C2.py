@@ -101,7 +101,6 @@ class TrainerVTS_V05c2:
 
         self.alpha = 0.8
         self.beta = 1.2
-        self.gamma = 1
 
         self.recon_lossfun = nn.MSELoss(reduction='sum')
 
@@ -158,7 +157,7 @@ class TrainerVTS_V05c2:
                 'IND': i
                 }
 
-    def calculate_loss_s(self, csi, c_img, bbx, i=None):
+    def calculate_loss_s_latent(self, csi, c_img, i=None):
 
         s_z, s_mu, s_logvar, s_bbx = self.models['csien'](csi)
 
@@ -167,21 +166,32 @@ class TrainerVTS_V05c2:
             s_output = self.models['imgde'](s_z)
             t_output = self.models['imgde'](t_z)
             image_loss = self.recon_lossfun(s_output, c_img)
-        bbx_loss = self.bbx_loss(s_bbx, bbx)
+
         loss_i, mu_loss_i, logvar_loss_i = self.kd_loss(s_mu, s_logvar, t_mu, t_logvar)
-        loss = loss_i + bbx_loss * self.gamma
+        loss = loss_i
 
         self.temp_loss = {'LOSS': loss,
                           'MU': mu_loss_i,
                           'LOGVAR': logvar_loss_i,
-                          'BBX': bbx_loss,
                           'IMG': image_loss}
         return {'GT': c_img,
-                'GT_BBX': bbx,
                 'T_LATENT': torch.cat((t_mu, t_logvar), -1),
                 'S_LATENT': torch.cat((s_mu, s_logvar), -1),
                 'T_PRED': t_output,
                 'S_PRED': s_output,
+                'IND': i}
+
+    def calculate_loss_s_bbx(self, csi, c_img, bbx, i=None):
+
+        s_z, s_mu, s_logvar, s_bbx = self.models['csien'](csi)
+        bbx_loss = self.bbx_loss(s_bbx, bbx)
+
+        loss = bbx_loss
+
+        self.temp_loss = {'LOSS': loss,
+                          'BBX': bbx_loss}
+        return {'GT': c_img,
+                'GT_BBX': bbx,
                 'S_BBX': s_bbx,
                 'IND': i}
 
@@ -251,7 +261,7 @@ class TrainerVTS_V05c2:
                        f"{save_path}{notion}_{self.models['imgde']}_{self.current_title()}.pth")
 
     @timer
-    def train_student(self, autosave=False, notion=''):
+    def train_student(self, autosave=False, notion='', mode='latent'):
         """
         Trains the student.
         :param autosave: whether to save model parameters. Default is False
@@ -267,11 +277,14 @@ class TrainerVTS_V05c2:
             self.models['imgde'].eval()
             self.models['csien'].train()
 
-            EPOCH_LOSS = {'LOSS': [],
-                          'MU': [],
-                          'LOGVAR': [],
-                          'BBX': [],
-                          'IMG': []}
+            if mode == 'latent':
+                EPOCH_LOSS = {'LOSS': [],
+                              'MU': [],
+                              'LOGVAR': [],
+                              'IMG': []}
+            elif mode == 'bbx':
+                EPOCH_LOSS = {'LOSS': [],
+                              'BBX': []}
 
             for idx, (csi, img, bbx, index) in enumerate(self.train_loader, 0):
                 csi = csi.to(torch.float32).to(self.device)
@@ -299,11 +312,14 @@ class TrainerVTS_V05c2:
             self.models['imgde'].eval()
             self.models['csien'].eval()
 
-            EPOCH_LOSS = {'LOSS': [],
-                          'MU': [],
-                          'LOGVAR': [],
-                          'BBX': [],
-                          'IMG': []}
+            if mode == 'latent':
+                EPOCH_LOSS = {'LOSS': [],
+                              'MU': [],
+                              'LOGVAR': [],
+                              'IMG': []}
+            elif mode == 'bbx':
+                EPOCH_LOSS = {'LOSS': [],
+                              'BBX': []}
 
             for idx, (csi, img, bbx, index) in enumerate(self.valid_loader, 0):
                 csi = csi.to(torch.float32).to(self.device)
@@ -458,7 +474,7 @@ class TrainerVTS_V05c2:
             fig2.savefig(f"{save_path}{filename['LAT']}")
             fig3.savefig(f"{save_path}{filename['LOSS']}")
 
-    def plot_test_s(self, select_ind=None, select_num=8, autosave=False, notion=''):
+    def plot_test_s(self, select_ind=None, select_num=8, autosave=False, notion='', mode='latent'):
         title = {'PRED': "Student Test IMG Predicts",
                  'BBX': "Student Test BBX Predicts",
                  'LOSS': "Student Test Loss",
@@ -478,18 +494,25 @@ class TrainerVTS_V05c2:
             else:
                 inds = self.generate_indices(self.loss['s'].loss['pred']['IND'], select_num)
 
-        fig1 = self.loss['s'].plot_predict(title['PRED'], inds, ('GT', 'T_PRED', 'S_PRED'))
-        fig2 = self.loss['s'].plot_bbx(title['BBX'], inds)
-        fig3 = self.loss['s'].plot_latent(title['LATENT'], inds, ('T_LATENT', 'S_LATENT'))
-        fig4 = self.loss['s'].plot_test(title['LOSS'], inds)
+        if mode == 'latent':
+            fig1 = self.loss['s'].plot_predict(title['PRED'], inds, ('GT', 'T_PRED', 'S_PRED'))
+            fig3 = self.loss['s'].plot_latent(title['LATENT'], inds, ('T_LATENT', 'S_LATENT'))
+            fig4 = self.loss['s'].plot_test(title['LOSS'], inds)
 
-        if autosave:
-            if not os.path.exists(save_path):
-                os.makedirs(save_path)
-            fig1.savefig(f"{save_path}{filename['PRED']}")
-            fig2.savefig(f"{save_path}{filename['BBX']}")
-            fig3.savefig(f"{save_path}{filename['LATENT']}")
-            fig4.savefig(f"{save_path}{filename['LOSS']}")
+            if autosave:
+                if not os.path.exists(save_path):
+                    os.makedirs(save_path)
+                fig1.savefig(f"{save_path}{filename['PRED']}")
+                fig3.savefig(f"{save_path}{filename['LATENT']}")
+                fig4.savefig(f"{save_path}{filename['LOSS']}")
+
+        elif mode == 'bbx':
+            fig2 = self.loss['s'].plot_bbx(title['BBX'], inds)
+
+            if autosave:
+                if not os.path.exists(save_path):
+                    os.makedirs(save_path)
+                fig2.savefig(f"{save_path}{filename['BBX']}")
 
     def scheduler(self, train_t=True, train_s=True,
                   t_turns=10, s_turns=10,
