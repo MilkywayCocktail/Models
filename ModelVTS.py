@@ -1088,7 +1088,7 @@ class CsiEncoderV04c2(CsiEncoderV03c4):
 
 # ImageEncoder: in = 128 * 128, out = 2 * latent_dim
 # ImageDecoder: in = 1 * latent_dim, out = 128 * 128
-# CSIEncoder: in = 2 * 90 * 100, out = 2 * latent_dim
+# CSIEncoder: in = 2 * 90 * 100, out = 128
 # -------------------------------------------------------------------------- #
 
 class SelfAttention(nn.Module):
@@ -1213,6 +1213,52 @@ class CsiEncoderV05c1(CsiEncoderV03c4):
         mu_i = self.fc1(out)
         logvar_i = self.fc2(out)
         bbx = self.fc3(out)
+
+        z_i = reparameterize(mu_i, logvar_i)
+
+        return z_i, mu_i, logvar_i, bbx
+
+
+# -------------------------------------------------------------------------- #
+# Model v05c2
+# Modify CSIEncoder
+
+# ImageEncoder: in = 128 * 128, out = 2 * latent_dim
+# ImageDecoder: in = 1 * latent_dim, out = 128 * 128
+# CSIEncoder: in = 2 * 90 * 100, out = configurable
+# -------------------------------------------------------------------------- #
+
+
+class CsiEncoderV05c2(CsiEncoderV03c4):
+    def __init__(self, batchnorm=False, feature_length=512, middle_length=128, out_length=0):
+        super(CsiEncoderV05c2, self).__init__(batchnorm=batchnorm, feature_length=feature_length)
+
+        self.middle_length = middle_length
+        self.attn = SelfAttention(512)
+        self.out_length = 2 * self.latent_dim if out_length == 0 else out_length
+
+        self.lstm = nn.Sequential(
+            nn.LSTM(self.feature_length * 8, self.out_length, 2, batch_first=True, dropout=0.1),
+        )
+
+    def __str__(self):
+        return 'CsiEnV05c1'
+
+    def forward(self, x):
+        out = self.cnn(x)
+        out = self.attn(out)
+        # out = self.gap(out)
+        out, (final_hidden_state, final_cell_state) = self.lstm.forward(
+            out.view(-1, self.feature_length * 8, 42).transpose(1, 2))
+
+        out = out[:, -1, :]
+
+        if self.out_length == 2 * self.latent_dim:
+            mu_i, logvar_i = out.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
+            bbx = 0
+        else:
+            mu_i, logvar_i = 0, 0
+            bbx = out
 
         z_i = reparameterize(mu_i, logvar_i)
 
