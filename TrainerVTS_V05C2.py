@@ -166,7 +166,7 @@ class TrainerVTS_V05c2:
                 'IND': i
                 }
 
-    def calculate_loss_s_latent(self, csi, c_img, bbx, i=None):
+    def calculate_loss_s_latent(self, csi, c_img, i=None):
 
         s_z, s_mu, s_logvar, s_bbx = self.models['csien'](csi)
 
@@ -299,7 +299,10 @@ class TrainerVTS_V05c2:
                 csi = csi.to(torch.float32).to(self.device)
                 img = img.to(torch.float32).to(self.device)
                 bbx = bbx.to(torch.float32).to(self.device)
-                PREDS = self.calculate_loss_s_bbx(csi, img, bbx)
+                if self.mode == 'latent':
+                    PREDS = self.calculate_loss_s_latent(csi, img)
+                elif self.mode == 'bbx':
+                    PREDS = self.calculate_loss_s_bbx(csi, img, bbx)
                 optimizer.zero_grad()
                 self.temp_loss['LOSS'].backward()
                 optimizer.step()
@@ -334,7 +337,10 @@ class TrainerVTS_V05c2:
                 img = img.to(torch.float32).to(self.device)
                 bbx = bbx.to(torch.float32).to(self.device)
                 with torch.no_grad():
-                    PREDS = self.calculate_loss_s_bbx(csi, img, bbx)
+                    if self.mode == 'latent':
+                        PREDS = self.calculate_loss_s_latent(csi, img)
+                    elif self.mode == 'bbx':
+                        PREDS = self.calculate_loss_s_bbx(csi, img, bbx)
 
                 for key in EPOCH_LOSS.keys():
                     EPOCH_LOSS[key].append(self.temp_loss[key].item())
@@ -419,7 +425,10 @@ class TrainerVTS_V05c2:
                     csi_ = csi[sample][np.newaxis, ...]
                     img_ = img[sample][np.newaxis, ...]
                     bbx_ = bbx[sample][np.newaxis, ...]
-                    PREDS = self.calculate_loss_s_bbx(csi_, img_, bbx_)
+                    if self.mode == 'latent':
+                        PREDS = self.calculate_loss_s_latent(csi_, img_)
+                    elif self.mode == 'bbx':
+                        PREDS = self.calculate_loss_s_bbx(csi_, img_, bbx_)
 
                     for key in EPOCH_LOSS.keys():
                         EPOCH_LOSS[key].append(self.temp_loss[key].item())
