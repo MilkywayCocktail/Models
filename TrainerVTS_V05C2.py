@@ -83,6 +83,7 @@ class TrainerVTS_V05c2:
     def __init__(self, img_encoder, img_decoder, csi_encoder,
                  lr, epochs, cuda,
                  train_loader, valid_loader, test_loader,
+                 mode
                  ):
 
         self.lr = lr
@@ -103,14 +104,22 @@ class TrainerVTS_V05c2:
         self.beta = 1.2
 
         self.recon_lossfun = nn.MSELoss(reduction='sum')
+        self.mode = mode
 
         self.temp_loss = {}
-        self.loss = {'t': MyLoss_T(loss_terms=['LOSS', 'KL', 'RECON'],
-                                   pred_terms=['GT', 'PRED', 'LAT', 'IND']),
-                     's': MyLoss_S_BBX(loss_terms=['LOSS', 'MU', 'LOGVAR', 'BBX', 'IMG'],
-                                   pred_terms=['GT', 'T_PRED', 'S_PRED', 'T_LATENT', 'S_LATENT',
-                                               'GT_BBX', 'S_BBX', 'IND']),
-                     }
+        if self.mode == 'latent':
+            self.loss = {'t': MyLoss_T(loss_terms=['LOSS', 'KL', 'RECON'],
+                                       pred_terms=['GT', 'PRED', 'LAT', 'IND']),
+                         's': MyLoss_S_BBX(loss_terms=['LOSS', 'MU', 'LOGVAR', 'IMG'],
+                                       pred_terms=['GT', 'T_PRED', 'S_PRED', 'T_LATENT', 'S_LATENT',
+                                                   'IND']),
+                         }
+        elif self.mode == 'bbx':
+            self.loss = {'t': MyLoss_T(loss_terms=['LOSS', 'KL', 'RECON'],
+                                       pred_terms=['GT', 'PRED', 'LAT', 'IND']),
+                         's': MyLoss_S_BBX(loss_terms=['LOSS', 'BBX'],
+                                       pred_terms=['GT', 'GT_BBX', 'S_BBX', 'IND']),
+                         }
         self.inds = None
 
     def current_title(self):
@@ -157,7 +166,7 @@ class TrainerVTS_V05c2:
                 'IND': i
                 }
 
-    def calculate_loss_s_latent(self, csi, c_img, i=None):
+    def calculate_loss_s_latent(self, csi, c_img, bbx, i=None):
 
         s_z, s_mu, s_logvar, s_bbx = self.models['csien'](csi)
 
@@ -261,7 +270,7 @@ class TrainerVTS_V05c2:
                        f"{save_path}{notion}_{self.models['imgde']}_{self.current_title()}.pth")
 
     @timer
-    def train_student(self, autosave=False, notion='', mode='latent'):
+    def train_student(self, autosave=False, notion=''):
         """
         Trains the student.
         :param autosave: whether to save model parameters. Default is False
@@ -277,12 +286,12 @@ class TrainerVTS_V05c2:
             self.models['imgde'].eval()
             self.models['csien'].train()
 
-            if mode == 'latent':
+            if self.mode == 'latent':
                 EPOCH_LOSS = {'LOSS': [],
                               'MU': [],
                               'LOGVAR': [],
                               'IMG': []}
-            elif mode == 'bbx':
+            elif self.mode == 'bbx':
                 EPOCH_LOSS = {'LOSS': [],
                               'BBX': []}
 
@@ -290,10 +299,7 @@ class TrainerVTS_V05c2:
                 csi = csi.to(torch.float32).to(self.device)
                 img = img.to(torch.float32).to(self.device)
                 bbx = bbx.to(torch.float32).to(self.device)
-                if mode == 'latent':
-                    PREDS = self.calculate_loss_s_latent(csi, img)
-                elif mode == 'bbx':
-                    PREDS = self.calculate_loss_s_bbx(csi, img, bbx)
+                PREDS = self.calculate_loss_s_bbx(csi, img, bbx)
                 optimizer.zero_grad()
                 self.temp_loss['LOSS'].backward()
                 optimizer.step()
@@ -314,12 +320,12 @@ class TrainerVTS_V05c2:
             self.models['imgde'].eval()
             self.models['csien'].eval()
 
-            if mode == 'latent':
+            if self.mode == 'latent':
                 EPOCH_LOSS = {'LOSS': [],
                               'MU': [],
                               'LOGVAR': [],
                               'IMG': []}
-            elif mode == 'bbx':
+            elif self.mode == 'bbx':
                 EPOCH_LOSS = {'LOSS': [],
                               'BBX': []}
 
@@ -328,10 +334,7 @@ class TrainerVTS_V05c2:
                 img = img.to(torch.float32).to(self.device)
                 bbx = bbx.to(torch.float32).to(self.device)
                 with torch.no_grad():
-                    if mode == 'latent':
-                        PREDS = self.calculate_loss_s_latent(csi, img)
-                    elif mode == 'bbx':
-                        PREDS = self.calculate_loss_s_bbx(csi, img, bbx)
+                    PREDS = self.calculate_loss_s_bbx(csi, img, bbx)
 
                 for key in EPOCH_LOSS.keys():
                     EPOCH_LOSS[key].append(self.temp_loss[key].item())
@@ -385,17 +388,17 @@ class TrainerVTS_V05c2:
             EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
         print(f"\nTest finished. Average loss={EPOCH_LOSS}")
 
-    def test_student(self, loader='test', mode='latent'):
+    def test_student(self, loader='test'):
         self.models['imgen'].eval()
         self.models['imgde'].eval()
         self.models['csien'].eval()
 
-        if mode == 'latent':
+        if self.mode == 'latent':
             EPOCH_LOSS = {'LOSS': [],
                           'MU': [],
                           'LOGVAR': [],
                           'IMG': []}
-        elif mode == 'bbx':
+        elif self.mode == 'bbx':
             EPOCH_LOSS = {'LOSS': [],
                           'BBX': []}
 
@@ -416,10 +419,7 @@ class TrainerVTS_V05c2:
                     csi_ = csi[sample][np.newaxis, ...]
                     img_ = img[sample][np.newaxis, ...]
                     bbx_ = bbx[sample][np.newaxis, ...]
-                    if mode == 'latent':
-                        PREDS = self.calculate_loss_s_latent(csi_, img_)
-                    elif mode == 'bbx':
-                        PREDS = self.calculate_loss_s_bbx(csi_, img_, bbx_)
+                    PREDS = self.calculate_loss_s_bbx(csi_, img_, bbx_)
 
                     for key in EPOCH_LOSS.keys():
                         EPOCH_LOSS[key].append(self.temp_loss[key].item())
@@ -485,7 +485,7 @@ class TrainerVTS_V05c2:
             fig2.savefig(f"{save_path}{filename['LAT']}")
             fig3.savefig(f"{save_path}{filename['LOSS']}")
 
-    def plot_test_s(self, select_ind=None, select_num=8, autosave=False, notion='', mode='latent'):
+    def plot_test_s(self, select_ind=None, select_num=8, autosave=False, notion=''):
         title = {'PRED': "Student Test IMG Predicts",
                  'BBX': "Student Test BBX Predicts",
                  'LOSS': "Student Test Loss",
@@ -505,7 +505,7 @@ class TrainerVTS_V05c2:
             else:
                 inds = self.generate_indices(self.loss['s'].loss['pred']['IND'], select_num)
 
-        if mode == 'latent':
+        if self.mode == 'latent':
             fig1 = self.loss['s'].plot_predict(title['PRED'], inds, ('GT', 'T_PRED', 'S_PRED'))
             fig3 = self.loss['s'].plot_latent(title['LATENT'], inds, ('T_LATENT', 'S_LATENT'))
             fig4 = self.loss['s'].plot_test(title['LOSS'], inds)
@@ -517,7 +517,7 @@ class TrainerVTS_V05c2:
                 fig3.savefig(f"{save_path}{filename['LATENT']}")
                 fig4.savefig(f"{save_path}{filename['LOSS']}")
 
-        elif mode == 'bbx':
+        elif self.mode == 'bbx':
             fig2 = self.loss['s'].plot_bbx(title['BBX'], inds)
 
             if autosave:
