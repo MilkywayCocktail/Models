@@ -556,7 +556,7 @@ class TrainerVTS_V05c2:
         if train_s:
             for i in range(s_turns):
                 self.train_student()
-                self.test_student(mode=test_mode)
+                self.test_student(loader=test_mode)
                 self.plot_test_s(select_num=select_num, autosave=autosave, notion=notion)
                 self.plot_train_loss(mode='s', autosave=autosave, notion=notion)
                 if lr_decay:
