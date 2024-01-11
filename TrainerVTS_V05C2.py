@@ -426,9 +426,9 @@ class TrainerVTS_V05c2:
                     img_ = img[sample][np.newaxis, ...]
                     bbx_ = bbx[sample][np.newaxis, ...]
                     if self.mode == 'latent':
-                        PREDS = self.calculate_loss_s_latent(csi_, img_)
+                        PREDS = self.calculate_loss_s_latent(csi_, img_, ind_)
                     elif self.mode == 'bbx':
-                        PREDS = self.calculate_loss_s_bbx(csi_, img_, bbx_)
+                        PREDS = self.calculate_loss_s_bbx(csi_, img_, bbx_, ind_)
 
                     for key in EPOCH_LOSS.keys():
                         EPOCH_LOSS[key].append(self.temp_loss[key].item())
