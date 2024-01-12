@@ -245,6 +245,7 @@ class TrainerVTS_V05c2:
             # =====================valid============================
             self.models['imgen'].eval()
             self.models['imgde'].eval()
+            best_val_loss = float("inf")
             EPOCH_LOSS = {'LOSS': [],
                           'KL': [],
                           'RECON': []
@@ -256,6 +257,26 @@ class TrainerVTS_V05c2:
                     PREDS = self.calculate_loss_t(img)
                 for key in EPOCH_LOSS.keys():
                     EPOCH_LOSS[key].append(self.temp_loss[key].item())
+
+                val_loss = np.average(EPOCH_LOSS['LOSS'])
+
+                if autosave:
+                    save_path = f'../saved/{notion}/'
+                    if not os.path.exists(save_path):
+                        os.makedirs(save_path)
+                    if val_loss < best_val_loss:
+                        best_val_loss = val_loss
+
+                        torch.save(self.models['imgen'].state_dict(),
+                                   f"{save_path}{notion}_{self.models['imgen']}_{self.current_title()}_best.pth")
+                        torch.save(self.models['imgde'].state_dict(),
+                                   f"{save_path}{notion}_{self.models['imgde']}_{self.current_title()}_best.pth")
+
+                    torch.save(self.models['imgen'].state_dict(),
+                               f"{save_path}{notion}_{self.models['imgen']}_{self.current_title()}.pth")
+                    torch.save(self.models['imgde'].state_dict(),
+                               f"{save_path}{notion}_{self.models['imgde']}_{self.current_title()}.pth")
+
             for key in EPOCH_LOSS.keys():
                 EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
             self.loss['t'].update('valid', EPOCH_LOSS)
@@ -322,6 +343,7 @@ class TrainerVTS_V05c2:
             self.models['imgen'].eval()
             self.models['imgde'].eval()
             self.models['csien'].eval()
+            best_val_loss = float("inf")
 
             if self.mode == 'latent':
                 EPOCH_LOSS = {'LOSS': [],
@@ -345,18 +367,29 @@ class TrainerVTS_V05c2:
                 for key in EPOCH_LOSS.keys():
                     EPOCH_LOSS[key].append(self.temp_loss[key].item())
 
+                val_loss = np.average(EPOCH_LOSS['LOSS'])
+
+                if autosave:
+                    save_path = f'../saved/{notion}/'
+                    if not os.path.exists(save_path):
+                        os.makedirs(save_path)
+                    if val_loss < best_val_loss:
+                        best_val_loss = val_loss
+
+                        torch.save(
+                            {"csien": self.models['csien'].state_dict()},
+                            f"{save_path}{notion}_{self.models['csien']}_{self.current_title()}_{self.mode}_best.pth",
+                        )
+                    torch.save(
+                        {"csien": self.models['csien'].state_dict()},
+                        f"{save_path}{notion}_{self.models['csien']}_{self.current_title()}_{self.mode}.pth",
+                    )
+
             for key in EPOCH_LOSS.keys():
                 EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
             self.loss['s'].update('valid', EPOCH_LOSS)
 
-        if autosave:
-            save_path = f'../saved/{notion}/'
-            if not os.path.exists(save_path):
-                os.makedirs(save_path)
-            torch.save(self.models['csien'].state_dict(),
-                       f"{save_path}{notion}_{self.models['csien']}_{self.current_title()}.pth")
-
-    def test_teacher(self, mode='test'):
+    def test_teacher(self, loader='test'):
         self.models['imgen'].eval()
         self.models['imgde'].eval()
 
@@ -365,9 +398,9 @@ class TrainerVTS_V05c2:
                       'RECON': []
                       }
 
-        if mode == 'test':
+        if loader == 'test':
             loader = self.test_loader
-        elif mode == 'train':
+        elif loader == 'train':
             loader = self.train_loader
 
         self.loss['t'].reset('test')
@@ -556,7 +589,7 @@ class TrainerVTS_V05c2:
         if train_t:
             for i in range(t_turns):
                 self.train_teacher()
-                self.test_teacher(mode=test_mode)
+                self.test_teacher(loader=test_mode)
                 self.plot_test_t(select_num=select_num, autosave=autosave, notion=notion)
                 self.plot_train_loss(mode='t', autosave=autosave, notion=notion)
                 if lr_decay:
