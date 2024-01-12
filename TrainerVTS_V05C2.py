@@ -216,6 +216,8 @@ class TrainerVTS_V05c2:
         optimizer = self.optimizer([{'params': self.models['imgen'].parameters()},
                                     {'params': self.models['imgde'].parameters()}], lr=self.lr)
         self.loss['t'].logger(self.lr, self.epochs)
+        best_val_loss = float("inf")
+
         for epoch in range(self.epochs):
             # =====================train============================
             self.models['imgen'].train()
@@ -245,7 +247,7 @@ class TrainerVTS_V05c2:
             # =====================valid============================
             self.models['imgen'].eval()
             self.models['imgde'].eval()
-            best_val_loss = float("inf")
+
             EPOCH_LOSS = {'LOSS': [],
                           'KL': [],
                           'RECON': []
@@ -286,6 +288,8 @@ class TrainerVTS_V05c2:
         """
         optimizer = self.optimizer([{'params': self.models['csien'].parameters()}], lr=self.lr)
         self.loss['s'].logger(self.lr, self.epochs)
+        best_val_loss = float("inf")
+
         for epoch in range(self.epochs):
 
             # =====================train============================
@@ -329,7 +333,6 @@ class TrainerVTS_V05c2:
             self.models['imgen'].eval()
             self.models['imgde'].eval()
             self.models['csien'].eval()
-            best_val_loss = float("inf")
 
             if self.mode == 'latent':
                 EPOCH_LOSS = {'LOSS': [],
