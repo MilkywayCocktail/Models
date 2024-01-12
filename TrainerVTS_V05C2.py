@@ -272,23 +272,9 @@ class TrainerVTS_V05c2:
                         torch.save(self.models['imgde'].state_dict(),
                                    f"{save_path}{notion}_{self.models['imgde']}_{self.current_title()}_best.pth")
 
-                    torch.save(self.models['imgen'].state_dict(),
-                               f"{save_path}{notion}_{self.models['imgen']}_{self.current_title()}.pth")
-                    torch.save(self.models['imgde'].state_dict(),
-                               f"{save_path}{notion}_{self.models['imgde']}_{self.current_title()}.pth")
-
             for key in EPOCH_LOSS.keys():
                 EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
             self.loss['t'].update('valid', EPOCH_LOSS)
-
-        if autosave:
-            save_path = f'../saved/{notion}/'
-            if not os.path.exists(save_path):
-                os.makedirs(save_path)
-            torch.save(self.models['imgen'].state_dict(),
-                       f"{save_path}{notion}_{self.models['imgen']}_{self.current_title()}.pth")
-            torch.save(self.models['imgde'].state_dict(),
-                       f"{save_path}{notion}_{self.models['imgde']}_{self.current_title()}.pth")
 
     @timer
     def train_student(self, autosave=False, notion=''):
@@ -380,10 +366,6 @@ class TrainerVTS_V05c2:
                             {"csien": self.models['csien'].state_dict()},
                             f"{save_path}{notion}_{self.models['csien']}_{self.current_title()}_{self.mode}_best.pth",
                         )
-                    torch.save(
-                        {"csien": self.models['csien'].state_dict()},
-                        f"{save_path}{notion}_{self.models['csien']}_{self.current_title()}_{self.mode}.pth",
-                    )
 
             for key in EPOCH_LOSS.keys():
                 EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
@@ -588,7 +570,7 @@ class TrainerVTS_V05c2:
         """
         if train_t:
             for i in range(t_turns):
-                self.train_teacher()
+                self.train_teacher(autosave=autosave)
                 self.test_teacher(loader=test_mode)
                 self.plot_test_t(select_num=select_num, autosave=autosave, notion=notion)
                 self.plot_train_loss(mode='t', autosave=autosave, notion=notion)
@@ -597,7 +579,7 @@ class TrainerVTS_V05c2:
 
         if train_s:
             for i in range(s_turns):
-                self.train_student()
+                self.train_student(autosave=autosave)
                 self.test_student(loader=test_mode)
                 self.plot_test_s(select_num=select_num, autosave=autosave, notion=notion)
                 self.plot_train_loss(mode='s', autosave=autosave, notion=notion)
