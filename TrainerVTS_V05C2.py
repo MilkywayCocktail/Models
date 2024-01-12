@@ -268,11 +268,12 @@ class TrainerVTS_V05c2:
                         os.makedirs(save_path)
                     if val_loss < best_val_loss:
                         best_val_loss = val_loss
-
+                        logfile = open(f"{save_path}{notion}_best_t.txt", 'w')
+                        logfile.write(f"Teacher best : {self.current_title()}")
                         torch.save(self.models['imgen'].state_dict(),
-                                   f"{save_path}{notion}_{self.models['imgen']}_{self.current_title()}_best.pth")
+                                   f"{save_path}{notion}_{self.models['imgen']}_best.pth")
                         torch.save(self.models['imgde'].state_dict(),
-                                   f"{save_path}{notion}_{self.models['imgde']}_{self.current_title()}_best.pth")
+                                   f"{save_path}{notion}_{self.models['imgde']}_best.pth")
 
             for key in EPOCH_LOSS.keys():
                 EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
@@ -364,10 +365,11 @@ class TrainerVTS_V05c2:
                         os.makedirs(save_path)
                     if val_loss < best_val_loss:
                         best_val_loss = val_loss
-
+                        logfile = open(f"{save_path}{notion}_best_s.txt", 'w')
+                        logfile.write(f"Student best : {self.current_title()}")
                         torch.save(
                             {"csien": self.models['csien'].state_dict()},
-                            f"{save_path}{notion}_{self.models['csien']}_{self.current_title()}_{self.mode}_best.pth",
+                            f"{save_path}{notion}_{self.models['csien']}_{self.mode}_best.pth",
                         )
 
             for key in EPOCH_LOSS.keys():
