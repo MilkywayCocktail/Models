@@ -1256,11 +1256,10 @@ class CsiEncoderV05c2(CsiEncoderV03c4):
         if self.out_length == 2 * self.latent_dim:
             mu_i, logvar_i = out.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
             bbx = 0
+            z_i = reparameterize(mu_i, logvar_i)
         else:
-            mu_i, logvar_i = 0, 0
+            mu_i, logvar_i, z_i = 0, 0, 0
             bbx = out
-
-        z_i = reparameterize(mu_i, logvar_i)
 
         return z_i, mu_i, logvar_i, bbx
 
