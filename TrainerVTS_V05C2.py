@@ -570,7 +570,7 @@ class TrainerVTS_V05c2:
         """
         if train_t:
             for i in range(t_turns):
-                self.train_teacher(autosave=autosave)
+                self.train_teacher(autosave=autosave, notion=notion)
                 self.test_teacher(loader=test_mode)
                 self.plot_test_t(select_num=select_num, autosave=autosave, notion=notion)
                 self.plot_train_loss(mode='t', autosave=autosave, notion=notion)
@@ -579,7 +579,7 @@ class TrainerVTS_V05c2:
 
         if train_s:
             for i in range(s_turns):
-                self.train_student(autosave=autosave)
+                self.train_student(autosave=autosave, notion=notion)
                 self.test_student(loader=test_mode)
                 self.plot_test_s(select_num=select_num, autosave=autosave, notion=notion)
                 self.plot_train_loss(mode='s', autosave=autosave, notion=notion)
