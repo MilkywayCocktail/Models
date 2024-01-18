@@ -259,7 +259,7 @@ class MyDatasetBBX(MyDataset):
         csi = np.load(self.csi_path, mmap_mode=self.mmap_mode)
         r_img = np.load(self.raw_img_path, mmap_mode=self.mmap_mode)
         c_img = np.load(self.crop_img_path, mmap_mode=self.mmap_mode)
-        bbx = np.load(self.bbx_path, mmap_mode=self.mmap_mode)
+        bbx = np.load(self.bbx_path)
         print(
             f"{self.name}: loaded csi {csi.shape}, raw_img {r_img.shape}, cropped_img {c_img.shape}, bbx {bbx.shape}")
         r_img = r_img.reshape((-1, 1, self.img_size[0], self.img_size[1]))
@@ -318,7 +318,7 @@ class MyDatasetBBX2(MyDataset):
         print(f"{self.name} loading...")
         csi = np.load(self.csi_path, mmap_mode=self.mmap_mode)
         img = np.load(self.img_path, mmap_mode=self.mmap_mode)
-        bbx = np.load(self.bbx_path, mmap_mode=self.mmap_mode)
+        bbx = np.load(self.bbx_path)
         print(f"{self.name}: loaded csi {csi.shape}, img {img.shape}, bbx {bbx.shape}")
         r_img = img.reshape((-1, 1, self.img_size[0], self.img_size[1]))
         # bbx is 'xywh' or 'xyxy'

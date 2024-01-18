@@ -18,15 +18,3 @@ s = samples[inds]
 #print(s)
 #print(a1[inds[np.argsort(s)]])
 
-sdf = ('a', 'b')
-
-a, b = sdf
-print(a, b)
-
-ax = plt.gca()
-ax.set_xlim([0, 128])
-ax.set_ylim([0, 128])
-ax.add_patch(Rectangle((3, 3), 75, 100, edgecolor='red', fill=False, lw=4, label='GroundTruth'))
-ax.axis('off')
-plt.show()
-
