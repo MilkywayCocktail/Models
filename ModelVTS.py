@@ -1264,6 +1264,44 @@ class CsiEncoderV05c2(CsiEncoderV03c4):
         return z_i, mu_i, logvar_i, bbx
 
 
+# -------------------------------------------------------------------------- #
+# Model v05c3
+# Added AoA/ToF input
+
+# ImageEncoder: in = 128 * 128, out = 2 * latent_dim
+# ImageDecoder: in = 1 * latent_dim, out = 128 * 128
+# PDEncoder: in = 2, out = 1 * latent
+# -------------------------------------------------------------------------- #
+
+class PDEncoderV05c3(nn.Module):
+    def __init__(self, latent_dim=16, out_length=32):
+        super(PDEncoderV05c3, self).__init__()
+        self.latent_dim = latent_dim
+        self.out_length = out_length
+        self.fc = nn.Sequential(
+            nn.Linear(2, 256),
+            nn.ReLU(),
+            nn.Linear(256, 64),
+            nn.ReLU(),
+            nn.Linear(64, self.out_length)
+        )
+
+    def __str__(self):
+        return 'PDEnV05c3'
+
+    def forward(self, x):
+        out = self.fc(x)
+        if self.out_length == 2 * self.latent_dim:
+            mu_i, logvar_i = out.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
+            bbx = 0
+            z_i = reparameterize(mu_i, logvar_i)
+        else:
+            mu_i, logvar_i, z_i = 0, 0, 0
+            bbx = out
+
+        return z_i, mu_i, logvar_i, bbx
+
+
 if __name__ == "__main__":
     IMG = (1, 1, 128, 128)
     CSI = (1, 2, 90, 100)

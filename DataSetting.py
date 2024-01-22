@@ -339,3 +339,59 @@ class MyDatasetBBX2(MyDataset):
                 print("Lengths not equal!")
 
         return {'csi': csi, 'img': img, 'bbx': bbx}
+
+
+class MyDatasetPDBBX2(MyDataset):
+    def __init__(self, name,
+                 pd_path, img_path, bbx_path,
+                 img_size=(128, 128), transform=None, int_image=False,
+                 bbx_ver='xywh',
+                 number=0,
+                 mmap_mode='r'):
+
+        self.pd_path = pd_path
+        self.img_path = img_path
+        self.bbx_path = bbx_path
+        self.bbx_ver = bbx_ver
+        super(MyDatasetPDBBX2, self).__init__(name=name, csi_path=None, img_path=img_path,
+                                            img_size=img_size,
+                                            transform=transform,
+                                            int_image=int_image,
+                                            number=number,
+                                            mmap_mode=mmap_mode)
+
+    def __getitem__(self, index):
+
+        return self.data['csi'][index], \
+               self.__transform__(self.data['img'][index]), \
+               self.data['bbx'][index], \
+               index
+
+    def __len__(self):
+        return self.data['csi'].shape[0]
+
+    def __load_data__(self):
+        print(f"{self.name} loading...")
+        pd = np.load(self.pd_path, mmap_mode=self.mmap_mode)
+        img = np.load(self.img_path, mmap_mode=self.mmap_mode)
+        bbx = np.load(self.bbx_path)
+        print(f"{self.name}: loaded pd {pd.shape}, img {img.shape}, bbx {bbx.shape}")
+        r_img = img.reshape((-1, 1, self.img_size[0], self.img_size[1]))
+        # bbx is 'xywh' or 'xyxy'
+        if self.bbx_ver == 'xyxy':
+            bbx[..., -1] = bbx[..., -1] + bbx[..., -3]
+            bbx[..., -2] = bbx[..., -2] + bbx[..., -4]
+
+        if self.number != 0:
+            if pd.shape[0] == r_img.shape[0]:
+                total_count = pd.shape[0]
+                picked = np.random.choice(list(range(total_count)), size=self.number, replace=False)
+                self.seeds = picked
+                pd = pd[picked]
+                img = r_img[picked]
+                bbx = bbx[picked]
+
+            else:
+                print("Lengths not equal!")
+
+        return {'pd': pd, 'img': img, 'bbx': bbx}
