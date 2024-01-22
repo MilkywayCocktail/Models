@@ -362,13 +362,13 @@ class MyDatasetPDBBX2(MyDataset):
 
     def __getitem__(self, index):
 
-        return self.data['csi'][index], \
+        return self.data['pd'][index], \
                self.__transform__(self.data['img'][index]), \
                self.data['bbx'][index], \
                index
 
     def __len__(self):
-        return self.data['csi'].shape[0]
+        return self.data['pd'].shape[0]
 
     def __load_data__(self):
         print(f"{self.name} loading...")
