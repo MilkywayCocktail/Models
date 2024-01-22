@@ -226,7 +226,7 @@ class TrainerVTS_V05c4:
                           'KL': [],
                           'RECON': []
                           }
-            for idx, (csi, img, bbx, index) in enumerate(self.train_loader, 0):
+            for idx, (csi, img, pd, bbx, index) in enumerate(self.train_loader, 0):
                 img = img.to(torch.float32).to(self.device)
                 optimizer.zero_grad()
 
@@ -253,7 +253,7 @@ class TrainerVTS_V05c4:
                           'RECON': []
                           }
 
-            for idx, (csi, img, bbx, index) in enumerate(self.valid_loader, 0):
+            for idx, (csi, img, pd, bbx, index) in enumerate(self.valid_loader, 0):
                 img = img.to(torch.float32).to(self.device)
                 with torch.no_grad():
                     PREDS = self.calculate_loss_t(img)
@@ -395,7 +395,7 @@ class TrainerVTS_V05c4:
         self.loss['t'].reset('test')
         self.loss['t'].reset('pred')
 
-        for idx, (csi, img, bbx, index) in enumerate(loader, 0):
+        for idx, (csi, img, pd, bbx, index) in enumerate(loader, 0):
             img = img.to(torch.float32).to(self.device)
             with torch.no_grad():
                 for sample in range(loader.batch_size):
@@ -437,7 +437,7 @@ class TrainerVTS_V05c4:
         self.loss['s'].reset('test')
         self.loss['s'].reset('pred')
 
-        for idx, (csi, img, bbx, index) in enumerate(loader, 0):
+        for idx, (csi, img, pd, bbx, index) in enumerate(loader, 0):
             csi = csi.to(torch.float32).to(self.device)
             img = img.to(torch.float32).to(self.device)
             pd = pd.to(torch.float32).to(self.device)
