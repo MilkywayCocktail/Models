@@ -345,7 +345,7 @@ class TrainerVTS_V05c4:
                 EPOCH_LOSS = {'LOSS': [],
                               'BBX': []}
 
-            for idx, (csi, img, bbx, index) in enumerate(self.valid_loader, 0):
+            for idx, (csi, img, pd, bbx, index) in enumerate(self.valid_loader, 0):
                 csi = csi.to(torch.float32).to(self.device)
                 img = img.to(torch.float32).to(self.device)
                 pd = pd.to(torch.float32).to(self.device)
