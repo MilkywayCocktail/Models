@@ -434,7 +434,7 @@ class MyDatasetPDBBX3(MyDataset):
         img = np.load(self.img_path, mmap_mode=self.mmap_mode)
         pd = np.load(self.pd_path, mmap_mode=self.mmap_mode)
         bbx = np.load(self.bbx_path)
-        print(f"{self.name}: loaded pd {pd.shape}, img {img.shape}, bbx {bbx.shape}")
+        print(f"{self.name}: loaded csi {csi.shape}, pd {pd.shape}, img {img.shape}, bbx {bbx.shape}")
         r_img = img.reshape((-1, 1, self.img_size[0], self.img_size[1]))
         # bbx is 'xywh' or 'xyxy'
         if self.bbx_ver == 'xyxy':
@@ -442,10 +442,11 @@ class MyDatasetPDBBX3(MyDataset):
             bbx[..., -2] = bbx[..., -2] + bbx[..., -4]
 
         if self.number != 0:
-            if pd.shape[0] == r_img.shape[0]:
+            if csi.shape[0] == r_img.shape[0]:
                 total_count = pd.shape[0]
                 picked = np.random.choice(list(range(total_count)), size=self.number, replace=False)
                 self.seeds = picked
+                csi = csi[picked]
                 pd = pd[picked]
                 img = r_img[picked]
                 bbx = bbx[picked]
@@ -453,4 +454,4 @@ class MyDatasetPDBBX3(MyDataset):
             else:
                 print("Lengths not equal!")
 
-        return {'pd': pd, 'img': img, 'bbx': bbx}
+        return {'csi': csi, 'img': img, 'pd': pd, 'bbx': bbx}
