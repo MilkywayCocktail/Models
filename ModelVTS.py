@@ -1270,6 +1270,7 @@ class CsiEncoderV05c2(CsiEncoderV03c4):
 
 # ImageEncoder: in = 128 * 128, out = 2 * latent_dim
 # ImageDecoder: in = 1 * latent_dim, out = 128 * 128
+# CSIEncoder: in = 2 * 90 * 100, out = configurable
 # PDEncoder: in = 2, out = 1 * latent
 # -------------------------------------------------------------------------- #
 
@@ -1302,11 +1303,72 @@ class PDEncoderV05c3(nn.Module):
         return z_i, mu_i, logvar_i, bbx
 
 
+# -------------------------------------------------------------------------- #
+# Model v05c4
+# Aggregated AoA/ToF input and CSI input
+
+# ImageEncoder: in = 128 * 128, out = 2 * latent_dim
+# ImageDecoder: in = 1 * latent_dim, out = 128 * 128
+# PDEncoder: in = 2, out = 1 * latent
+# -------------------------------------------------------------------------- #
+
+class CsiEncoderV05c4(CsiEncoderV03c4):
+    def __init__(self, batchnorm=False, feature_length=512, middle_length=128, out_length=0):
+        super(CsiEncoderV05c4, self).__init__(batchnorm=batchnorm, feature_length=feature_length)
+
+        self.middle_length = middle_length
+        self.attn = SelfAttention(512)
+        self.out_length = 2 * self.latent_dim if out_length == 0 else out_length
+
+        self.lstm = nn.Sequential(
+            nn.LSTM(self.feature_length * 8, self.out_length, 2, batch_first=True, dropout=0.1),
+        )
+
+        self.fc = nn.Sequential(
+            nn.Linear(2, 256),
+            nn.ReLU(),
+            nn.Linear(256, 64),
+            nn.ReLU(),
+            nn.Linear(64, self.out_length)
+        )
+
+        self.out = nn.Sequential(
+            nn.Linear(2 * self.out_length, self.out_length)
+        )
+
+    def __str__(self):
+        return 'CsiEnV05c1'
+
+    def forward(self, csi, pd):
+        pd_mid = self.fc(pd)
+        csi_mid = self.cnn(csi)
+        csi_mid = self.attn(csi_mid)
+        # out = self.gap(out)
+        csi_mid, (final_hidden_state, final_cell_state) = self.lstm.forward(
+            csi_mid.view(-1, self.feature_length * 8, 42).transpose(1, 2))
+
+        csi_mid = csi_mid[:, -1, :]
+
+        out = torch.cat((csi_mid, pd_mid), -1)
+        out = self.out(out)
+
+        if self.out_length == 2 * self.latent_dim:
+            mu_i, logvar_i = out.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
+            bbx = 0
+            z_i = reparameterize(mu_i, logvar_i)
+        else:
+            mu_i, logvar_i, z_i = 0, 0, 0
+            bbx = out
+
+        return z_i, mu_i, logvar_i, bbx
+
+
 if __name__ == "__main__":
     IMG = (1, 1, 128, 128)
     CSI = (1, 2, 90, 100)
     LAT = (1, 16)
     RIMG = (1, 1, 128, 226)
+    PD = (1, 2)
 
-    m = CsiEncoderV05c1()
-    summary(m, input_size=CSI)
+    m = CsiEncoderV05c4()
+    summary(m, input_size=[CSI, PD])
