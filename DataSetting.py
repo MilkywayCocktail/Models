@@ -8,7 +8,7 @@ class MyDataset(Data.Dataset):
     """
     DATASET READER
     """
-    def __init__(self, name, csi_path, img_path, img_size=(128, 128), transform=None, img='y', int_image=False, number=0,
+    def __init__(self, name, csi_path, img_path, img_size=(128, 128), transform=None, int_image=False, number=0,
                  random=True,
                  mmap_mode='r'):
         """
@@ -18,21 +18,19 @@ class MyDataset(Data.Dataset):
         :param img_path: path of y file (npy)
         :param img_size: original image size (height * width)
         :param transform: apply torchvision.transforms
-        :param img: whether 'y' or 'x'. Default is 'y'
         :param int_image: whether convert images to np.uint8. Default is False
         :param number: select a number of samples. Default is 0 (all)
         :param random: whether randomly choose images if number is specified. Default is True
         :param mmap_mode: mmap_mode='r' makes loading faster for large files
         """
         self.name = name
-        self.x_path = csi_path
-        self.y_path = img_path
+        self.csi_path = csi_path
+        self.img_path = img_path
         self.number = number
         self.random = random
         self.seeds = None
         self.img_size = img_size
         self.transform = transform
-        self.img = img
         self.int_img = int_image
         self.mmap_mode = mmap_mode
         self.data = self.__load_data__()
@@ -63,15 +61,15 @@ class MyDataset(Data.Dataset):
         """
         Retrieving samples.\n
         :param index: index of sample
-        :return: x, y, index
+        :return: csi, img, index
         """
-        if self.img == 'y':
-            return self.data['x'][index], self.__transform__(self.data['y'][index]), index
-        elif self.img == 'x':
-            return self.__transform__(self.data['x'][index]), self.data['y'][index], index
+
+        return self.data['csi'][index], \
+            self.__transform__(self.data['img'][index]), \
+            index
 
     def __len__(self):
-        return self.data['x'].shape[0]
+        return self.data['csi'].shape[0]
 
     def __load_data__(self):
         """
@@ -79,28 +77,25 @@ class MyDataset(Data.Dataset):
         :return: loaded dataset
         """
         print(f"{self.name} loading...")
-        x = np.load(self.x_path, mmap_mode=self.mmap_mode)
-        y = np.load(self.y_path, mmap_mode=self.mmap_mode)
-        print(f"{self.name}: loaded x {x.shape}, y {y.shape}")
-        if self.img == 'x':
-            x = x.reshape((-1, 1, self.img_size[0], self.img_size[1]))
-        elif self.img == 'y':
-            y = y.reshape((-1, 1, self.img_size[0], self.img_size[1]))
+        csi = np.load(self.csi_path, mmap_mode=self.mmap_mode)
+        img = np.load(self.img_path, mmap_mode=self.mmap_mode)
+        print(f"{self.name}: loaded csi {csi.shape}, img {img.shape}")
+        img = img.reshape((-1, 1, self.img_size[0], self.img_size[1]))
 
         if self.number != 0:
-            if x.shape[0] == y.shape[0]:
-                total_count = x.shape[0]
+            if csi.shape[0] == img.shape[0]:
+                total_count = csi.shape[0]
                 if self.random:
                     picked = np.random.choice(list(range(total_count)), size=self.number, replace=False)
                 else:
                     picked = np.arange(self.number)
                 self.seeds = picked
-                x = x[picked]
-                y = y[picked]
+                csi = csi[picked]
+                img = img[picked]
             else:
                 print("Lengths not equal!")
 
-        return {'x': x, 'y': y}
+        return {'csi': csi, 'img': img}
 
 
 class MnistDataset(MyDataset):
@@ -230,24 +225,16 @@ class DataSplitter:
 
 
 class MyDatasetBBX(MyDataset):
-    def __init__(self, name,
-                 csi_path, raw_img_path, crop_img_path, bbx_path,
-                 img_size=(128, 128), transform=None, int_image=False,
+    def __init__(self,
+                 raw_img_path, crop_img_path, bbx_path,
                  bbx_ver='xywh',
-                 number=0,
-                 mmap_mode='r'):
+                 **kwargs):
 
-        self.csi_path = csi_path
         self.raw_img_path = raw_img_path
         self.crop_img_path = crop_img_path
         self.bbx_path = bbx_path
         self.bbx_ver = bbx_ver
-        super(MyDatasetBBX, self).__init__(name=name, csi_path=csi_path, img_path=None,
-                                           img_size=img_size,
-                                           transform=transform,
-                                           int_image=int_image,
-                                           number=number,
-                                           mmap_mode=mmap_mode)
+        super(MyDatasetBBX, self).__init__(kwargs)
 
     def __getitem__(self, index):
 
@@ -292,23 +279,14 @@ class MyDatasetBBX(MyDataset):
 
 
 class MyDatasetBBX2(MyDataset):
-    def __init__(self, name,
-                 csi_path, img_path, bbx_path,
-                 img_size=(128, 128), transform=None, int_image=False,
+    def __init__(self,
+                 bbx_path,
                  bbx_ver='xywh',
-                 number=0,
-                 mmap_mode='r'):
+                 **kwargs):
 
-        self.csi_path = csi_path
-        self.img_path = img_path
         self.bbx_path = bbx_path
         self.bbx_ver = bbx_ver
-        super(MyDatasetBBX2, self).__init__(name=name, csi_path=csi_path, img_path=img_path,
-                                            img_size=img_size,
-                                            transform=transform,
-                                            int_image=int_image,
-                                            number=number,
-                                            mmap_mode=mmap_mode)
+        super(MyDatasetBBX2, self).__init__(kwargs)
 
     def __getitem__(self, index):
 
@@ -348,23 +326,15 @@ class MyDatasetBBX2(MyDataset):
 
 
 class MyDatasetPDBBX2(MyDataset):
-    def __init__(self, name,
-                 pd_path, img_path, bbx_path,
-                 img_size=(128, 128), transform=None, int_image=False,
+    def __init__(self,
+                 pd_path, bbx_path,
                  bbx_ver='xywh',
-                 number=0,
-                 mmap_mode='r'):
+                 **kwargs):
 
         self.pd_path = pd_path
-        self.img_path = img_path
         self.bbx_path = bbx_path
         self.bbx_ver = bbx_ver
-        super(MyDatasetPDBBX2, self).__init__(name=name, csi_path=None, img_path=img_path,
-                                            img_size=img_size,
-                                            transform=transform,
-                                            int_image=int_image,
-                                            number=number,
-                                            mmap_mode=mmap_mode)
+        super(MyDatasetPDBBX2, self).__init__(kwargs)
 
     def __getitem__(self, index):
 
@@ -404,24 +374,15 @@ class MyDatasetPDBBX2(MyDataset):
 
 
 class MyDatasetPDBBX3(MyDataset):
-    def __init__(self, name,
-                 csi_path, img_path, bbx_path, pd_path,
-                 img_size=(128, 128), transform=None, int_image=False,
+    def __init__(self,
+                 bbx_path, pd_path,
                  bbx_ver='xywh',
-                 number=0,
-                 mmap_mode='r'):
+                 **kwargs):
 
         self.pd_path = pd_path
-        self.csi_path = csi_path
-        self.img_path = img_path
         self.bbx_path = bbx_path
         self.bbx_ver = bbx_ver
-        super(MyDatasetPDBBX3, self).__init__(name=name, csi_path=csi_path, img_path=img_path,
-                                            img_size=img_size,
-                                            transform=transform,
-                                            int_image=int_image,
-                                            number=number,
-                                            mmap_mode=mmap_mode)
+        super(MyDatasetPDBBX3, self).__init__(kwargs)
 
     def __getitem__(self, index):
 
