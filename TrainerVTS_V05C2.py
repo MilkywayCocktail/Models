@@ -123,8 +123,8 @@ class TrainerVTS_V05c2:
         self.optimizer = torch.optim.Adam
 
         self.models = {'imgen': img_encoder.to(self.device) if img_encoder else None,
-                       'imgde': img_decoder.to(self.device) if img_encoder else None,
-                       'csien': csi_encoder.to(self.device) if img_encoder else None
+                       'imgde': img_decoder.to(self.device) if img_decoder else None,
+                       'csien': csi_encoder.to(self.device) if csi_encoder else None
                        }
 
         self.train_loader = train_loader
