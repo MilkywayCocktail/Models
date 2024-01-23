@@ -49,6 +49,37 @@ class MyLoss_T(MyLoss):
         plt.show()
         return fig
 
+    def plot_img_latent(self, title, select_ind):
+        self.__plot_settings__()
+
+        title = f"{title} @ep{self.epochs[-1]}"
+        samples = np.array(self.loss['pred']['IND'])[select_ind]
+
+        fig = plt.figure(constrained_layout=True)
+        fig.suptitle(title)
+        subfigs = fig.subfigures(nrows=2, ncols=1)
+
+        subfigs[0].suptitle('IMG')
+        axes = subfigs[0].subplots(nrows=1, ncols=len(select_ind))
+        for j in range(len(axes)):
+            img = axes[j].imshow(self.loss['pred']['IMG'][select_ind[j]], vmin=0, vmax=1)
+            axes[j].axis('off')
+            axes[j].set_title(f"#{samples[j]}")
+        subfigs[0].colorbar(img, ax=axes, shrink=0.8)
+
+        subfigs[1].suptitle('LAT')
+        axes = subfigs[1].subplots(nrows=1, ncols=len(select_ind))
+        for j in range(len(axes)):
+            axes[j].bar(range(len(self.loss['pred']['LAT'][select_ind[0]])),
+                        self.loss['pred']['LAT'][select_ind[j]],
+                        width=1, fc='blue', alpha=0.8, label='T_Latent')
+            axes[j].axis('off')
+            axes[j].set_title(f"#{samples[j]}")
+            axes[j].grid()
+
+        plt.show()
+        return fig
+
 
 class MyLoss_S_BBX(MyLoss_S):
     def __init__(self, loss_terms, pred_terms):
