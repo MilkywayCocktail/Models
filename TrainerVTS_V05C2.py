@@ -62,7 +62,7 @@ class MyLoss_T(MyLoss):
         subfigs[0].suptitle('IMG')
         axes = subfigs[0].subplots(nrows=1, ncols=len(select_ind))
         for j in range(len(axes)):
-            img = axes[j].imshow(self.loss['pred']['IMG'][select_ind[j]], vmin=0, vmax=1)
+            img = axes[j].imshow(self.loss['pred']['GT'][select_ind[j]], vmin=0, vmax=1)
             axes[j].axis('off')
             axes[j].set_title(f"#{samples[j]}")
         subfigs[0].colorbar(img, ax=axes, shrink=0.8)
