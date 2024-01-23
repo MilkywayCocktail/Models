@@ -24,8 +24,7 @@ class MyDataset(Data.Dataset):
         :param mmap_mode: mmap_mode='r' makes loading faster for large files
         """
         self.name = name
-        self.csi_path = csi_path
-        self.img_path = img_path
+        self.paths = {'csi': csi_path, 'img': img_path}
         self.number = number
         self.random = random
         self.seeds = None
@@ -34,6 +33,7 @@ class MyDataset(Data.Dataset):
         self.int_img = int_image
         self.mmap_mode = mmap_mode
         self.data = self.__load_data__()
+        self.data['img'] = self.data['img'].reshape((-1, 1, self.img_size[0], self.img_size[1]))
 
     def __convert__(self, sample):
         """
@@ -77,25 +77,23 @@ class MyDataset(Data.Dataset):
         :return: loaded dataset
         """
         print(f"{self.name} loading...")
-        csi = np.load(self.csi_path, mmap_mode=self.mmap_mode)
-        img = np.load(self.img_path, mmap_mode=self.mmap_mode)
-        print(f"{self.name}: loaded csi {csi.shape}, img {img.shape}")
-        img = img.reshape((-1, 1, self.img_size[0], self.img_size[1]))
+        result = {}
+        for key in self.paths.keys():
+            item = np.load(self.paths[key], mmap_mode=self.mmap_mode)
+            result[key] = item
+            count = item.shape[0]
+            print(f"loaded {key} of {item.shape}")
 
         if self.number != 0:
-            if csi.shape[0] == img.shape[0]:
-                total_count = csi.shape[0]
-                if self.random:
-                    picked = np.random.choice(list(range(total_count)), size=self.number, replace=False)
-                else:
-                    picked = np.arange(self.number)
-                self.seeds = picked
-                csi = csi[picked]
-                img = img[picked]
+            if self.random:
+                picked = np.random.choice(list(range(count)), size=self.number, replace=False)
             else:
-                print("Lengths not equal!")
+                picked = np.arange(self.number)
+            self.seeds = picked
+            for key in self.paths.keys():
+                result[key] = result[key][picked]
 
-        return {'csi': csi, 'img': img}
+        return result
 
 
 class MnistDataset(MyDataset):
@@ -231,11 +229,19 @@ class MyDatasetBBX(MyDataset):
                  *args,
                  **kwargs):
 
-        self.raw_img_path = raw_img_path
-        self.crop_img_path = crop_img_path
-        self.bbx_path = bbx_path
+        self.paths['r_img'] = raw_img_path
+        self.paths['c_img'] = crop_img_path
+        self.paths['bbx'] = bbx_path
         self.bbx_ver = bbx_ver
         super(MyDatasetBBX, self).__init__(**kwargs)
+        self.data['r_img'] = self.data['r_img'].reshape((-1, 1, self.img_size[0], self.img_size[1]))
+        self.data['c_img'] = self.data['c_img'].reshape((-1, 1, 128, 128))
+        if self.bbx_ver == 'xyxy':
+            _bbx = np.zeros_like(self.data['bbx'])
+            _bbx[..., 0:2] = self.data['bbx'][..., 0:2]
+            _bbx[..., -1] = self.data['bbx'][..., -1] + self.data['bbx'][..., -3]
+            _bbx[..., -2] = self.data['bbx'][..., -2] + self.data['bbx'][..., -4]
+            self.data['bbx'] = _bbx
 
     def __getitem__(self, index):
 
@@ -248,36 +254,6 @@ class MyDatasetBBX(MyDataset):
     def __len__(self):
         return self.data['csi'].shape[0]
 
-    def __load_data__(self):
-        print(f"{self.name} loading...")
-        csi = np.load(self.csi_path, mmap_mode=self.mmap_mode)
-        r_img = np.load(self.raw_img_path, mmap_mode=self.mmap_mode)
-        c_img = np.load(self.crop_img_path, mmap_mode=self.mmap_mode)
-        bbx = np.load(self.bbx_path)
-        print(
-            f"{self.name}: loaded csi {csi.shape}, raw_img {r_img.shape}, cropped_img {c_img.shape}, bbx {bbx.shape}")
-        r_img = r_img.reshape((-1, 1, self.img_size[0], self.img_size[1]))
-        c_img = c_img.reshape((-1, 1, 128, 128))
-        # bbx is 'xywh' or 'xyxy'
-        if self.bbx_ver == 'xyxy':
-            bbx[..., -1] = bbx[..., -1] + bbx[..., -3]
-            bbx[..., -2] = bbx[..., -2] + bbx[..., -4]
-
-        if self.number != 0:
-            if csi.shape[0] == r_img.shape[0]:
-                total_count = csi.shape[0]
-                picked = np.random.choice(list(range(total_count)), size=self.number, replace=False)
-                self.seeds = picked
-                csi = csi[picked]
-                r_img = r_img[picked]
-                c_img = c_img[picked]
-                bbx = bbx[picked]
-
-            else:
-                print("Lengths not equal!")
-
-        return {'csi': csi, 'r_img': r_img, 'c_img': c_img, 'bbx': bbx}
-
 
 class MyDatasetBBX2(MyDataset):
     def __init__(self,
@@ -286,9 +262,15 @@ class MyDatasetBBX2(MyDataset):
                  *args,
                  **kwargs):
 
-        self.bbx_path = bbx_path
+        self.paths['bbx'] = bbx_path
         self.bbx_ver = bbx_ver
         super(MyDatasetBBX2, self).__init__(**kwargs)
+        if self.bbx_ver == 'xyxy':
+            _bbx = np.zeros_like(self.data['bbx'])
+            _bbx[..., 0:2] = self.data['bbx'][..., 0:2]
+            _bbx[..., -1] = self.data['bbx'][..., -1] + self.data['bbx'][..., -3]
+            _bbx[..., -2] = self.data['bbx'][..., -2] + self.data['bbx'][..., -4]
+            self.data['bbx'] = _bbx
 
     def __getitem__(self, index):
 
@@ -300,32 +282,6 @@ class MyDatasetBBX2(MyDataset):
     def __len__(self):
         return self.data['csi'].shape[0]
 
-    def __load_data__(self):
-        print(f"{self.name} loading...")
-        csi = np.load(self.csi_path, mmap_mode=self.mmap_mode)
-        img = np.load(self.img_path, mmap_mode=self.mmap_mode)
-        bbx = np.load(self.bbx_path)
-        print(f"{self.name}: loaded csi {csi.shape}, img {img.shape}, bbx {bbx.shape}")
-        r_img = img.reshape((-1, 1, self.img_size[0], self.img_size[1]))
-        # bbx is 'xywh' or 'xyxy'
-        if self.bbx_ver == 'xyxy':
-            bbx[..., -1] = bbx[..., -1] + bbx[..., -3]
-            bbx[..., -2] = bbx[..., -2] + bbx[..., -4]
-
-        if self.number != 0:
-            if csi.shape[0] == r_img.shape[0]:
-                total_count = csi.shape[0]
-                picked = np.random.choice(list(range(total_count)), size=self.number, replace=False)
-                self.seeds = picked
-                csi = csi[picked]
-                img = r_img[picked]
-                bbx = bbx[picked]
-
-            else:
-                print("Lengths not equal!")
-
-        return {'csi': csi, 'img': img, 'bbx': bbx}
-
 
 class MyDatasetPDBBX2(MyDataset):
     def __init__(self,
@@ -334,10 +290,17 @@ class MyDatasetPDBBX2(MyDataset):
                  *args,
                  **kwargs):
 
-        self.pd_path = pd_path
-        self.bbx_path = bbx_path
+        self.paths['pd'] = pd_path
+        self.paths['bbx'] = bbx_path
         self.bbx_ver = bbx_ver
         super(MyDatasetPDBBX2, self).__init__(**kwargs)
+        self.data['img'] = self.data['img'].reshape((-1, 1, self.img_size[0], self.img_size[1]))
+        if self.bbx_ver == 'xyxy':
+            _bbx = np.zeros_like(self.data['bbx'])
+            _bbx[..., 0:2] = self.data['bbx'][..., 0:2]
+            _bbx[..., -1] = self.data['bbx'][..., -1] + self.data['bbx'][..., -3]
+            _bbx[..., -2] = self.data['bbx'][..., -2] + self.data['bbx'][..., -4]
+            self.data['bbx'] = _bbx
 
     def __getitem__(self, index):
 
@@ -349,32 +312,6 @@ class MyDatasetPDBBX2(MyDataset):
     def __len__(self):
         return self.data['pd'].shape[0]
 
-    def __load_data__(self):
-        print(f"{self.name} loading...")
-        pd = np.load(self.pd_path, mmap_mode=self.mmap_mode)
-        img = np.load(self.img_path, mmap_mode=self.mmap_mode)
-        bbx = np.load(self.bbx_path)
-        print(f"{self.name}: loaded pd {pd.shape}, img {img.shape}, bbx {bbx.shape}")
-        r_img = img.reshape((-1, 1, self.img_size[0], self.img_size[1]))
-        # bbx is 'xywh' or 'xyxy'
-        if self.bbx_ver == 'xyxy':
-            bbx[..., -1] = bbx[..., -1] + bbx[..., -3]
-            bbx[..., -2] = bbx[..., -2] + bbx[..., -4]
-
-        if self.number != 0:
-            if pd.shape[0] == r_img.shape[0]:
-                total_count = pd.shape[0]
-                picked = np.random.choice(list(range(total_count)), size=self.number, replace=False)
-                self.seeds = picked
-                pd = pd[picked]
-                img = r_img[picked]
-                bbx = bbx[picked]
-
-            else:
-                print("Lengths not equal!")
-
-        return {'pd': pd, 'img': img, 'bbx': bbx}
-
 
 class MyDatasetPDBBX3(MyDataset):
     def __init__(self,
@@ -383,10 +320,11 @@ class MyDatasetPDBBX3(MyDataset):
                  *args,
                  **kwargs):
 
-        self.pd_path = pd_path
-        self.bbx_path = bbx_path
+        self.paths['pd'] = pd_path
+        self.paths['bbx'] = bbx_path
         self.bbx_ver = bbx_ver
         super(MyDatasetPDBBX3, self).__init__(**kwargs)
+        self.data['img'] = self.data['img'].reshape((-1, 1, self.img_size[0], self.img_size[1]))
 
     def __getitem__(self, index):
 
@@ -399,30 +337,3 @@ class MyDatasetPDBBX3(MyDataset):
     def __len__(self):
         return self.data['csi'].shape[0]
 
-    def __load_data__(self):
-        print(f"{self.name} loading...")
-        csi = np.load(self.csi_path, mmap_mode=self.mmap_mode)
-        img = np.load(self.img_path, mmap_mode=self.mmap_mode)
-        pd = np.load(self.pd_path, mmap_mode=self.mmap_mode)
-        bbx = np.load(self.bbx_path)
-        print(f"{self.name}: loaded csi {csi.shape}, pd {pd.shape}, img {img.shape}, bbx {bbx.shape}")
-        r_img = img.reshape((-1, 1, self.img_size[0], self.img_size[1]))
-        # bbx is 'xywh' or 'xyxy'
-        if self.bbx_ver == 'xyxy':
-            bbx[..., -1] = bbx[..., -1] + bbx[..., -3]
-            bbx[..., -2] = bbx[..., -2] + bbx[..., -4]
-
-        if self.number != 0:
-            if csi.shape[0] == r_img.shape[0]:
-                total_count = pd.shape[0]
-                picked = np.random.choice(list(range(total_count)), size=self.number, replace=False)
-                self.seeds = picked
-                csi = csi[picked]
-                pd = pd[picked]
-                img = r_img[picked]
-                bbx = bbx[picked]
-
-            else:
-                print("Lengths not equal!")
-
-        return {'csi': csi, 'img': img, 'pd': pd, 'bbx': bbx}
