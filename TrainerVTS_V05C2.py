@@ -73,7 +73,7 @@ class MyLoss_T(MyLoss):
             axes[j].bar(range(len(self.loss['pred']['LAT'][select_ind[0]])),
                         self.loss['pred']['LAT'][select_ind[j]],
                         width=1, fc='blue', alpha=0.8, label='T_Latent')
-            axes[j].axis('off')
+            axes[j].set_ylim(-1, 1)
             axes[j].set_title(f"#{samples[j]}")
             axes[j].grid()
 

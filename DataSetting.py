@@ -9,6 +9,7 @@ class MyDataset(Data.Dataset):
     DATASET READER
     """
     def __init__(self, name, csi_path, img_path, img_size=(128, 128), transform=None, img='y', int_image=False, number=0,
+                 random=True,
                  mmap_mode='r'):
         """
         Wraps a dataset.\n
@@ -20,12 +21,14 @@ class MyDataset(Data.Dataset):
         :param img: whether 'y' or 'x'. Default is 'y'
         :param int_image: whether convert images to np.uint8. Default is False
         :param number: select a number of samples. Default is 0 (all)
+        :param random: whether randomly choose images if number is specified. Default is True
         :param mmap_mode: mmap_mode='r' makes loading faster for large files
         """
         self.name = name
         self.x_path = csi_path
         self.y_path = img_path
         self.number = number
+        self.random = random
         self.seeds = None
         self.img_size = img_size
         self.transform = transform
@@ -87,7 +90,10 @@ class MyDataset(Data.Dataset):
         if self.number != 0:
             if x.shape[0] == y.shape[0]:
                 total_count = x.shape[0]
-                picked = np.random.choice(list(range(total_count)), size=self.number, replace=False)
+                if self.random:
+                    picked = np.random.choice(list(range(total_count)), size=self.number, replace=False)
+                else:
+                    picked = np.arange(self.number)
                 self.seeds = picked
                 x = x[picked]
                 y = y[picked]
