@@ -228,6 +228,7 @@ class MyDatasetBBX(MyDataset):
     def __init__(self,
                  raw_img_path, crop_img_path, bbx_path,
                  bbx_ver='xywh',
+                 *args,
                  **kwargs):
 
         self.raw_img_path = raw_img_path
@@ -282,6 +283,7 @@ class MyDatasetBBX2(MyDataset):
     def __init__(self,
                  bbx_path,
                  bbx_ver='xywh',
+                 *args,
                  **kwargs):
 
         self.bbx_path = bbx_path
@@ -329,6 +331,7 @@ class MyDatasetPDBBX2(MyDataset):
     def __init__(self,
                  pd_path, bbx_path,
                  bbx_ver='xywh',
+                 *args,
                  **kwargs):
 
         self.pd_path = pd_path
@@ -377,6 +380,7 @@ class MyDatasetPDBBX3(MyDataset):
     def __init__(self,
                  bbx_path, pd_path,
                  bbx_ver='xywh',
+                 *args,
                  **kwargs):
 
         self.pd_path = pd_path
