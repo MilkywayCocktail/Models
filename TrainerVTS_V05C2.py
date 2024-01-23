@@ -122,9 +122,9 @@ class TrainerVTS_V05c2:
         self.device = torch.device("cuda:" + str(cuda) if torch.cuda.is_available() else "cpu")
         self.optimizer = torch.optim.Adam
 
-        self.models = {'imgen': img_encoder.to(self.device),
-                       'imgde': img_decoder.to(self.device),
-                       'csien': csi_encoder.to(self.device)
+        self.models = {'imgen': img_encoder.to(self.device) if img_encoder else None,
+                       'imgde': img_decoder.to(self.device) if img_encoder else None,
+                       'csien': csi_encoder.to(self.device) if img_encoder else None
                        }
 
         self.train_loader = train_loader
