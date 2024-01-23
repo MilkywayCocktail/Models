@@ -235,7 +235,7 @@ class MyDatasetBBX(MyDataset):
         self.crop_img_path = crop_img_path
         self.bbx_path = bbx_path
         self.bbx_ver = bbx_ver
-        super(MyDatasetBBX, self).__init__(kwargs)
+        super(MyDatasetBBX, self).__init__(**kwargs)
 
     def __getitem__(self, index):
 
@@ -288,7 +288,7 @@ class MyDatasetBBX2(MyDataset):
 
         self.bbx_path = bbx_path
         self.bbx_ver = bbx_ver
-        super(MyDatasetBBX2, self).__init__(kwargs)
+        super(MyDatasetBBX2, self).__init__(**kwargs)
 
     def __getitem__(self, index):
 
@@ -337,7 +337,7 @@ class MyDatasetPDBBX2(MyDataset):
         self.pd_path = pd_path
         self.bbx_path = bbx_path
         self.bbx_ver = bbx_ver
-        super(MyDatasetPDBBX2, self).__init__(kwargs)
+        super(MyDatasetPDBBX2, self).__init__(**kwargs)
 
     def __getitem__(self, index):
 
@@ -386,7 +386,7 @@ class MyDatasetPDBBX3(MyDataset):
         self.pd_path = pd_path
         self.bbx_path = bbx_path
         self.bbx_ver = bbx_ver
-        super(MyDatasetPDBBX3, self).__init__(kwargs)
+        super(MyDatasetPDBBX3, self).__init__(**kwargs)
 
     def __getitem__(self, index):
 
