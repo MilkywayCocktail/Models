@@ -180,7 +180,7 @@ class DataSplitter:
             shuffle = self.shuffle
         print("Exporting...")
         loader = Data.DataLoader(self.data, batch_size=batch_size, shuffle=shuffle, drop_last=True)
-        print(f"Exported loader of len {len(self.data)}...", end='')
+        print(f"Exported loader of len {len(self.data)}")
         return loader
 
     def split_loader(self, test_batch_size=1, random=None, shuffle=None, generator=None,
