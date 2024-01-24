@@ -32,8 +32,7 @@ class MyDataset(Data.Dataset):
         self.transform = transform
         self.int_img = int_image
         self.mmap_mode = mmap_mode
-        self.data = self.__load_data__()
-        self.data['img'] = self.data['img'].reshape((-1, 1, self.img_size[0], self.img_size[1]))
+        self.data = {}
 
     def __convert__(self, sample):
         """
@@ -71,7 +70,11 @@ class MyDataset(Data.Dataset):
     def __len__(self):
         return self.data['csi'].shape[0]
 
-    def __load_data__(self):
+    def __reshaping__(self):
+        if self.data['img']:
+            self.data['img'] = self.data['img'].reshape((-1, 1, self.img_size[0], self.img_size[1]))
+
+    def load_data(self):
         """
         Load data.\n
         :return: loaded dataset
@@ -93,6 +96,8 @@ class MyDataset(Data.Dataset):
             for key in self.paths.keys():
                 result[key] = result[key][picked]
 
+        self.__reshaping__()
+        self.data = result
         return result
 
 
@@ -229,12 +234,12 @@ class MyDatasetBBX(MyDataset):
                  bbx_ver='xywh',
                  *args,
                  **kwargs):
-        self.paths = {'r_img': raw_img_path, 'c_img': crop_img_path, 'bbx': bbx_path,
-                      'csi': kwargs['csi_path'], 'img': kwargs['img_path']}
-        self.bbx_ver = bbx_ver
         super(MyDatasetBBX, self).__init__(**kwargs)
-        self.data['r_img'] = self.data['r_img'].reshape((-1, 1, self.img_size[0], self.img_size[1]))
-        self.data['c_img'] = self.data['c_img'].reshape((-1, 1, 128, 128))
+        self.paths['r_img'] = raw_img_path
+        self.paths['c_img'] = crop_img_path
+        self.paths['bbx'] = bbx_path
+
+        self.bbx_ver = bbx_ver
         if self.bbx_ver == 'xyxy':
             _bbx = np.zeros_like(self.data['bbx'])
             _bbx[..., 0:2] = self.data['bbx'][..., 0:2]
@@ -253,6 +258,11 @@ class MyDatasetBBX(MyDataset):
     def __len__(self):
         return self.data['csi'].shape[0]
 
+    def __reshaping__(self):
+        if self.data['r_img']:
+            self.data['r_img'] = self.data['r_img'].reshape((-1, 1, self.img_size[0], self.img_size[1]))
+        if self.data['c_img']:
+            self.data['c_img'] = self.data['c_img'].reshape((-1, 1, 128, 128))
 
 class MyDatasetBBX2(MyDataset):
     def __init__(self,
@@ -260,10 +270,10 @@ class MyDatasetBBX2(MyDataset):
                  bbx_ver='xywh',
                  *args,
                  **kwargs):
-        self.paths = {'bbx': bbx_path,
-                      'csi': kwargs['csi_path'], 'img': kwargs['img_path']}
-        self.bbx_ver = bbx_ver
+
         super(MyDatasetBBX2, self).__init__(**kwargs)
+        self.paths['bbx'] = bbx_path
+        self.bbx_ver = bbx_ver
         if self.bbx_ver == 'xyxy':
             _bbx = np.zeros_like(self.data['bbx'])
             _bbx[..., 0:2] = self.data['bbx'][..., 0:2]
@@ -289,11 +299,10 @@ class MyDatasetPDBBX2(MyDataset):
                  *args,
                  **kwargs):
 
-        self.paths = {'bbx': bbx_path, 'pd': pd_path,
-                      'csi': kwargs['csi_path'], 'img': kwargs['img_path']}
-        self.bbx_ver = bbx_ver
         super(MyDatasetPDBBX2, self).__init__(**kwargs)
-        self.data['img'] = self.data['img'].reshape((-1, 1, self.img_size[0], self.img_size[1]))
+        self.paths['bbx'] = bbx_path
+        self.paths['pd'] = pd_path
+        self.bbx_ver = bbx_ver
         if self.bbx_ver == 'xyxy':
             _bbx = np.zeros_like(self.data['bbx'])
             _bbx[..., 0:2] = self.data['bbx'][..., 0:2]
@@ -311,6 +320,10 @@ class MyDatasetPDBBX2(MyDataset):
     def __len__(self):
         return self.data['pd'].shape[0]
 
+    def __reshaping__(self):
+        if self.data['img']:
+            self.data['img'] = self.data['img'].reshape((-1, 1, self.img_size[0], self.img_size[1]))
+
 
 class MyDatasetPDBBX3(MyDataset):
     def __init__(self,
@@ -319,11 +332,16 @@ class MyDatasetPDBBX3(MyDataset):
                  *args,
                  **kwargs):
 
-        self.paths = {'bbx': bbx_path, 'pd': pd_path,
-                      'csi': kwargs['csi_path'], 'img': kwargs['img_path']}
-        self.bbx_ver = bbx_ver
         super(MyDatasetPDBBX3, self).__init__(**kwargs)
-        self.data['img'] = self.data['img'].reshape((-1, 1, self.img_size[0], self.img_size[1]))
+        self.paths['bbx'] = bbx_path
+        self.paths['pd'] = pd_path
+        self.bbx_ver = bbx_ver
+        if self.bbx_ver == 'xyxy':
+            _bbx = np.zeros_like(self.data['bbx'])
+            _bbx[..., 0:2] = self.data['bbx'][..., 0:2]
+            _bbx[..., -1] = self.data['bbx'][..., -1] + self.data['bbx'][..., -3]
+            _bbx[..., -2] = self.data['bbx'][..., -2] + self.data['bbx'][..., -4]
+            self.data['bbx'] = _bbx
 
     def __getitem__(self, index):
 
@@ -336,3 +354,6 @@ class MyDatasetPDBBX3(MyDataset):
     def __len__(self):
         return self.data['csi'].shape[0]
 
+    def __reshaping__(self):
+        if self.data['img']:
+            self.data['img'] = self.data['img'].reshape((-1, 1, self.img_size[0], self.img_size[1]))
