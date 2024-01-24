@@ -192,6 +192,7 @@ class DataSplitter:
         :param shuffle: whether to shuffle samples. Default is True
         :param generator: random seed generator for random split. Default is None
         :param num_workers: number of workers in DataLoader. Default is 14 (Server CPU is 32)
+        :param pin_memory: whether to accelerate GPU reading. Default is False
         :return: train/valid/test dataloaders
         """
         if not random:
@@ -228,10 +229,8 @@ class MyDatasetBBX(MyDataset):
                  bbx_ver='xywh',
                  *args,
                  **kwargs):
-
-        self.paths['r_img'] = raw_img_path
-        self.paths['c_img'] = crop_img_path
-        self.paths['bbx'] = bbx_path
+        self.paths = {'r_img': raw_img_path, 'c_img': crop_img_path, 'bbx': bbx_path,
+                      'csi': kwargs['csi_path'], 'img': kwargs['img_path']}
         self.bbx_ver = bbx_ver
         super(MyDatasetBBX, self).__init__(**kwargs)
         self.data['r_img'] = self.data['r_img'].reshape((-1, 1, self.img_size[0], self.img_size[1]))
@@ -261,8 +260,8 @@ class MyDatasetBBX2(MyDataset):
                  bbx_ver='xywh',
                  *args,
                  **kwargs):
-
-        self.paths['bbx'] = bbx_path
+        self.paths = {'bbx': bbx_path,
+                      'csi': kwargs['csi_path'], 'img': kwargs['img_path']}
         self.bbx_ver = bbx_ver
         super(MyDatasetBBX2, self).__init__(**kwargs)
         if self.bbx_ver == 'xyxy':
@@ -290,8 +289,8 @@ class MyDatasetPDBBX2(MyDataset):
                  *args,
                  **kwargs):
 
-        self.paths['pd'] = pd_path
-        self.paths['bbx'] = bbx_path
+        self.paths = {'bbx': bbx_path, 'pd': pd_path,
+                      'csi': kwargs['csi_path'], 'img': kwargs['img_path']}
         self.bbx_ver = bbx_ver
         super(MyDatasetPDBBX2, self).__init__(**kwargs)
         self.data['img'] = self.data['img'].reshape((-1, 1, self.img_size[0], self.img_size[1]))
@@ -320,8 +319,8 @@ class MyDatasetPDBBX3(MyDataset):
                  *args,
                  **kwargs):
 
-        self.paths['pd'] = pd_path
-        self.paths['bbx'] = bbx_path
+        self.paths = {'bbx': bbx_path, 'pd': pd_path,
+                      'csi': kwargs['csi_path'], 'img': kwargs['img_path']}
         self.bbx_ver = bbx_ver
         super(MyDatasetPDBBX3, self).__init__(**kwargs)
         self.data['img'] = self.data['img'].reshape((-1, 1, self.img_size[0], self.img_size[1]))
