@@ -95,9 +95,9 @@ class MyDataset(Data.Dataset):
             self.seeds = picked
             for key in self.paths.keys():
                 result[key] = result[key][picked]
-
-        self.__reshaping__()
+                
         self.data = result
+        self.__reshaping__()
         return result
 
 
@@ -263,6 +263,7 @@ class MyDatasetBBX(MyDataset):
             self.data['r_img'] = self.data['r_img'].reshape((-1, 1, self.img_size[0], self.img_size[1]))
         if self.data['c_img']:
             self.data['c_img'] = self.data['c_img'].reshape((-1, 1, 128, 128))
+
 
 class MyDatasetBBX2(MyDataset):
     def __init__(self,
