@@ -71,7 +71,7 @@ class MyDataset(Data.Dataset):
         return self.data['csi'].shape[0]
 
     def __reshaping__(self):
-        if self.data['img']:
+        if self.data['img'] is not None:
             self.data['img'] = self.data['img'].reshape((-1, 1, self.img_size[0], self.img_size[1]))
 
     def load_data(self):
@@ -264,9 +264,9 @@ class MyDatasetBBX(MyDataset):
         return self.data['csi'].shape[0]
 
     def __reshaping__(self):
-        if self.data['r_img']:
+        if self.data['r_img'] is not None:
             self.data['r_img'] = self.data['r_img'].reshape((-1, 1, self.img_size[0], self.img_size[1]))
-        if self.data['c_img']:
+        if self.data['c_img'] is not None:
             self.data['c_img'] = self.data['c_img'].reshape((-1, 1, 128, 128))
 
 
@@ -326,14 +326,11 @@ class MyDatasetPDBBX2(MyDataset):
     def __len__(self):
         return self.data['pd'].shape[0]
 
-    def __reshaping__(self):
-        if self.data['img']:
-            self.data['img'] = self.data['img'].reshape((-1, 1, self.img_size[0], self.img_size[1]))
-
 
 class MyDatasetPDBBX3(MyDataset):
     def __init__(self,
-                 bbx_path, pd_path,
+                 pd_path,
+                 bbx_path,
                  bbx_ver='xywh',
                  *args,
                  **kwargs):
@@ -359,7 +356,3 @@ class MyDatasetPDBBX3(MyDataset):
 
     def __len__(self):
         return self.data['csi'].shape[0]
-
-    def __reshaping__(self):
-        if self.data['img']:
-            self.data['img'] = self.data['img'].reshape((-1, 1, self.img_size[0], self.img_size[1]))
