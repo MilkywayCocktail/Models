@@ -81,11 +81,16 @@ class MyDataset(Data.Dataset):
         """
         print(f"{self.name} loading...")
         result = {}
+        count = 0
         for key in self.paths.keys():
-            item = np.load(self.paths[key], mmap_mode=self.mmap_mode)
-            result[key] = item
-            count = item.shape[0]
-            print(f"loaded {key} of {item.shape}")
+            if self.paths[key]:
+                item = np.load(self.paths[key], mmap_mode=self.mmap_mode)
+                result[key] = item
+                count = item.shape[0]
+                print(f"loaded {key} of {item.shape}")
+            else:
+                result[key] = None
+                print(f"skipping {key}")
 
         if self.number != 0:
             if self.random:
@@ -95,7 +100,7 @@ class MyDataset(Data.Dataset):
             self.seeds = picked
             for key in self.paths.keys():
                 result[key] = result[key][picked]
-                
+
         self.data = result
         self.__reshaping__()
         return result
