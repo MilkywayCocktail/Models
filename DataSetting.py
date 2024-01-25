@@ -70,10 +70,6 @@ class MyDataset(Data.Dataset):
     def __len__(self):
         return self.data['csi'].shape[0]
 
-    def __reshaping__(self):
-        if self.data['img'] is not None:
-            self.data['img'] = self.data['img'].reshape((-1, 1, self.img_size[0], self.img_size[1]))
-
     def load_data(self):
         """
         Load data.\n
@@ -102,7 +98,6 @@ class MyDataset(Data.Dataset):
                 result[key] = result[key][picked]
 
         self.data = result
-        self.__reshaping__()
         return result
 
 
@@ -262,12 +257,6 @@ class MyDatasetBBX(MyDataset):
 
     def __len__(self):
         return self.data['csi'].shape[0]
-
-    def __reshaping__(self):
-        if self.data['r_img'] is not None:
-            self.data['r_img'] = self.data['r_img'].reshape((-1, 1, self.img_size[0], self.img_size[1]))
-        if self.data['c_img'] is not None:
-            self.data['c_img'] = self.data['c_img'].reshape((-1, 1, 128, 128))
 
 
 class MyDatasetBBX2(MyDataset):

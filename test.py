@@ -18,3 +18,6 @@ s = samples[inds]
 #print(s)
 #print(a1[inds[np.argsort(s)]])
 
+dict = {'a': 1, 'b':{}}
+if dict['b']:
+    print("Yes")
