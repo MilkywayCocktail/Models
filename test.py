@@ -18,6 +18,8 @@ s = samples[inds]
 #print(s)
 #print(a1[inds[np.argsort(s)]])
 
-dict = {'a': 1, 'b':{}}
-if dict['b']:
-    print("Yes")
+a, *b = [11,22,33,44,55,66]
+print(b)
+
+if 55 in b:
+    print("yes!")

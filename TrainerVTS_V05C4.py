@@ -3,11 +3,11 @@ import torch.nn as nn
 from torchvision.ops import generalized_box_iou_loss
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
+
 from torchvision.ops import generalized_box_iou_loss
 import os
 import time
-from Loss import MyLoss, MyLoss_S
+from Loss import MyLoss, MyLossBBX
 
 def timer(func):
     from functools import wraps
@@ -21,62 +21,6 @@ def timer(func):
         return result
 
     return wrapper
-
-
-class MyLoss_T(MyLoss):
-    def __init__(self, loss_terms, pred_terms):
-        super(MyLoss_T, self).__init__(loss_terms, pred_terms)
-
-    def plot_latent(self, title, select_ind):
-        self.__plot_settings__()
-
-        title = f"{title} @ep{self.epochs[-1]}"
-        samples = np.array(self.loss['pred']['IND'])[select_ind]
-
-        fig = plt.figure(constrained_layout=True)
-        fig.suptitle(title)
-        axes = fig.subplots(nrows=2, ncols=np.ceil(len(select_ind) / 2).astype(int))
-        axes = axes.flatten()
-        for j in range(len(select_ind)):
-            axes[j].bar(range(len(self.loss['pred']['LAT'][select_ind[0]])),
-                        self.loss['pred']['LAT'][select_ind[j]],
-                        width=1, fc='blue', alpha=0.8, label='T_Latent')
-            axes[j].set_ylim(-1, 1)
-            axes[j].set_title(f"#{samples[j]}")
-            axes[j].grid()
-
-        axes[0].legend()
-        plt.show()
-        return fig
-
-
-class MyLoss_S_BBX(MyLoss_S):
-    def __init__(self, loss_terms, pred_terms):
-        super(MyLoss_S_BBX, self).__init__(loss_terms, pred_terms)
-
-    def plot_bbx(self, title, select_ind):
-        self.__plot_settings__()
-
-        title = f"{title} @ep{self.epochs[-1]}"
-        samples = np.array(self.loss['pred']['IND'])[select_ind]
-
-        fig = plt.figure(constrained_layout=True)
-        fig.suptitle(title)
-        axes = fig.subplots(nrows=2, ncols=np.ceil(len(select_ind) / 2).astype(int))
-        axes = axes.flatten()
-        for j in range(len(select_ind)):
-            axes[j].set_xlim([0, 226])
-            axes[j].set_ylim([0, 128])
-            x, y, w, h = self.loss['pred']['GT_BBX'][select_ind[j]]
-            axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='blue', fill=False, lw=4, label='GroundTruth'))
-            x, y, w, h = self.loss['pred']['S_BBX'][select_ind[j]]
-            axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='orange', fill=False, lw=4, label='Student'))
-            axes[j].axis('off')
-            axes[j].set_title(f"#{samples[j]}")
-
-        axes[0].legend()
-        plt.show()
-        return fig
 
 
 class TrainerVTS_V05c4:
@@ -108,16 +52,16 @@ class TrainerVTS_V05c4:
 
         self.temp_loss = {}
         if self.mode == 'latent':
-            self.loss = {'t': MyLoss_T(loss_terms=['LOSS', 'KL', 'RECON'],
+            self.loss = {'t': MyLoss(loss_terms=['LOSS', 'KL', 'RECON'],
                                        pred_terms=['GT', 'PRED', 'LAT', 'IND']),
-                         's': MyLoss_S_BBX(loss_terms=['LOSS', 'MU', 'LOGVAR', 'IMG'],
+                         's': MyLossBBX(loss_terms=['LOSS', 'MU', 'LOGVAR', 'IMG'],
                                        pred_terms=['GT', 'T_PRED', 'S_PRED', 'T_LATENT', 'S_LATENT',
                                                    'IND']),
                          }
         elif self.mode == 'bbx':
-            self.loss = {'t': MyLoss_T(loss_terms=['LOSS', 'KL', 'RECON'],
+            self.loss = {'t': MyLoss(loss_terms=['LOSS', 'KL', 'RECON'],
                                        pred_terms=['GT', 'PRED', 'LAT', 'IND']),
-                         's': MyLoss_S_BBX(loss_terms=['LOSS', 'BBX'],
+                         's': MyLossBBX(loss_terms=['LOSS', 'BBX'],
                                        pred_terms=['GT', 'GT_BBX', 'S_BBX', 'IND']),
                          }
         self.inds = None

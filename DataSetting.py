@@ -63,9 +63,9 @@ class MyDataset(Data.Dataset):
         :return: csi, img, index
         """
 
-        return self.data['csi'][index], \
-            self.__transform__(self.data['img'][index]), \
-            index
+        return {'csi': self.data['csi'][index],
+                'img': self.__transform__(self.data['img'][index]),
+                'ind': index}
 
     def __len__(self):
         return self.data['csi'].shape[0]
@@ -249,11 +249,11 @@ class MyDatasetBBX(MyDataset):
 
     def __getitem__(self, index):
 
-        return self.data['csi'][index], \
-               self.data['r_img'][index], \
-               self.__transform__(self.data['c_img'][index]), \
-               self.data['bbx'][index], \
-               index
+        return {'csi': self.data['csi'][index],
+                'r_img': self.data['r_img'][index],
+                'c_img': self.__transform__(self.data['c_img'][index]),
+                'bbx': self.data['bbx'][index],
+                'ind': index}
 
     def __len__(self):
         return self.data['csi'].shape[0]
@@ -278,10 +278,10 @@ class MyDatasetBBX2(MyDataset):
 
     def __getitem__(self, index):
 
-        return self.data['csi'][index], \
-               self.__transform__(self.data['img'][index]), \
-               self.data['bbx'][index], \
-               index
+        return {'csi': self.data['csi'][index],
+                'img': self.__transform__(self.data['img'][index]),
+                'bbx': self.data['bbx'][index],
+                'ind': index}
 
     def __len__(self):
         return self.data['csi'].shape[0]
@@ -307,10 +307,10 @@ class MyDatasetPDBBX2(MyDataset):
 
     def __getitem__(self, index):
 
-        return self.data['pd'][index], \
-               self.__transform__(self.data['img'][index]), \
-               self.data['bbx'][index], \
-               index
+        return {'pd': self.data['pd'][index],
+                'img': self.__transform__(self.data['img'][index]),
+                'bbx': self.data['bbx'][index],
+                'ind': index}
 
     def __len__(self):
         return self.data['pd'].shape[0]
@@ -337,11 +337,11 @@ class MyDatasetPDBBX3(MyDataset):
 
     def __getitem__(self, index):
 
-        return self.data['csi'][index], \
-               self.__transform__(self.data['img'][index]), \
-               self.data['pd'][index], \
-               self.data['bbx'][index], \
-               index
+        return {'csi': self.data['csi'][index],
+                'img': self.__transform__(self.data['img'][index]),
+                'pd': self.data['pd'][index],
+                'bbx': self.data['bbx'][index],
+                'ind': index}
 
     def __len__(self):
         return self.data['csi'].shape[0]
