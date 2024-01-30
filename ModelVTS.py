@@ -88,6 +88,8 @@ class ImageEncoderV03b1(nn.Module):
         self.latent_dim = latent_dim
         self.active_func = active_func
 
+        self.name = 'imgen'
+
         self.cnn = nn.Sequential(
             # 1 * 128 * 128
             nn.Conv2d(1, 16, kernel_size=3, stride=2, padding=1),
@@ -144,6 +146,8 @@ class ImageDecoderV03b1(nn.Module):
 
         self.latent_dim = latent_dim
         self.active_func = active_func
+
+        self.name = 'imgde'
 
         self.fclayers = nn.Sequential(
             nn.Linear(self.latent_dim, 4096),
@@ -252,6 +256,8 @@ class CsiEncoderV03b1(nn.Module):
         self.bottleneck = bottleneck
         self.latent_dim = latent_dim
         self.feature_length = feature_length
+
+        self.name = 'csien'
 
         self.cnn1 = nn.Sequential(
             # 1 * 90 * 100
@@ -992,6 +998,8 @@ class MaskEncoderV04c2(nn.Module):
         self.latent_dim = latent_dim
         self.image_width = image_width
 
+        self.name = 'msken'
+
         self.lstm = nn.Sequential(
             nn.LSTM(128, 2 * self.latent_dim, 2, batch_first=True, dropout=0.1),
         )
@@ -1012,6 +1020,8 @@ class MaskDecoderV04c2(nn.Module):
     def __init__(self, latent_dim=16):
         super(MaskDecoderV04c2, self).__init__()
         self.latent_dim = latent_dim
+
+        self.name = 'mskde'
 
         self.fc = nn.Sequential(
             nn.Linear(self.latent_dim, 8),
@@ -1122,6 +1132,8 @@ class ImageEncoderV05c1(nn.Module):
         super(ImageEncoderV05c1, self).__init__()
         self.latent_dim = latent_dim
         self.active_func = None
+
+        self.name = 'imgen'
 
         self.cnn = nn.Sequential(
             # 1 * 128 * 128
@@ -1242,7 +1254,7 @@ class CsiEncoderV05c2(CsiEncoderV03c4):
         )
 
     def __str__(self):
-        return 'CsiEnV05c1'
+        return 'CsiEnV05c2'
 
     def forward(self, x):
         out = self.cnn(x)
@@ -1279,6 +1291,9 @@ class PDEncoderV05c3(nn.Module):
         super(PDEncoderV05c3, self).__init__()
         self.latent_dim = latent_dim
         self.out_length = out_length
+
+        self.name = 'pden'
+
         self.fc = nn.Sequential(
             nn.Linear(2, 256),
             nn.ReLU(),
@@ -1337,7 +1352,7 @@ class CsiEncoderV05c4(CsiEncoderV03c4):
         )
 
     def __str__(self):
-        return 'CsiEnV05c1'
+        return 'CsiEnV05c4'
 
     def forward(self, csi, pd):
         pd_mid = self.fc(pd)

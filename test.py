@@ -17,9 +17,5 @@ inds = np.sort(inds)
 s = samples[inds]
 #print(s)
 #print(a1[inds[np.argsort(s)]])
-
-a, *b = [11,22,33,44,55,66]
-print(b)
-
-if 55 in b:
-    print("yes!")
+dicc = {'a':1, 'b':2}
+print(f"{list(dicc.values())}")

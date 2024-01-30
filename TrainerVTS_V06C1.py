@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from torchvision.ops import generalized_box_iou_loss
 import os
-import time
 from Loss import MyLoss, MyLossBBX
 from misc import timer
 
@@ -21,17 +20,17 @@ class BasicTrainer:
         self.device = torch.device("cuda:" + str(cuda) if torch.cuda.is_available() else "cpu")
         self.optimizer = torch.optim.Adam
 
-        self.models = {network.module: network for network in networks
+        self.models = {network.name: network for network in networks
                        }
 
         self.train_loader = train_loader
         self.valid_loader = valid_loader
         self.test_loader = test_loader
-        self.wanted_data = ()
+        self.using_datatype = ()
 
         self.loss_terms = []
         self.pred_terms = []
-        self.loss = MyLoss
+        self.loss = MyLoss()
         self.temp_loss = {}
         self.inds = None
 
@@ -43,19 +42,24 @@ class BasicTrainer:
         return {pred: None for pred in self.pred_terms}
 
     @timer
-    def train(self, autosave=False, notion=''):
-        optimizer = self.optimizer([{'params': self.models[model].parameters()} for model in self.models], lr=self.lr)
+    def train(self, train_module=None, eval_module=None, autosave=False, notion=''):
+        optimizer = self.optimizer([{'params': self.models[model].parameters()} for model in train_module], lr=self.lr)
         self.loss.logger(self.lr, self.epochs)
         best_val_loss = float("inf")
+        if not train_module:
+            train_module = list(self.models.keys())
 
         for epoch in range(self.epochs):
             # =====================train============================
-            for model in self.models:
+            for model in train_module:
                 self.models[model].train()
+            if eval_module:
+                for model in eval_module:
+                    self.models[model].eval()
             EPOCH_LOSS = {loss: [] for loss in self.loss_terms}
             for idx, data in enumerate(self.train_loader, 0):
                 for key in data.keys():
-                    if key in self.wanted_data:
+                    if key in self.using_datatype:
                         data[key] = data[key].to(torch.float32).to(self.device)
                     else:
                         data.pop(key)
@@ -76,13 +80,16 @@ class BasicTrainer:
             self.loss.update('train', EPOCH_LOSS)
 
             # =====================valid============================
-            for model in self.models:
+            for model in train_module:
                 self.models[model].eval()
+            if eval_module:
+                for model in eval_module:
+                    self.models[model].eval()
             EPOCH_LOSS = {loss: [] for loss in self.loss_terms}
 
             for idx, data in enumerate(self.train_loader, 0):
                 for key in data.keys():
-                    if key in self.wanted_data:
+                    if key in self.using_datatype:
                         data[key] = data[key].to(torch.float32).to(self.device)
                     else:
                         data.pop(key)
@@ -101,7 +108,7 @@ class BasicTrainer:
                         best_val_loss = val_loss
                         logfile = open(f"{save_path}{notion}_best_t.txt", 'w')
                         logfile.write(f"{self.name} best : {self.current_title()}")
-                        for model in self.models:
+                        for model in train_module:
                             torch.save(self.models[model].state_dict(),
                                        f"{save_path}{notion}_{self.models[model]}_best.pth")
 
@@ -110,9 +117,14 @@ class BasicTrainer:
             self.loss['t'].update('valid', EPOCH_LOSS)
 
     @timer
-    def test(self, loader='test'):
-        for model in self.models:
+    def test(self, test_module=None, eval_module=None, loader='test'):
+        if not test_module:
+            test_module = list(self.models.keys())
+        for model in test_module:
             self.models[model].eval()
+        if eval_module:
+            for model in eval_module:
+                self.models[model].eval()
         EPOCH_LOSS = {loss: [] for loss in self.loss_terms}
 
         if loader == 'test':
@@ -125,7 +137,7 @@ class BasicTrainer:
 
         for idx, data in enumerate(loader, 0):
             for key in data.keys():
-                if key in self.wanted_data:
+                if key in self.using_datatype:
                     data[key] = data[key].to(torch.float32).to(self.device)
                 else:
                     data.pop(key)
@@ -143,7 +155,7 @@ class BasicTrainer:
             if idx % (len(loader)//5) == 0:
                 print(f"\r{self.name}: test={idx}/{len(loader)}, loss={self.temp_loss['LOSS'].item():.4f}", end='')
 
-        self.loss['t'].update('test', EPOCH_LOSS)
+        self.loss.update('test', EPOCH_LOSS)
         for key in EPOCH_LOSS.keys():
             EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
         print(f"\nTest finished. Average loss={EPOCH_LOSS}")
