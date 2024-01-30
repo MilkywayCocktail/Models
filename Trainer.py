@@ -134,6 +134,7 @@ class BasicTrainer:
 
         self.loss.reset('test')
         self.loss.reset('pred')
+        self.inds = None
 
         for idx, data in enumerate(loader, 0):
             for key in data.keys():
@@ -156,7 +157,6 @@ class BasicTrainer:
                 print(f"\r{self.name}: test={idx}/{len(loader)}, loss={self.temp_loss['LOSS'].item():.4f}", end='')
 
         self.loss.update('test', EPOCH_LOSS)
-        self.inds = None
         for key in EPOCH_LOSS.keys():
             EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
         print(f"\nTest finished. Average loss={EPOCH_LOSS}")
@@ -176,7 +176,7 @@ class BasicTrainer:
             fig.savefig(f"{save_path}{filename}")
         plt.show()
 
-    def plot_test(self):
+    def plot_test(self, select_ind=None, select_num=8, autosave=False, notion=''):
         pass
 
     def generate_indices(self, source=None, select_num=8):
@@ -187,3 +187,17 @@ class BasicTrainer:
         self.inds = inds
         return inds
 
+    def scheduler(self, turns=10,
+                  lr_decay=False, decay_rate=0.4,
+                  test_loader='train', select_num=8,
+                  autosave=False, notion='', *args, **kwargs):
+        for i in range(turns):
+            self.train(autosave=autosave, notion=notion, **kwargs)
+            self.test(loader=test_loader, **kwargs)
+            self.plot_train_loss(autosave=autosave, notion=notion, **kwargs)
+            self.plot_test(select_num=select_num, autosave=autosave, notion=notion, **kwargs)
+            if lr_decay:
+                self.lr *= decay_rate
+
+        print('\nSchedule Completed!')
+        
