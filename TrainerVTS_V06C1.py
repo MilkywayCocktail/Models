@@ -6,187 +6,27 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from torchvision.ops import generalized_box_iou_loss
 import os
+from Trainer import BasicTrainer
 from Loss import MyLoss, MyLossBBX
 from misc import timer
 
 
-class BasicTrainer:
-    def __init__(self, name, networks,
-                 lr, epochs, cuda,
-                 train_loader, valid_loader, test_loader):
-        self.name = name
-        self.lr = lr
-        self.epochs = epochs
-        self.device = torch.device("cuda:" + str(cuda) if torch.cuda.is_available() else "cpu")
-        self.optimizer = torch.optim.Adam
+class TeacherTrainer(BasicTrainer):
+    def __init__(self,
+                 beta=1.2,
+                 recon_lossfunc=nn.MSELoss(reduction='sum'),
+                 *args, **kwargs):
+        super(TeacherTrainer, self).__init__(*args, **kwargs)
 
-        self.models = {network.name: network for network in networks
-                       }
+        self.modality = {'img'}
 
-        self.train_loader = train_loader
-        self.valid_loader = valid_loader
-        self.test_loader = test_loader
-        self.using_datatype = ()
+        self.beta = beta
+        self.recon_lossfunc = recon_lossfunc
 
-        self.loss_terms = []
-        self.pred_terms = []
-        self.loss = MyLoss()
-        self.temp_loss = {}
-        self.inds = None
-
-    def current_title(self):
-        return f"{self.name}@{self.loss.epochs[-1]}"
-
-    def calculate_loss(self, *inputs):
-        self.temp_loss = {loss: 0 for loss in self.loss_terms}
-        return {pred: None for pred in self.pred_terms}
-
-    @timer
-    def train(self, train_module=None, eval_module=None, autosave=False, notion=''):
-        optimizer = self.optimizer([{'params': self.models[model].parameters()} for model in train_module], lr=self.lr)
-        self.loss.logger(self.lr, self.epochs)
-        best_val_loss = float("inf")
-        if not train_module:
-            train_module = list(self.models.keys())
-
-        for epoch in range(self.epochs):
-            # =====================train============================
-            for model in train_module:
-                self.models[model].train()
-            if eval_module:
-                for model in eval_module:
-                    self.models[model].eval()
-            EPOCH_LOSS = {loss: [] for loss in self.loss_terms}
-            for idx, data in enumerate(self.train_loader, 0):
-                for key in data.keys():
-                    if key in self.using_datatype:
-                        data[key] = data[key].to(torch.float32).to(self.device)
-                    else:
-                        data.pop(key)
-
-                optimizer.zero_grad()
-                PREDS = self.calculate_loss(data)
-                self.temp_loss['LOSS'].backward()
-                optimizer.step()
-                for key in EPOCH_LOSS.keys():
-                    EPOCH_LOSS[key].append(self.temp_loss[key].item())
-
-                if idx % (len(self.train_loader) // 5) == 0:
-                    print(f"\r{self.name}: epoch={epoch}/{self.epochs}, batch={idx}/{len(self.train_loader)}, "
-                          f"loss={self.temp_loss['LOSS'].item():.4f}", end='')
-
-            for key in EPOCH_LOSS.keys():
-                EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
-            self.loss.update('train', EPOCH_LOSS)
-
-            # =====================valid============================
-            for model in train_module:
-                self.models[model].eval()
-            if eval_module:
-                for model in eval_module:
-                    self.models[model].eval()
-            EPOCH_LOSS = {loss: [] for loss in self.loss_terms}
-
-            for idx, data in enumerate(self.train_loader, 0):
-                for key in data.keys():
-                    if key in self.using_datatype:
-                        data[key] = data[key].to(torch.float32).to(self.device)
-                    else:
-                        data.pop(key)
-                with torch.no_grad():
-                    PREDS = self.calculate_loss(data)
-                for key in EPOCH_LOSS.keys():
-                    EPOCH_LOSS[key].append(self.temp_loss[key].item())
-
-                val_loss = np.average(EPOCH_LOSS['LOSS'])
-
-                if autosave:
-                    save_path = f'../saved/{notion}/'
-                    if not os.path.exists(save_path):
-                        os.makedirs(save_path)
-                    if val_loss < best_val_loss:
-                        best_val_loss = val_loss
-                        logfile = open(f"{save_path}{notion}_best_t.txt", 'w')
-                        logfile.write(f"{self.name} best : {self.current_title()}")
-                        for model in train_module:
-                            torch.save(self.models[model].state_dict(),
-                                       f"{save_path}{notion}_{self.models[model]}_best.pth")
-
-            for key in EPOCH_LOSS.keys():
-                EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
-            self.loss['t'].update('valid', EPOCH_LOSS)
-
-    @timer
-    def test(self, test_module=None, eval_module=None, loader='test'):
-        if not test_module:
-            test_module = list(self.models.keys())
-        for model in test_module:
-            self.models[model].eval()
-        if eval_module:
-            for model in eval_module:
-                self.models[model].eval()
-        EPOCH_LOSS = {loss: [] for loss in self.loss_terms}
-
-        if loader == 'test':
-            loader = self.test_loader
-        elif loader == 'train':
-            loader = self.train_loader
-
-        self.loss.reset('test')
-        self.loss.reset('pred')
-
-        for idx, data in enumerate(loader, 0):
-            for key in data.keys():
-                if key in self.using_datatype:
-                    data[key] = data[key].to(torch.float32).to(self.device)
-                else:
-                    data.pop(key)
-
-            with torch.no_grad():
-                for sample in range(loader.batch_size):
-                    _data = {key: data[key][sample][np.newaxis, ...] for key in data.keys()}
-                    PREDS = self.calculate_loss(_data)
-
-                    for key in EPOCH_LOSS.keys():
-                        EPOCH_LOSS[key].append(self.temp_loss[key].item())
-
-                    self.loss.update('pred', PREDS)
-
-            if idx % (len(loader)//5) == 0:
-                print(f"\r{self.name}: test={idx}/{len(loader)}, loss={self.temp_loss['LOSS'].item():.4f}", end='')
-
-        self.loss.update('test', EPOCH_LOSS)
-        for key in EPOCH_LOSS.keys():
-            EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
-        print(f"\nTest finished. Average loss={EPOCH_LOSS}")
-
-
-class TeacherTrainer:
-    def __init__(self, networks,
-                 lr, epochs, cuda,
-                 train_loader, valid_loader, test_loader):
-        self.lr = lr
-        self.epochs = epochs
-        self.device = torch.device("cuda:" + str(cuda) if torch.cuda.is_available() else "cpu")
-        self.optimizer = torch.optim.Adam
-
-        self.models = {network.module: network for network in networks
-                       }
-
-        self.train_loader = train_loader
-        self.valid_loader = valid_loader
-        self.test_loader = test_loader
-
-        self.alpha = 0.8
-        self.beta = 1.2
-
-        self.recon_lossfunc = nn.MSELoss(reduction='sum')
-
-        self.loss = {'t': MyLoss(loss_terms=['LOSS', 'KL', 'RECON'],
-                                 pred_terms=['GT', 'PRED', 'LAT', 'IND'])}
-
-        self.temp_loss = {}
-        self.inds = None
+        self.loss_terms = {'LOSS', 'KL', 'RECON'}
+        self.pred_terms = {'GT', 'PRED', 'LAT', 'IND'}
+        self.loss = MyLoss(loss_terms=self.loss_terms,
+                           pred_terms=self.pred_terms)
 
     def vae_loss(self, pred, gt, mu, logvar):
         recon_loss = self.recon_lossfunc(pred, gt) / pred.shape[0]
@@ -194,131 +34,112 @@ class TeacherTrainer:
         loss = recon_loss + kl_loss * self.beta
         return loss, kl_loss, recon_loss
 
-    def calculate_loss_t(self, img, i=None):
+    def calculate_loss(self, data):
 
-        z, mu, logvar = self.models['imgen'](img)
+        z, mu, logvar = self.models['imgen'](data['img'])
         output = self.models['imgde'](z)
-        loss, kl_loss, recon_loss = self.vae_loss(output, img, mu, logvar)
+        loss, kl_loss, recon_loss = self.vae_loss(output, data['img'], mu, logvar)
 
         self.temp_loss = {'LOSS': loss,
                           'KL': kl_loss,
                           'RECON': recon_loss
                           }
-        return {'GT': img,
+        return {'GT': data['img'],
                 'PRED': output,
                 'LAT': torch.cat((mu, logvar), -1),
-                'IND': i
+                'IND': data['i']
                 }
 
-    @timer
-    def train_teacher(self, autosave=False, notion=''):
-        """
-        Trains the teacher.
-        :param autosave: whether to save model parameters. Default is False
-        :param notion: additional notes in save name
-        :return: trained teacher
-        """
+    def plot_test(self, select_ind=None, select_num=8, autosave=False, notion=''):
+        title = {'PRED': "Teacher Test IMG Predicts",
+                 'LAT': "Teacher Latents",
+                 'LOSS': "Teacher Test Loss"}
+        filename = {term: f"{notion}_{self.name}_{term}@{self.current_ep()}.jpg" for term in ('PRED', 'LAT', 'LOSS')}
+        save_path = f'../saved/{notion}/'
 
-        optimizer = self.optimizer([{'params': self.models['imgen'].parameters()},
-                                    {'params': self.models['imgde'].parameters()}], lr=self.lr)
-        self.loss['t'].logger(self.lr, self.epochs)
-        best_val_loss = float("inf")
+        if select_ind:
+            inds = select_ind
+        else:
+            if self.inds is not None:
+                if select_num >= len(self.inds):
+                    inds = self.inds
+                else:
+                    inds = self.generate_indices(self.loss.loss['pred']['IND'], select_num)
 
-        for epoch in range(self.epochs):
-            # =====================train============================
-            self.models['imgen'].train()
-            self.models['imgde'].train()
-            EPOCH_LOSS = {'LOSS': [],
-                          'KL': [],
-                          'RECON': []
-                          }
-            for idx, (csi, img, pd, bbx, index) in enumerate(self.train_loader, 0):
-                img = img.to(torch.float32).to(self.device)
-                optimizer.zero_grad()
+        fig1 = self.loss.plot_predict(title['PRED'], inds, ('GT', 'PRED'))
+        fig2 = self.loss.plot_latent(title['LAT'], inds)
+        fig3 = self.loss.plot_test(title['LOSS'], inds)
 
-                PREDS = self.calculate_loss_t(img)
-                self.temp_loss['LOSS'].backward()
-                optimizer.step()
-                for key in EPOCH_LOSS.keys():
-                    EPOCH_LOSS[key].append(self.temp_loss[key].item())
+        if autosave:
+            if not os.path.exists(save_path):
+                os.makedirs(save_path)
+            fig1.savefig(f"{save_path}{filename['PRED']}")
+            fig2.savefig(f"{save_path}{filename['LAT']}")
+            fig3.savefig(f"{save_path}{filename['LOSS']}")
 
-                if idx % (len(self.train_loader) // 5) == 0:
-                    print(f"\rTeacher: epoch={epoch}/{self.epochs}, batch={idx}/{len(self.train_loader)}, "
-                          f"loss={self.temp_loss['LOSS'].item():.4f}", end='')
 
-            for key in EPOCH_LOSS.keys():
-                EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
-            self.loss['t'].update('train', EPOCH_LOSS)
+class StudentTrainer(BasicTrainer):
+    def __init__(self,
+                 alpha=0.8,
+                 *args, **kwargs):
+        super(StudentTrainer, self).__init__(*args, **kwargs)
 
-            # =====================valid============================
-            self.models['imgen'].eval()
-            self.models['imgde'].eval()
+        self.modality = {'csi', 'img'}
 
-            EPOCH_LOSS = {'LOSS': [],
-                          'KL': [],
-                          'RECON': []
-                          }
+        self.alpha = alpha
 
-            for idx, (csi, img, pd, bbx, index) in enumerate(self.valid_loader, 0):
-                img = img.to(torch.float32).to(self.device)
-                with torch.no_grad():
-                    PREDS = self.calculate_loss_t(img)
-                for key in EPOCH_LOSS.keys():
-                    EPOCH_LOSS[key].append(self.temp_loss[key].item())
+        self.loss_terms = {'LOSS', 'MU', 'LOGVAR', 'IMG'}
+        self.pred_terms = {'GT', 'T_PRED', 'S_PRED', 'T_LATENT', 'S_LATENT','IND'}
+        self.loss = MyLoss(loss_terms=self.loss_terms,
+                           pred_terms=self.pred_terms)
 
-                val_loss = np.average(EPOCH_LOSS['LOSS'])
+    def calculate_loss(self, data):
 
-                if autosave:
-                    save_path = f'../saved/{notion}/'
-                    if not os.path.exists(save_path):
-                        os.makedirs(save_path)
-                    if val_loss < best_val_loss:
-                        best_val_loss = val_loss
-                        logfile = open(f"{save_path}{notion}_best_t.txt", 'w')
-                        logfile.write(f"Teacher best : {self.current_title()}")
-                        torch.save(self.models['imgen'].state_dict(),
-                                   f"{save_path}{notion}_{self.models['imgen']}_best.pth")
-                        torch.save(self.models['imgde'].state_dict(),
-                                   f"{save_path}{notion}_{self.models['imgde']}_best.pth")
+        s_z, s_mu, s_logvar, s_bbx = self.models['csien'](data['csi'])
 
-            for key in EPOCH_LOSS.keys():
-                EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
-            self.loss['t'].update('valid', EPOCH_LOSS)
+        with torch.no_grad():
+            t_z, t_mu, t_logvar = self.models['imgen'](data['c_img'])
+            s_output = self.models['imgde'](s_z)
+            t_output = self.models['imgde'](t_z)
+            image_loss = self.recon_lossfunc(s_output, data['c_img'])
 
-    def test_teacher(self, loader='test'):
-        self.models['imgen'].eval()
-        self.models['imgde'].eval()
+        loss_i, mu_loss_i, logvar_loss_i = self.kd_loss(s_mu, s_logvar, t_mu, t_logvar)
+        loss = loss_i
 
-        EPOCH_LOSS = {'LOSS': [],
-                      'KL': [],
-                      'RECON': []
-                      }
+        self.temp_loss = {'LOSS': loss,
+                          'MU': mu_loss_i,
+                          'LOGVAR': logvar_loss_i,
+                          'IMG': image_loss}
+        return {'GT': data['c_img'],
+                'T_LATENT': torch.cat((t_mu, t_logvar), -1),
+                'S_LATENT': torch.cat((s_mu, s_logvar), -1),
+                'T_PRED': t_output,
+                'S_PRED': s_output,
+                'IND': data['ind']}
 
-        if loader == 'test':
-            loader = self.test_loader
-        elif loader == 'train':
-            loader = self.train_loader
+    def plot_test(self, select_ind=None, select_num=8, autosave=False, notion=''):
+        title = {'PRED': "Teacher Test IMG Predicts",
+                 'LAT': "Teacher Latents",
+                 'LOSS': "Teacher Test Loss"}
+        filename = {term: f"{notion}_{self.name}_{term}@{self.current_ep()}.jpg" for term in ('PRED', 'LAT', 'LOSS')}
+        save_path = f'../saved/{notion}/'
 
-        self.loss['t'].reset('test')
-        self.loss['t'].reset('pred')
+        if select_ind:
+            inds = select_ind
+        else:
+            if self.inds is not None:
+                if select_num >= len(self.inds):
+                    inds = self.inds
+                else:
+                    inds = self.generate_indices(self.loss.loss['pred']['IND'], select_num)
 
-        for idx, (csi, img, pd, bbx, index) in enumerate(loader, 0):
-            img = img.to(torch.float32).to(self.device)
-            with torch.no_grad():
-                for sample in range(loader.batch_size):
-                    ind_ = index[sample][np.newaxis, ...]
-                    img_ = img[sample][np.newaxis, ...]
-                    PREDS = self.calculate_loss_t(img_, ind_)
+        fig1 = self.loss.plot_predict(title['PRED'], inds, ('GT', 'PRED'))
+        fig2 = self.loss.plot_latent(title['LAT'], inds)
+        fig3 = self.loss.plot_test(title['LOSS'], inds)
 
-                    for key in EPOCH_LOSS.keys():
-                        EPOCH_LOSS[key].append(self.temp_loss[key].item())
-
-                    self.loss['t'].update('pred', PREDS)
-
-            if idx % (len(loader)//5) == 0:
-                print(f"\rTeacher: test={idx}/{len(loader)}, loss={self.temp_loss['LOSS'].item():.4f}", end='')
-
-        self.loss['t'].update('test', EPOCH_LOSS)
-        for key in EPOCH_LOSS.keys():
-            EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
-        print(f"\nTest finished. Average loss={EPOCH_LOSS}")
+        if autosave:
+            if not os.path.exists(save_path):
+                os.makedirs(save_path)
+            fig1.savefig(f"{save_path}{filename['PRED']}")
+            fig2.savefig(f"{save_path}{filename['LAT']}")
+            fig3.savefig(f"{save_path}{filename['LOSS']}")

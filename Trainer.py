@@ -9,7 +9,8 @@ from misc import timer
 class BasicTrainer:
     def __init__(self, name, networks,
                  lr, epochs, cuda,
-                 train_loader, valid_loader, test_loader):
+                 train_loader, valid_loader, test_loader,
+                 ):
         self.name = name
         self.lr = lr
         self.epochs = epochs
@@ -22,11 +23,11 @@ class BasicTrainer:
         self.train_loader = train_loader
         self.valid_loader = valid_loader
         self.test_loader = test_loader
-        self.using_datatype = ()
+        self.modality = {'modality1', 'modality2', '...'}
 
-        self.loss_terms = []
-        self.pred_terms = []
-        self.loss = MyLoss()
+        self.loss_terms = {'loss1', 'loss2', '...'}
+        self.pred_terms = {'predict1', 'predict2', '...'}
+        self.loss = MyLoss(self.loss_terms, self.pred_terms)
         self.temp_loss = {}
         self.inds = None
 
@@ -44,6 +45,8 @@ class BasicTrainer:
         best_val_loss = float("inf")
         if not train_module:
             train_module = list(self.models.keys())
+        if 'ind' not in self.modality:
+            self.modality.add('ind')
 
         # ===============train and validate each epoch==============
         for epoch in range(self.epochs):
@@ -56,7 +59,7 @@ class BasicTrainer:
             EPOCH_LOSS = {loss: [] for loss in self.loss_terms}
             for idx, data in enumerate(self.train_loader, 0):
                 for key in data.keys():
-                    if key in self.using_datatype:
+                    if key in self.modality:
                         data[key] = data[key].to(torch.float32).to(self.device)
                     else:
                         data.pop(key)
@@ -86,7 +89,7 @@ class BasicTrainer:
 
             for idx, data in enumerate(self.train_loader, 0):
                 for key in data.keys():
-                    if key in self.using_datatype:
+                    if key in self.modality:
                         data[key] = data[key].to(torch.float32).to(self.device)
                     else:
                         data.pop(key)
@@ -138,7 +141,7 @@ class BasicTrainer:
 
         for idx, data in enumerate(loader, 0):
             for key in data.keys():
-                if key in self.using_datatype:
+                if key in self.modality:
                     data[key] = data[key].to(torch.float32).to(self.device)
                 else:
                     data.pop(key)
@@ -200,4 +203,3 @@ class BasicTrainer:
                 self.lr *= decay_rate
 
         print('\nSchedule Completed!')
-        

@@ -409,7 +409,7 @@ class TrainerVTS_V05c1:
         filename = {'PRED': f"{notion}_S_img_{self.current_title()}.jpg",
                     'BBX': f"{notion}_S_bbx_{self.current_title()}.jpg",
                     'LOSS': f"{notion}_S_test_{self.current_title()}.jpg",
-                    'LATENT': f"{notion}_S_latent_{self.current_title()}.jpg",}
+                    'LATENT': f"{notion}_S_latent_{self.current_title()}.jpg"}
 
         save_path = f'../saved/{notion}/'
 
