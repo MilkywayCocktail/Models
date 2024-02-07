@@ -4,6 +4,7 @@ import numpy as np
 from torchvision.ops import generalized_box_iou_loss
 from matplotlib.patches import Rectangle
 import torch
+from datetime import datetime
 
 #print(z * torch.transpose(z, -1, -2) - eye)
 #print(torch.matmul(x, torch.transpose(x, -1, -2)))
@@ -17,5 +18,8 @@ inds = np.sort(inds)
 s = samples[inds]
 #print(s)
 #print(a1[inds[np.argsort(s)]])
-dicc = {'a':1, 'b':2}
-print(f"{list(dicc.values())}")
+
+gg = 1
+
+for i in range(gg):
+    print('GG')

@@ -100,6 +100,12 @@ class MyDataset(Data.Dataset):
         self.data = result
         return result
 
+# -------------------------------------------------------------------------- #
+# MnistDataset
+# Load MNIST from npy file
+# Not updated
+# -------------------------------------------------------------------------- #
+
 
 class MnistDataset(MyDataset):
     """
@@ -145,6 +151,12 @@ class MnistDataset(MyDataset):
             return {'x': y, 'y': x}
         else:
             return {'x': x, 'y': y}
+
+# -------------------------------------------------------------------------- #
+# DataSplitter
+# Generate train, valid and test loaders
+# Can choose to shuffle or not
+# -------------------------------------------------------------------------- #
 
 
 class DataSplitter:
@@ -227,6 +239,11 @@ class DataSplitter:
 
         return train_loader, valid_loader, test_loader
 
+# -------------------------------------------------------------------------- #
+# MyDatasetBBX
+# Load csi, r_img, c_img, bbx
+# -------------------------------------------------------------------------- #
+
 
 class MyDatasetBBX(MyDataset):
     def __init__(self,
@@ -240,6 +257,7 @@ class MyDatasetBBX(MyDataset):
         self.paths['bbx'] = bbx_path
 
         self.bbx_ver = bbx_ver
+        # If the loss is "giou", you have to change bbx from xywh to xyxy.
         if self.bbx_ver == 'xyxy':
             _bbx = np.zeros_like(self.data['bbx'])
             _bbx[..., 0:2] = self.data['bbx'][..., 0:2]
@@ -257,6 +275,11 @@ class MyDatasetBBX(MyDataset):
 
     def __len__(self):
         return self.data['csi'].shape[0]
+
+# -------------------------------------------------------------------------- #
+# MyDatasetBBX2
+# Load csi, img (=c_img), bbx
+# -------------------------------------------------------------------------- #
 
 
 class MyDatasetBBX2(MyDataset):
@@ -286,6 +309,11 @@ class MyDatasetBBX2(MyDataset):
     def __len__(self):
         return self.data['csi'].shape[0]
 
+# -------------------------------------------------------------------------- #
+# MyDatasetPDBBX2
+# Load img (=c_img), pd, bbx
+# -------------------------------------------------------------------------- #
+
 
 class MyDatasetPDBBX2(MyDataset):
     def __init__(self,
@@ -314,6 +342,11 @@ class MyDatasetPDBBX2(MyDataset):
 
     def __len__(self):
         return self.data['pd'].shape[0]
+
+# -------------------------------------------------------------------------- #
+# MyDatasetPDBBX3
+# Load csi, img (=c_img), bbx
+# -------------------------------------------------------------------------- #
 
 
 class MyDatasetPDBBX3(MyDataset):

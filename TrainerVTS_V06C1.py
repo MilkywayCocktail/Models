@@ -89,7 +89,7 @@ class StudentTrainer(BasicTrainer):
         self.alpha = alpha
 
         self.loss_terms = {'LOSS', 'MU', 'LOGVAR', 'IMG'}
-        self.pred_terms = {'GT', 'T_PRED', 'S_PRED', 'T_LATENT', 'S_LATENT','IND'}
+        self.pred_terms = {'GT', 'T_PRED', 'S_PRED', 'T_LATENT', 'S_LATENT', 'IND'}
         self.loss = MyLoss(loss_terms=self.loss_terms,
                            pred_terms=self.pred_terms)
 
