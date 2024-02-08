@@ -81,17 +81,25 @@ class TeacherTrainer(BasicTrainer):
 class StudentTrainer(BasicTrainer):
     def __init__(self,
                  alpha=0.8,
+                 recon_lossfunc=nn.MSELoss(reduction='sum'),
                  *args, **kwargs):
         super(StudentTrainer, self).__init__(*args, **kwargs)
 
         self.modality = {'csi', 'img'}
 
         self.alpha = alpha
+        self.recon_lossfunc = recon_lossfunc
 
         self.loss_terms = {'LOSS', 'MU', 'LOGVAR', 'IMG'}
         self.pred_terms = {'GT', 'T_PRED', 'S_PRED', 'T_LATENT', 'S_LATENT', 'IND'}
         self.loss = MyLoss(loss_terms=self.loss_terms,
                            pred_terms=self.pred_terms)
+
+    def kd_loss(self, mu_s, logvar_s, mu_t, logvar_t):
+        mu_loss = self.recon_lossfunc(mu_s, mu_t) / mu_s.shape[0]
+        logvar_loss = self.recon_lossfunc(logvar_s, logvar_t) / logvar_s.shape[0]
+        loss = self.alpha * mu_loss + (1 - self.alpha) * logvar_loss
+        return loss, mu_loss, logvar_loss
 
     def calculate_loss(self, data):
 

@@ -11,6 +11,7 @@ from torchinfo import summary
 # eg: ModelV03b1 means Ver3 AE Var1
 # -------------------------------------------------------------------------- #
 
+
 def batchnorm_layer(channels, batchnorm=None):
     """
     Definition of optional batchnorm layer.
@@ -24,6 +25,17 @@ def batchnorm_layer(channels, batchnorm=None):
         return nn.BatchNorm2d(channels)
     elif batchnorm == 'instance':
         return nn.InstanceNorm2d(channels)
+
+
+def reparameterize(mu, logvar):
+    """
+    Reparameterization trick in VAE.
+    :param mu: mu vector
+    :param logvar: logvar vector
+    :return: reparameterized vector
+    """
+    eps = torch.randn_like(mu)
+    return mu + eps * torch.exp(logvar / 2)
 
 
 class Interpolate(nn.Module):
@@ -62,10 +74,30 @@ class SelfAttention(nn.Module):
 
         proj_value = self.value_conv(x).view(batch_size, -1, height * width)
 
-        out = torch.bmm(proj_value, attention.permute(0, 2, 1))
+        out = torch.bmm(attention, proj_value.permute(0, 2, 1))
         out = out.view(batch_size, channels, height, width)
 
         out = self.gamma * out + x
+        return out
+
+
+class ResidualBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, batchnorm):
+        super(ResidualBlock, self).__init__()
+        self.conv = nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1),
+            batchnorm_layer(out_channels, batchnorm),
+            nn.ReLU(),
+            nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1),
+            batchnorm_layer(out_channels, batchnorm)
+            )
+
+        self.relu = nn.ReLU()
+
+    def forward(self, x):
+        out = self.conv(x)
+        out += x
+        out = self.relu(out)
         return out
 
 
