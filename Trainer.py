@@ -160,6 +160,9 @@ class BasicTrainer:
         self.loss.update('test', EPOCH_LOSS)
         for key in EPOCH_LOSS.keys():
             EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
+        for i in range(len(self.loss.loss['pred']['IND'])):
+            self.loss.loss['pred']['IND'][i] = self.loss.loss['pred']['IND'][i].astype(int).tolist()
+
         print(f"\nTest finished. Average loss={EPOCH_LOSS}")
 
     def plot_train_loss(self, title=None, double_y=False, plot_terms='all', autosave=False, notion=''):

@@ -180,7 +180,7 @@ class TeacherTrainer(BasicTrainer):
         return {'GT': data['img'],
                 'PRED': output,
                 'LAT': torch.cat((mu, logvar), -1),
-                'IND': data['ind'].astype(int).tolist()
+                'IND': data['ind']
                 }
 
     def plot_test(self, select_ind=None, select_num=8, autosave=False, notion=''):
@@ -255,7 +255,7 @@ class StudentTrainer(BasicTrainer):
                 'S_LATENT': torch.cat((s_mu, s_logvar), -1),
                 'T_PRED': t_output,
                 'S_PRED': s_output,
-                'IND': data['ind'].astype(int).tolist()}
+                'IND': data['ind']}
 
     def plot_test(self, select_ind=None, select_num=8, autosave=False, notion=''):
         title = {'PRED': "Student Test IMG Predicts",
@@ -310,7 +310,7 @@ class StudentTrainerBBX(StudentTrainer):
         return {'GT': data['img'],
                 'GT_BBX': data['bbx'],
                 'S_BBX': s_bbx,
-                'IND': data['ind'].astype(int).tolist()}
+                'IND': data['ind']}
 
     def plot_test(self, select_ind=None, select_num=8, autosave=False, notion=''):
         title = {'BBX': "Student Test BBX Predicts"}
