@@ -58,14 +58,13 @@ class BasicTrainer:
                     self.models[model].eval()
             EPOCH_LOSS = {loss: [] for loss in self.loss_terms}
             for idx, data in enumerate(self.train_loader, 0):
+                data_ = {}
                 for key in data.keys():
                     if key in self.modality:
-                        data[key] = data[key].to(torch.float32).to(self.device)
-                    else:
-                        data.pop(key)
+                        data_[key] = data[key].to(torch.float32).to(self.device)
 
                 optimizer.zero_grad()
-                PREDS = self.calculate_loss(data)
+                PREDS = self.calculate_loss(data_)
                 self.temp_loss['LOSS'].backward()
                 optimizer.step()
                 for key in EPOCH_LOSS.keys():
@@ -88,13 +87,13 @@ class BasicTrainer:
             EPOCH_LOSS = {loss: [] for loss in self.loss_terms}
 
             for idx, data in enumerate(self.train_loader, 0):
+                data_ = {}
                 for key in data.keys():
                     if key in self.modality:
-                        data[key] = data[key].to(torch.float32).to(self.device)
-                    else:
-                        data.pop(key)
+                        data_[key] = data[key].to(torch.float32).to(self.device)
+
                 with torch.no_grad():
-                    PREDS = self.calculate_loss(data)
+                    PREDS = self.calculate_loss(data_)
                 for key in EPOCH_LOSS.keys():
                     EPOCH_LOSS[key].append(self.temp_loss[key].item())
 
@@ -140,16 +139,15 @@ class BasicTrainer:
         self.inds = None
 
         for idx, data in enumerate(loader, 0):
+            data_ = {}
             for key in data.keys():
                 if key in self.modality:
-                    data[key] = data[key].to(torch.float32).to(self.device)
-                else:
-                    data.pop(key)
+                    data_[key] = data[key].to(torch.float32).to(self.device)
 
             with torch.no_grad():
                 for sample in range(loader.batch_size):
-                    _data = {key: data[key][sample][np.newaxis, ...] for key in data.keys()}
-                    PREDS = self.calculate_loss(_data)
+                    data_i = {key: data_[key][sample][np.newaxis, ...] for key in data_.keys()}
+                    PREDS = self.calculate_loss(data_i)
 
                     for key in EPOCH_LOSS.keys():
                         EPOCH_LOSS[key].append(self.temp_loss[key].item())
