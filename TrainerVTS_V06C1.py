@@ -193,10 +193,10 @@ class TeacherTrainer(BasicTrainer):
         if select_ind:
             inds = select_ind
         else:
-            if not any(self.inds):
-                inds = self.generate_indices(self.loss.loss['pred']['IND'], select_num)
-            else:
+            if self.inds is not None:
                 inds = self.inds
+            else:
+                inds = self.generate_indices(self.loss.loss['pred']['IND'], select_num)
 
         fig1 = self.loss.plot_predict(title['PRED'], inds, ('GT', 'PRED'))
         fig2 = self.loss.plot_latent(title['LAT'], inds)
@@ -268,10 +268,10 @@ class StudentTrainer(BasicTrainer):
         if select_ind:
             inds = select_ind
         else:
-            if not any(self.inds):
-                inds = self.generate_indices(self.loss.loss['pred']['IND'], select_num)
-            else:
+            if self.inds is not None:
                 inds = self.inds
+            else:
+                inds = self.generate_indices(self.loss.loss['pred']['IND'], select_num)
 
         fig1 = self.loss.plot_predict(title['PRED'], inds, ('GT', 'T_PRED', 'S_PRED'))
         fig3 = self.loss.plot_latent(title['LATENT'], inds, ('T_LATENT', 'S_LATENT'))
@@ -321,10 +321,10 @@ class StudentTrainerBBX(StudentTrainer):
         if select_ind:
             inds = select_ind
         else:
-            if not any(self.inds):
-                inds = self.generate_indices(self.loss.loss['pred']['IND'], select_num)
-            else:
+            if self.inds is not None:
                 inds = self.inds
+            else:
+                inds = self.generate_indices(self.loss.loss['pred']['IND'], select_num)
 
         fig2 = self.loss['s'].plot_bbx(title['BBX'], inds)
 
