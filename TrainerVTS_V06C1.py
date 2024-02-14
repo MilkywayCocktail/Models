@@ -334,6 +334,58 @@ class StudentTrainerBBX(StudentTrainer):
             fig2.savefig(f"{save_path}{filename['BBX']}")
 
 
+class TeacherTrainerMask(TeacherTrainer):
+    def __init__(self,
+                 *args, **kwargs):
+        super(TeacherTrainerMask, self).__init__(*args, **kwargs)
+
+    def calculate_loss(self, data):
+        mask = torch.where(data['img'] > 0, 1., 0.)
+        z, mu, logvar = self.models['imgen'](mask)
+        output = self.models['imgde'](z)
+        loss, kl_loss, recon_loss = self.vae_loss(output, mask, mu, logvar)
+
+        self.temp_loss = {'LOSS': loss,
+                          'KL': kl_loss,
+                          'RECON': recon_loss
+                          }
+        return {'GT': mask,
+                'PRED': output,
+                'LAT': torch.cat((mu, logvar), -1),
+                'IND': data['ind']
+                }
+
+
+class StudentTrainerMask(StudentTrainer):
+    def __init__(self,
+                 *args, **kwargs):
+        super(StudentTrainerMask, self).__init__(*args, **kwargs)
+
+    def calculate_loss(self, data):
+        mask = torch.where(data['img'] > 0, 1., 0.)
+        s_z, s_mu, s_logvar = self.models['csien'](data['csi'])
+
+        with torch.no_grad():
+            t_z, t_mu, t_logvar = self.models['imgen'](mask)
+            s_output = self.models['imgde'](s_z)
+            t_output = self.models['imgde'](t_z)
+            image_loss = self.recon_lossfunc(s_output, mask)
+
+        loss_i, mu_loss_i, logvar_loss_i = self.kd_loss(s_mu, s_logvar, t_mu, t_logvar)
+        loss = loss_i
+
+        self.temp_loss = {'LOSS': loss,
+                          'MU': mu_loss_i,
+                          'LOGVAR': logvar_loss_i,
+                          'IMG': image_loss}
+        return {'GT': mask,
+                'T_LATENT': torch.cat((t_mu, t_logvar), -1),
+                'S_LATENT': torch.cat((s_mu, s_logvar), -1),
+                'T_PRED': t_output,
+                'S_PRED': s_output,
+                'IND': data['ind']}
+
+
 if __name__ == '__main__':
     cc = CSIEncoder(out_length=32)
     summary(cc, input_size=CSI2)
