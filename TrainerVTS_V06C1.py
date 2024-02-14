@@ -199,14 +199,14 @@ class TeacherTrainer(BasicTrainer):
                 inds = self.generate_indices(self.loss.loss['pred']['IND'], select_num)
 
         fig1 = self.loss.plot_predict(title['PRED'], inds, ('GT', 'PRED'))
-        fig2 = self.loss.plot_latent(title['LAT'], inds, ('LAT'))
+        #fig2 = self.loss.plot_latent(title['LAT'], inds, ('LAT'))
         fig3 = self.loss.plot_test(title['LOSS'], inds)
 
         if autosave:
             if not os.path.exists(save_path):
                 os.makedirs(save_path)
             fig1.savefig(f"{save_path}{filename['PRED']}")
-            fig2.savefig(f"{save_path}{filename['LAT']}")
+            #fig2.savefig(f"{save_path}{filename['LAT']}")
             fig3.savefig(f"{save_path}{filename['LOSS']}")
 
 
