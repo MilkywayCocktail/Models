@@ -293,6 +293,8 @@ class MyDatasetBBX2(MyDataset):
         super(MyDatasetBBX2, self).__init__(**kwargs)
         self.paths['bbx'] = bbx_path
         self.bbx_ver = bbx_ver
+
+    def adjust_bbx(self):
         if self.bbx_ver == 'xyxy':
             _bbx = np.zeros_like(self.data['bbx'])
             _bbx[..., 0:2] = self.data['bbx'][..., 0:2]
@@ -327,6 +329,8 @@ class MyDatasetPDBBX2(MyDataset):
         self.paths['bbx'] = bbx_path
         self.paths['pd'] = pd_path
         self.bbx_ver = bbx_ver
+
+    def adjust_bbx(self):
         if self.bbx_ver == 'xyxy':
             _bbx = np.zeros_like(self.data['bbx'])
             _bbx[..., 0:2] = self.data['bbx'][..., 0:2]
@@ -362,6 +366,8 @@ class MyDatasetPDBBX3(MyDataset):
         self.paths['bbx'] = bbx_path
         self.paths['pd'] = pd_path
         self.bbx_ver = bbx_ver
+
+    def adjust_bbx(self):
         if self.bbx_ver == 'xyxy':
             _bbx = np.zeros_like(self.data['bbx'])
             _bbx[..., 0:2] = self.data['bbx'][..., 0:2]
