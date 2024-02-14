@@ -31,6 +31,9 @@ class BasicTrainer:
         self.temp_loss = {}
         self.inds = None
 
+        if 'ind' not in self.modality:
+            self.modality.add('ind')
+
     def current_ep(self):
         return self.loss.epochs[-1]
 
@@ -43,8 +46,6 @@ class BasicTrainer:
     def train(self, train_module=None, eval_module=None, autosave=False, notion=''):
         if not train_module:
             train_module = list(self.models.keys())
-        if 'ind' not in self.modality:
-            self.modality.add('ind')
         optimizer = self.optimizer([{'params': self.models[model].parameters()} for model in train_module], lr=self.lr)
         self.loss.logger(self.lr, self.epochs)
         best_val_loss = float("inf")
@@ -120,14 +121,12 @@ class BasicTrainer:
             self.loss.update('valid', EPOCH_LOSS)
 
     @timer
-    def test(self, test_module=None, eval_module=None, loader='test'):
+    def test(self, test_module=None, loader='test'):
         if not test_module:
             test_module = list(self.models.keys())
         for model in test_module:
             self.models[model].eval()
-        if eval_module:
-            for model in eval_module:
-                self.models[model].eval()
+
         EPOCH_LOSS = {loss: [] for loss in self.loss_terms}
 
         if loader == 'test':
