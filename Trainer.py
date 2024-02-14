@@ -180,6 +180,7 @@ class BasicTrainer:
         plt.show()
 
     def plot_test(self, select_ind=None, select_num=8, autosave=False, notion=''):
+        # Regarding actual instances
         pass
 
     def generate_indices(self, source=None, select_num=8):

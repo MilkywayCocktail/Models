@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from torchinfo import summary
 
+##############################################################################
 # -------------------------------------------------------------------------- #
 # Models named with 'b' are AEs
 # Models named with 'c' are VAEs
@@ -10,6 +11,16 @@ from torchinfo import summary
 # Numbers after 'b' or 'c' are variations
 # eg: ModelV03b1 means Ver3 AE Var1
 # -------------------------------------------------------------------------- #
+##############################################################################
+
+version = ''
+
+# For torchinfo.summary
+IMG = (1, 1, 128, 128)
+CSI = (1, 2, 90, 100)
+LAT = (1, 16)
+RIMG = (1, 1, 128, 226)
+PD = (1, 2)
 
 
 def batchnorm_layer(channels, batchnorm=None):
@@ -114,7 +125,7 @@ class BasicCSIEncoder(nn.Module):
         self.lstm = None
 
     def __str__(self):
-        return 'CSIen'
+        return f"CSIEN{version}"
 
     def forward(self, x):
         return x
@@ -132,7 +143,7 @@ class BasicImageEncoder(nn.Module):
         self.fclayers = None
 
     def __str__(self):
-        return 'IMGen'
+        return f"IMGEN{version}"
 
     def forward(self, x):
         return x
@@ -149,6 +160,9 @@ class BasicImageDecoder(nn.Module):
 
         self.cnn = None
         self.fclayers = None
+
+    def __str__(self):
+        return f"IMGDE{version}"
 
     def forward(self, x):
         return x

@@ -1138,7 +1138,7 @@ class ImageEncoderV05c1(nn.Module):
         self.cnn = nn.Sequential(
             # 1 * 128 * 128
             nn.Conv2d(1, 32, kernel_size=3, stride=2, padding=1),
-            bn(128, batchnorm),
+            bn(32, batchnorm),
             nn.LeakyReLU(inplace=True),
             # 32 * 64 * 64
             nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),

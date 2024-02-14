@@ -23,3 +23,5 @@ a = np.arange(12).reshape(3, 4)
 b = np.arange(20, 32).reshape(3, 4)
 print(a.dot(b.transpose()))
 print(b.dot(a.transpose()))
+
+las = [i for i in range(4)]

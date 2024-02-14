@@ -4,17 +4,129 @@ from torchvision.ops import generalized_box_iou_loss
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
-from torchvision.ops import generalized_box_iou_loss
 import os
 from Trainer import BasicTrainer
+from Model import *
 from Loss import MyLoss, MyLossBBX
-from misc import timer
+
+version = 'V06C1'
+
+##############################################################################
+# -------------------------------------------------------------------------- #
+# Version V06C1
+# Teacher learns and estimates binary masks
+# Student learns (6, 30, 30) CSIs
+
+# ImageEncoder: in = 128 * 128, out = [latent_dim, latent_dim, latent_dim]
+# ImageDecoder: in = 1 * latent_dim, out = 128 * 128
+# CSIEncoder: in = 6 * 30 * 30, out = [latent_dim, latent_dim, latent_dim]
+# -------------------------------------------------------------------------- #
+##############################################################################
+
+
+class ImageEncoder(BasicImageEncoder):
+    def __init__(self, *args, **kwargs):
+        super(ImageEncoder, self).__init__(*args, **kwargs)
+
+        channels = [1, 128, 128, 256, 256, 512]
+        block = []
+        for i in range(len(channels) - 1):
+            block.extend([nn.Conv2d(channels[i], channels[i+1], 3, 2, 1),
+                          batchnorm_layer(channels[i+1], self.batchnorm),
+                          nn.LeakyReLU(inplace=True)])
+        self.cnn = nn.Sequential(*block)
+
+        # 1 * 128 * 128
+        # 128 * 64 * 64
+        # 128 * 32 * 32
+        # 256 * 16 * 16
+        # 256 * 8 * 8
+        # 512 * 4 * 4
+
+        self.fc_mu = nn.Sequential(
+            nn.Linear(4 * 4 * 512, 4096),
+            nn.ReLU(),
+            nn.Linear(4096, self.latent_dim),
+            # self.active_func
+        )
+
+        self.fc_logvar = nn.Sequential(
+            nn.Linear(4 * 4 * 512, 4096),
+            nn.ReLU(),
+            nn.Linear(4096, self.latent_dim),
+            # self.active_func
+        )
+
+    def __str__(self):
+        return f"IMGEN{version}"
+
+    def forward(self, x):
+        out = self.cnn(x)
+        mu = self.fc_mu(out.view(-1, 4 * 4 * 512))
+        logvar = self.fc_logvar(out.view(-1, 4 * 4 * 512))
+        z = reparameterize(mu, logvar)
+
+        return z, mu, logvar
+
+
+class ImageDecoder(BasicImageDecoder):
+    def __init__(self, *args, **kwargs):
+        super(ImageDecoder, self).__init__(*args, **kwargs)
+
+        channels = [512, 256, 256, 128, 128, 1]
+        block = []
+        for i in range(len(channels) - 1):
+            block.extend([nn.ConvTranspose2d(channels[i], channels[i+1], 4, 2, 1),
+                          batchnorm_layer(channels[i+1], self.batchnorm),
+                          nn.LeakyReLU(inplace=True)])
+        # Replace the last LeakyReLU
+        block.pop()
+        self.cnn = nn.Sequential(*block, self.active_func)
+
+        # 512 * 4 * 4
+        # 256 * 8 * 8
+        # 256 * 16 * 16
+        # 128 * 32 * 32
+        # 128 * 64 * 64
+        # 1 * 128 * 128
+
+        self.fclayers = nn.Sequential(
+            nn.Linear(self.latent_dim, 1024),
+            nn.ReLU(),
+            nn.Linear(1024, 8192),
+            nn.ReLU()
+        )
+
+    def __str__(self):
+        return f"IMGDE{version}"
+
+    def forward(self, x):
+        out = self.fclayers(x)
+        out = self.cnn(out.view(-1, 512, 4, 4))
+        return out.view(-1, 1, 128, 128)
+
+
+class CSIEncoder(BasicCSIEncoder):
+    def __init__(self, *args, **kwargs):
+        super(CSIEncoder, self).__init__(*args, **kwargs)
+
+        channels = [6, 128, 128, 256, 256, 512]
+        self.cnn = nn.Sequential(
+            # 6 * 30 * 30
+            nn.Conv2d(6, 32, kernel_size=3, stride=(3, 1), padding=0),
+            batchnorm_layer(32, self.batchnorm),
+            nn.LeakyReLU(inplace=True),
+            # 32 * 28 * 28
+            nn.Conv2d(32, 32, kernel_size=3, stride=(3, 1), padding=0),
+            batchnorm_layer(32, self.batchnorm),
+            nn.LeakyReLU(inplace=True),
+        )
 
 
 class TeacherTrainer(BasicTrainer):
     def __init__(self,
                  beta=1.2,
-                 recon_lossfunc=nn.MSELoss(reduction='sum'),
+                 recon_lossfunc=nn.BCELoss(reduction='sum'),
                  *args, **kwargs):
         super(TeacherTrainer, self).__init__(*args, **kwargs)
 
@@ -151,3 +263,8 @@ class StudentTrainer(BasicTrainer):
             fig1.savefig(f"{save_path}{filename['PRED']}")
             fig2.savefig(f"{save_path}{filename['LAT']}")
             fig3.savefig(f"{save_path}{filename['LOSS']}")
+
+
+if __name__ == '__main__':
+    cc = ImageDecoder()
+    summary(cc, input_size=LAT)
