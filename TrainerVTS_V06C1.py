@@ -123,7 +123,7 @@ class CSIEncoder(BasicCSIEncoder):
         self.fclayers = nn.Sequential(
             nn.Linear(512 * 7 * 7, 1024),
             nn.ReLU(),
-            nn.Linear(1024, 2 * self.latent_dim)
+            nn.Linear(1024, self.out_length)
             # nn.ReLU()
         )
 
@@ -300,8 +300,6 @@ class StudentTrainerBBX(StudentTrainer):
     def bbx_loss(bbx1, bbx2):
         # --- x, y, w, h to x1, y1, x2, y2 ---
         # Done in datasetting
-        print(bbx1)
-        print(bbx2)
         return generalized_box_iou_loss(bbx1, bbx2, reduction='sum')
 
     def calculate_loss(self, data):
