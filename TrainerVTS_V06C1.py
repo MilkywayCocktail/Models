@@ -292,6 +292,11 @@ class StudentTrainerBBX(StudentTrainer):
 
         self.modality = {'img', 'csi', 'bbx'}
 
+        self.loss_terms = {'LOSS', 'BBX'}
+        self.pred_terms = {'GT', 'GT_BBX', 'S_BBX', 'IND'}
+        self.loss = MyLossBBX(loss_terms=self.loss_terms,
+                              pred_terms=self.pred_terms)
+
     @staticmethod
     def bbx_loss(bbx1, bbx2):
         # x, y, w, h to x1, y1, x2, y2
@@ -328,7 +333,7 @@ class StudentTrainerBBX(StudentTrainer):
             else:
                 inds = self.generate_indices(self.loss.loss['pred']['IND'], select_num)
 
-        fig2 = self.loss['s'].plot_bbx(title['BBX'], inds)
+        fig2 = self.loss.plot_bbx(title['BBX'], inds)
 
         if autosave:
             if not os.path.exists(save_path):

@@ -242,6 +242,7 @@ class DataSplitter:
 # -------------------------------------------------------------------------- #
 # MyDatasetBBX
 # Load csi, r_img, c_img, bbx
+# If the loss is "giou", you have to change bbx from xywh to xyxy.
 # -------------------------------------------------------------------------- #
 
 
@@ -257,7 +258,6 @@ class MyDatasetBBX(MyDataset):
         self.paths['bbx'] = bbx_path
 
         self.bbx_ver = bbx_ver
-        # If the loss is "giou", you have to change bbx from xywh to xyxy.
         if self.bbx_ver == 'xyxy':
             _bbx = np.zeros_like(self.data['bbx'])
             _bbx[..., 0:2] = self.data['bbx'][..., 0:2]
@@ -279,6 +279,7 @@ class MyDatasetBBX(MyDataset):
 # -------------------------------------------------------------------------- #
 # MyDatasetBBX2
 # Load csi, img (=c_img), bbx
+# If the loss is "giou", you have to change bbx from xywh to xyxy.
 # -------------------------------------------------------------------------- #
 
 

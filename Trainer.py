@@ -35,6 +35,7 @@ class BasicTrainer:
         return self.loss.epochs[-1]
 
     def calculate_loss(self, *inputs):
+        # --- Return losses in this way ---
         self.temp_loss = {loss: 0 for loss in self.loss_terms}
         return {pred: None for pred in self.pred_terms}
 
