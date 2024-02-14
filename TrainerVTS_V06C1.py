@@ -107,20 +107,41 @@ class ImageDecoder(BasicImageDecoder):
 
 
 class CSIEncoder(BasicCSIEncoder):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, out_length, *args, **kwargs):
         super(CSIEncoder, self).__init__(*args, **kwargs)
-
-        channels = [6, 128, 128, 256, 256, 512]
+        self.out_length = out_length
         self.cnn = nn.Sequential(
-            # 6 * 30 * 30
-            nn.Conv2d(6, 32, kernel_size=3, stride=(3, 1), padding=0),
-            batchnorm_layer(32, self.batchnorm),
+            nn.Conv2d(6, 128, 5, 1, 1),
+            batchnorm_layer(128, self.batchnorm),
             nn.LeakyReLU(inplace=True),
-            # 32 * 28 * 28
-            nn.Conv2d(32, 32, kernel_size=3, stride=(3, 1), padding=0),
-            batchnorm_layer(32, self.batchnorm),
+            nn.Conv2d(128, 256, 3, 2, 1),
+            batchnorm_layer(256, self.batchnorm),
+            nn.LeakyReLU(inplace=True),
+            nn.Conv2d(256, 512, 3, 2, 1),
+            batchnorm_layer(512, self.batchnorm),
             nn.LeakyReLU(inplace=True),
         )
+        self.fclayers = nn.Sequential(
+            nn.Linear(512 * 7 * 7, 1024),
+            nn.ReLU(),
+            nn.Linear(1024, 2 * self.latent_dim)
+            # nn.ReLU()
+        )
+
+    def __str__(self):
+        return f"CSIEN{version}"
+
+    def forward(self, x):
+        out = self.cnn(x)
+        out = self.fclayers(out.view(-1, 512 * 7 * 7))
+
+        if self.out_length == 2 * self.latent_dim:
+            mu_i, logvar_i = out.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
+            z_i = reparameterize(mu_i, logvar_i)
+            return z_i, mu_i, logvar_i
+        else:
+            bbx = out
+            return bbx
 
 
 class TeacherTrainer(BasicTrainer):
@@ -215,7 +236,7 @@ class StudentTrainer(BasicTrainer):
 
     def calculate_loss(self, data):
 
-        s_z, s_mu, s_logvar, s_bbx = self.models['csien'](data['csi'])
+        s_z, s_mu, s_logvar = self.models['csien'](data['csi'])
 
         with torch.no_grad():
             t_z, t_mu, t_logvar = self.models['imgen'](data['c_img'])
@@ -238,33 +259,83 @@ class StudentTrainer(BasicTrainer):
                 'IND': data['ind']}
 
     def plot_test(self, select_ind=None, select_num=8, autosave=False, notion=''):
-        title = {'PRED': "Teacher Test IMG Predicts",
-                 'LAT': "Teacher Latents",
-                 'LOSS': "Teacher Test Loss"}
+        title = {'PRED': "Student Test IMG Predicts",
+                 'LOSS': "Student Test Loss",
+                 'LATENT': f"Student Test Latents for IMG"}
         filename = {term: f"{notion}_{self.name}_{term}@{self.current_ep()}.jpg" for term in ('PRED', 'LAT', 'LOSS')}
+
         save_path = f'../saved/{notion}/'
 
         if select_ind:
             inds = select_ind
         else:
-            if self.inds is not None:
-                if select_num >= len(self.inds):
-                    inds = self.inds
-                else:
-                    inds = self.generate_indices(self.loss.loss['pred']['IND'], select_num)
+            if self.inds is not None and select_num == len(self.inds):
+                inds = self.inds
+            else:
+                inds = self.generate_indices(self.loss['s'].loss['pred']['IND'], select_num)
 
-        fig1 = self.loss.plot_predict(title['PRED'], inds, ('GT', 'PRED'))
-        fig2 = self.loss.plot_latent(title['LAT'], inds)
-        fig3 = self.loss.plot_test(title['LOSS'], inds)
+        fig1 = self.loss.plot_predict(title['PRED'], inds, ('GT', 'T_PRED', 'S_PRED'))
+        fig3 = self.loss.plot_latent(title['LATENT'], inds, ('T_LATENT', 'S_LATENT'))
+        fig4 = self.loss.plot_test(title['LOSS'], inds)
 
         if autosave:
             if not os.path.exists(save_path):
                 os.makedirs(save_path)
             fig1.savefig(f"{save_path}{filename['PRED']}")
-            fig2.savefig(f"{save_path}{filename['LAT']}")
-            fig3.savefig(f"{save_path}{filename['LOSS']}")
+            fig3.savefig(f"{save_path}{filename['LAT']}")
+            fig4.savefig(f"{save_path}{filename['LOSS']}")
+
+
+class StudentTrainerBBX(StudentTrainer):
+    def __init__(self,
+                 *args, **kwargs):
+        super(StudentTrainerBBX, self).__init__(*args, **kwargs)
+
+    @staticmethod
+    def bbx_loss(bbx1, bbx2):
+        # x, y, w, h to x1, y1, x2, y2
+        # bbx1[..., -1] = bbx1[..., -1] + bbx1[..., -3]
+        # bbx1[..., -2] = bbx1[..., -2] + bbx1[..., -4]
+        # bbx2[..., -1] = bbx2[..., -1] + bbx2[..., -3]
+        # bbx2[..., -2] = bbx2[..., -2] + bbx2[..., -4]
+        return generalized_box_iou_loss(bbx1, bbx2, reduction='sum')
+
+    def calculate_loss(self, data):
+
+        s_bbx = self.models['csien'](data['csi'])
+        bbx_loss = self.bbx_loss(s_bbx, data['bbx'])
+        loss = bbx_loss
+
+        self.temp_loss = {'LOSS': loss,
+                          'BBX': bbx_loss}
+        return {'GT': data['img'],
+                'GT_BBX': data['bbx'],
+                'S_BBX': s_bbx,
+                'IND': data['ind']}
+
+    def plot_test(self, select_ind=None, select_num=8, autosave=False, notion=''):
+        title = {'BBX': "Student Test BBX Predicts"}
+        filename = {'BBX': f"{notion}_{self.name}_BBX@{self.current_ep()}.jpg"}
+
+        save_path = f'../saved/{notion}/'
+
+        if select_ind:
+            inds = select_ind
+        else:
+            if self.inds is not None and select_num == len(self.inds):
+                inds = self.inds
+            else:
+                inds = self.generate_indices(self.loss['s'].loss['pred']['IND'], select_num)
+
+        fig2 = self.loss['s'].plot_bbx(title['BBX'], inds)
+
+        if autosave:
+            if not os.path.exists(save_path):
+                os.makedirs(save_path)
+            fig2.savefig(f"{save_path}{filename['BBX']}")
 
 
 if __name__ == '__main__':
-    cc = ImageDecoder()
-    summary(cc, input_size=LAT)
+    cc = CSIEncoder(out_length=32)
+    summary(cc, input_size=CSI2)
+    

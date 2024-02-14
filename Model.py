@@ -18,6 +18,7 @@ version = ''
 # For torchinfo.summary
 IMG = (1, 1, 128, 128)
 CSI = (1, 2, 90, 100)
+CSI2 = (1, 6, 30, 30)
 LAT = (1, 16)
 RIMG = (1, 1, 128, 226)
 PD = (1, 2)
@@ -117,7 +118,7 @@ class BasicCSIEncoder(nn.Module):
 
     def __init__(self,  batchnorm=None, latent_dim=16, feature_length=512):
         super(BasicCSIEncoder, self).__init__()
-        self.batchnowm = batchnorm
+        self.batchnorm = batchnorm
         self.latent_dim = latent_dim
         self.feature_length = feature_length
 
