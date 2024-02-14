@@ -199,7 +199,7 @@ class TeacherTrainer(BasicTrainer):
                 inds = self.generate_indices(self.loss.loss['pred']['IND'], select_num)
 
         fig1 = self.loss.plot_predict(title['PRED'], inds, ('GT', 'PRED'))
-        fig2 = self.loss.plot_latent(title['LAT'], inds)
+        fig2 = self.loss.plot_latent(title['LAT'], inds, ('LAT'))
         fig3 = self.loss.plot_test(title['LOSS'], inds)
 
         if autosave:
