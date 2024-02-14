@@ -238,10 +238,10 @@ class StudentTrainer(BasicTrainer):
         s_z, s_mu, s_logvar = self.models['csien'](data['csi'])
 
         with torch.no_grad():
-            t_z, t_mu, t_logvar = self.models['imgen'](data['c_img'])
+            t_z, t_mu, t_logvar = self.models['imgen'](data['img'])
             s_output = self.models['imgde'](s_z)
             t_output = self.models['imgde'](t_z)
-            image_loss = self.recon_lossfunc(s_output, data['c_img'])
+            image_loss = self.recon_lossfunc(s_output, data['img'])
 
         loss_i, mu_loss_i, logvar_loss_i = self.kd_loss(s_mu, s_logvar, t_mu, t_logvar)
         loss = loss_i
