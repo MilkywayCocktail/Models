@@ -180,7 +180,7 @@ class TeacherTrainer(BasicTrainer):
         return {'GT': data['img'],
                 'PRED': output,
                 'LAT': torch.cat((mu, logvar), -1),
-                'IND': data['i']
+                'IND': data['ind']
                 }
 
     def plot_test(self, select_ind=None, select_num=8, autosave=False, notion=''):
