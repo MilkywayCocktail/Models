@@ -338,4 +338,3 @@ class StudentTrainerBBX(StudentTrainer):
 if __name__ == '__main__':
     cc = CSIEncoder(out_length=32)
     summary(cc, input_size=CSI2)
-    

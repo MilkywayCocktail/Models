@@ -40,13 +40,13 @@ class BasicTrainer:
 
     @timer
     def train(self, train_module=None, eval_module=None, autosave=False, notion=''):
-        optimizer = self.optimizer([{'params': self.models[model].parameters()} for model in train_module], lr=self.lr)
-        self.loss.logger(self.lr, self.epochs)
-        best_val_loss = float("inf")
         if not train_module:
             train_module = list(self.models.keys())
         if 'ind' not in self.modality:
             self.modality.add('ind')
+        optimizer = self.optimizer([{'params': self.models[model].parameters()} for model in train_module], lr=self.lr)
+        self.loss.logger(self.lr, self.epochs)
+        best_val_loss = float("inf")
 
         # ===============train and validate each epoch==============
         for epoch in range(self.epochs):
