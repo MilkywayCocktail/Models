@@ -250,7 +250,7 @@ class StudentTrainer(BasicTrainer):
                           'MU': mu_loss_i,
                           'LOGVAR': logvar_loss_i,
                           'IMG': image_loss}
-        return {'GT': data['c_img'],
+        return {'GT': data['img'],
                 'T_LATENT': torch.cat((t_mu, t_logvar), -1),
                 'S_LATENT': torch.cat((s_mu, s_logvar), -1),
                 'T_PRED': t_output,
