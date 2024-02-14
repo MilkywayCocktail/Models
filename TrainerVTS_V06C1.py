@@ -290,6 +290,8 @@ class StudentTrainerBBX(StudentTrainer):
                  *args, **kwargs):
         super(StudentTrainerBBX, self).__init__(*args, **kwargs)
 
+        self.modality = {'img', 'csi', 'bbx'}
+
     @staticmethod
     def bbx_loss(bbx1, bbx2):
         # x, y, w, h to x1, y1, x2, y2
