@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torchvision.ops import generalized_box_iou_loss
+from torchvision.ops import complete_box_iou_loss
 import numpy as np
 import matplotlib.pyplot as plt
 import os
@@ -300,7 +300,7 @@ class StudentTrainerBBX(StudentTrainer):
     def bbx_loss(bbx1, bbx2):
         # --- x, y, w, h to x1, y1, x2, y2 ---
         # Done in datasetting
-        return generalized_box_iou_loss(bbx1, bbx2, reduction='sum')
+        return complete_box_iou_loss(bbx1, bbx2, reduction='sum')
 
     def calculate_loss(self, data):
 
