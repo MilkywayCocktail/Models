@@ -300,14 +300,12 @@ class StudentTrainerBBX(StudentTrainer):
     def bbx_loss(bbx1, bbx2):
         # --- x, y, w, h to x1, y1, x2, y2 ---
         # Done in datasetting
-        print(bbx1[0])
-        print(bbx2[0])
         return generalized_box_iou_loss(bbx1, bbx2, reduction='sum')
 
     def calculate_loss(self, data):
 
         s_bbx = self.models['csien'](data['csi'])
-        bbx_loss = self.bbx_loss(s_bbx, data['bbx'])
+        bbx_loss = self.bbx_loss(s_bbx, torch.squeeze(data['bbx']))
         loss = bbx_loss
 
         self.temp_loss = {'LOSS': loss,
