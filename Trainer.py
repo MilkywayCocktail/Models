@@ -31,9 +31,6 @@ class BasicTrainer:
         self.temp_loss = {}
         self.inds = None
 
-        if 'ind' not in self.modality:
-            self.modality.add('ind')
-
     def current_ep(self):
         return self.loss.epochs[-1]
 
@@ -44,6 +41,8 @@ class BasicTrainer:
 
     @timer
     def train(self, train_module=None, eval_module=None, autosave=False, notion=''):
+        if 'ind' not in self.modality:
+            self.modality.add('ind')
         if not train_module:
             train_module = list(self.models.keys())
         optimizer = self.optimizer([{'params': self.models[model].parameters()} for model in train_module], lr=self.lr)
