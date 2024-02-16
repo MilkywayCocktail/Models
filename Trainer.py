@@ -25,8 +25,8 @@ class BasicTrainer:
         self.test_loader = test_loader
         self.modality = {'modality1', 'modality2', '...'}
 
-        self.loss_terms = {'loss1', 'loss2', '...'}
-        self.pred_terms = {'predict1', 'predict2', '...'}
+        self.loss_terms = ('loss1', 'loss2', '...')
+        self.pred_terms = ('predict1', 'predict2', '...')
         self.loss = MyLoss(self.loss_terms, self.pred_terms)
         self.temp_loss = {}
         self.inds = None

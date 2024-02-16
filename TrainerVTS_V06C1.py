@@ -155,8 +155,8 @@ class TeacherTrainer(BasicTrainer):
         self.beta = beta
         self.recon_lossfunc = recon_lossfunc
 
-        self.loss_terms = {'LOSS', 'KL', 'RECON'}
-        self.pred_terms = {'GT', 'PRED', 'LAT', 'IND'}
+        self.loss_terms = ('LOSS', 'KL', 'RECON')
+        self.pred_terms = ('GT', 'PRED', 'LAT', 'IND')
         self.loss = MyLoss(loss_terms=self.loss_terms,
                            pred_terms=self.pred_terms)
 
@@ -198,14 +198,14 @@ class TeacherTrainer(BasicTrainer):
                 inds = self.generate_indices(self.loss.loss['pred']['IND'], select_num)
 
         fig1 = self.loss.plot_predict(title['PRED'], inds, ('GT', 'PRED'))
-        #fig2 = self.loss.plot_latent(title['LAT'], inds, ('LAT'))
+        fig2 = self.loss.plot_latent(title['LAT'], inds, {'LAT'})
         fig3 = self.loss.plot_test(title['LOSS'], inds)
 
         if autosave:
             if not os.path.exists(save_path):
                 os.makedirs(save_path)
             fig1.savefig(f"{save_path}{filename['PRED']}")
-            #fig2.savefig(f"{save_path}{filename['LAT']}")
+            fig2.savefig(f"{save_path}{filename['LAT']}")
             fig3.savefig(f"{save_path}{filename['LOSS']}")
 
 
@@ -221,8 +221,8 @@ class StudentTrainer(BasicTrainer):
         self.alpha = alpha
         self.recon_lossfunc = recon_lossfunc
 
-        self.loss_terms = {'LOSS', 'MU', 'LOGVAR', 'IMG'}
-        self.pred_terms = {'GT', 'T_PRED', 'S_PRED', 'T_LATENT', 'S_LATENT', 'IND'}
+        self.loss_terms = ('LOSS', 'MU', 'LOGVAR', 'IMG')
+        self.pred_terms = ('GT', 'T_PRED', 'S_PRED', 'T_LATENT', 'S_LATENT', 'IND')
         self.loss = MyLoss(loss_terms=self.loss_terms,
                            pred_terms=self.pred_terms)
 
@@ -291,8 +291,8 @@ class StudentTrainerBBX(StudentTrainer):
 
         self.modality = {'img', 'csi', 'bbx'}
 
-        self.loss_terms = {'LOSS', 'BBX'}
-        self.pred_terms = {'GT', 'GT_BBX', 'S_BBX', 'IND'}
+        self.loss_terms = ('LOSS', 'BBX')
+        self.pred_terms = ('GT', 'GT_BBX', 'S_BBX', 'IND')
         self.loss = MyLossBBX(loss_terms=self.loss_terms,
                               pred_terms=self.pred_terms)
 
@@ -316,8 +316,9 @@ class StudentTrainerBBX(StudentTrainer):
                 'IND': data['ind']}
 
     def plot_test(self, select_ind=None, select_num=8, autosave=False, notion=''):
-        title = {'BBX': "Student Test BBX Predicts"}
-        filename = {'BBX': f"{notion}_{self.name}_BBX@{self.current_ep()}.jpg"}
+        title = {'BBX': "Student Test BBX Predicts",
+                 'LOSS': "Student Test Loss"}
+        filename = {term: f"{notion}_{self.name}_{term}@{self.current_ep()}.jpg" for term in ('BBX', 'LOSS')}
 
         save_path = f'../saved/{notion}/'
 
@@ -330,11 +331,13 @@ class StudentTrainerBBX(StudentTrainer):
                 inds = self.generate_indices(self.loss.loss['pred']['IND'], select_num)
 
         fig2 = self.loss.plot_bbx(title['BBX'], inds)
+        fig4 = self.loss.plot_test(title['LOSS'], inds)
 
         if autosave:
             if not os.path.exists(save_path):
                 os.makedirs(save_path)
             fig2.savefig(f"{save_path}{filename['BBX']}")
+            fig4.savefig(f"{save_path}{filename['LOSS']}")
 
 
 class TeacherTrainerMask(TeacherTrainer):
