@@ -33,7 +33,7 @@ class BasicTrainer:
         self.best_val_loss = float("inf")
 
     def current_ep(self):
-        return self.loss.epochs[-1]
+        return self.loss.current_epoch
 
     def calculate_loss(self, *inputs):
         # --- Return losses in this way ---
@@ -41,7 +41,7 @@ class BasicTrainer:
         return {pred: None for pred in self.pred_terms}
 
     @timer
-    def train(self, train_module=None, eval_module=None, autosave=False, notion=''):
+    def train(self, train_module=None, eval_module=None, autosave=False, notion='', **kwargs):
         if 'ind' not in self.modality:
             self.modality.add('ind')
         if not train_module:
@@ -109,8 +109,9 @@ class BasicTrainer:
 
                         logfile = open(f"{save_path}{notion}_{self.name}.txt", 'w')
                         logfile.write(f"{notion}_{self.name}\n"
-                                      f"Modules: {list(self.models.values())}\n"
-                                      f"Best : val_loss={self.best_val_loss} @ {self.current_ep()}")
+                                      f"Best : val_loss={self.best_val_loss} @ epoch {self.current_ep()}\n"
+                                      f"Modules:\n{list(self.models.values())}\n"
+                                      )
                         for model in train_module:
                             torch.save(self.models[model].state_dict(),
                                        f"{save_path}{notion}_{self.models[model]}_best.pth")
@@ -120,7 +121,7 @@ class BasicTrainer:
             self.loss.update('valid', EPOCH_LOSS)
 
     @timer
-    def test(self, test_module=None, loader='test'):
+    def test(self, test_module=None, loader='test', **kwargs):
         if not test_module:
             test_module = list(self.models.keys())
         for model in test_module:
@@ -133,8 +134,7 @@ class BasicTrainer:
         elif loader == 'train':
             loader = self.train_loader
 
-        self.loss.reset('test')
-        self.loss.reset('pred')
+        self.loss.reset('test', 'pred')
         self.inds = None
 
         for idx, data in enumerate(loader, 0):
@@ -164,7 +164,7 @@ class BasicTrainer:
 
         print(f"\nTest finished. Average loss={EPOCH_LOSS}")
 
-    def plot_train_loss(self, title=None, double_y=False, plot_terms='all', autosave=False, notion=''):
+    def plot_train_loss(self, title=None, double_y=False, plot_terms='all', autosave=False, notion='', **kwargs):
         if not title:
             title = f"{self.name} Training Status"
         filename = f"{notion}_{self.name}_train@{self.current_ep()}.jpg"
@@ -179,7 +179,7 @@ class BasicTrainer:
             fig.savefig(f"{save_path}{filename}")
         plt.show()
 
-    def plot_test(self, select_ind=None, select_num=8, autosave=False, notion=''):
+    def plot_test(self, select_ind=None, select_num=8, autosave=False, notion='', **kwargs):
         # Regarding actual instances
         pass
 
@@ -194,7 +194,7 @@ class BasicTrainer:
     def scheduler(self, turns=10,
                   lr_decay=False, decay_rate=0.4,
                   test_loader='train', select_num=8,
-                  autosave=False, notion='', *args, **kwargs):
+                  autosave=False, notion='', **kwargs):
         for i in range(turns):
             self.train(autosave=autosave, notion=notion, **kwargs)
             self.test(loader=test_loader, **kwargs)

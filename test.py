@@ -19,9 +19,10 @@ s = samples[inds]
 #print(s)
 #print(a1[inds[np.argsort(s)]])
 
-a = np.arange(12).reshape(3, 4)
-b = np.arange(20, 32).reshape(3, 4)
-print(a.dot(b.transpose()))
-print(b.dot(a.transpose()))
 
-las = [i for i in range(4)]
+def foo(*args):
+    for arg in args:
+        print(arg, end='|')
+
+
+foo("lat")

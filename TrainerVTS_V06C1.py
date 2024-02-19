@@ -182,7 +182,7 @@ class TeacherTrainer(BasicTrainer):
                 'IND': data['ind']
                 }
 
-    def plot_test(self, select_ind=None, select_num=8, autosave=False, notion=''):
+    def plot_test(self, select_ind=None, select_num=8, autosave=False, notion='', **kwargs):
         title = {'PRED': "Teacher Test IMG Predicts",
                  'LAT': "Teacher Latents",
                  'LOSS': "Teacher Test Loss"}
@@ -256,7 +256,7 @@ class StudentTrainer(BasicTrainer):
                 'S_PRED': s_output,
                 'IND': data['ind']}
 
-    def plot_test(self, select_ind=None, select_num=8, autosave=False, notion=''):
+    def plot_test(self, select_ind=None, select_num=8, autosave=False, notion='', **kwargs):
         title = {'PRED': "Student Test IMG Predicts",
                  'LOSS': "Student Test Loss",
                  'LATENT': f"Student Test Latents for IMG"}
@@ -315,7 +315,7 @@ class StudentTrainerBBX(StudentTrainer):
                 'S_BBX': s_bbx,
                 'IND': data['ind']}
 
-    def plot_test(self, select_ind=None, select_num=8, autosave=False, notion=''):
+    def plot_test(self, select_ind=None, select_num=8, autosave=False, notion='', **kwargs):
         title = {'BBX': "Student Test BBX Predicts",
                  'LOSS': "Student Test Loss"}
         filename = {term: f"{notion}_{self.name}_{term}@{self.current_ep()}.jpg" for term in ('BBX', 'LOSS')}
