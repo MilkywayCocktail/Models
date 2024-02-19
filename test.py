@@ -20,9 +20,10 @@ s = samples[inds]
 #print(a1[inds[np.argsort(s)]])
 
 
-def foo(*args):
-    for arg in args:
-        print(arg, end='|')
+def foo(**kwargs):
+    print(kwargs.values())
+    if 'did' in kwargs.keys():
+        print("I did it!")
 
+foo(est=1995, did=True)
 
-foo("lat")

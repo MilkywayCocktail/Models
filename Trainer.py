@@ -113,9 +113,13 @@ class BasicTrainer:
                                       f"Modules:\n{list(self.models.values())}\n"
                                       )
                     logfile.close()
-                    for model in train_module:
-                        torch.save(self.models[model].state_dict(),
-                                   f"{save_path}{notion}_{self.models[model]}_best.pth")
+
+                    if 'save_model' in kwargs.keys() and kwargs['save_model'] is False:
+                        pass
+                    else:
+                        for model in train_module:
+                            torch.save(self.models[model].state_dict(),
+                                       f"{save_path}{notion}_{self.models[model]}_best.pth")
 
             for key in EPOCH_LOSS.keys():
                 EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
