@@ -107,11 +107,11 @@ class BasicTrainer:
                     if not os.path.exists(save_path):
                         os.makedirs(save_path)
 
-                        logfile = open(f"{save_path}{notion}_{self.name}.txt", 'w')
-                        logfile.write(f"{notion}_{self.name}\n"
-                                      f"Best : val_loss={self.best_val_loss} @ epoch {self.current_ep()}\n"
-                                      f"Modules:\n{list(self.models.values())}\n"
-                                      )
+                        with open(f"{save_path}{notion}_{self.name}.txt", 'w') as logfile:
+                            logfile.write(f"{notion}_{self.name}\n"
+                                          f"Best : val_loss={self.best_val_loss} @ epoch {self.current_ep()}\n"
+                                          f"Modules:\n{list(self.models.values())}\n"
+                                          )
                         logfile.close()
                         for model in train_module:
                             torch.save(self.models[model].state_dict(),
