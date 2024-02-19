@@ -30,6 +30,7 @@ class BasicTrainer:
         self.loss = MyLoss(self.loss_terms, self.pred_terms)
         self.temp_loss = {}
         self.inds = None
+        self.best_val_loss = float("inf")
 
     def current_ep(self):
         return self.loss.epochs[-1]
@@ -47,7 +48,6 @@ class BasicTrainer:
             train_module = list(self.models.keys())
         optimizer = self.optimizer([{'params': self.models[model].parameters()} for model in train_module], lr=self.lr)
         self.loss.logger(self.lr, self.epochs)
-        best_val_loss = float("inf")
 
         # ===============train and validate each epoch==============
         for epoch in range(self.epochs):
@@ -87,7 +87,7 @@ class BasicTrainer:
                     self.models[model].eval()
             EPOCH_LOSS = {loss: [] for loss in self.loss_terms}
 
-            for idx, data in enumerate(self.train_loader, 0):
+            for idx, data in enumerate(self.valid_loader, 0):
                 data_ = {}
                 for key in data.keys():
                     if key in self.modality:
@@ -99,8 +99,8 @@ class BasicTrainer:
                     EPOCH_LOSS[key].append(self.temp_loss[key].item())
 
                 val_loss = np.average(EPOCH_LOSS['LOSS'])
-                if val_loss < best_val_loss:
-                    best_val_loss = val_loss
+                if 0 < val_loss < self.best_val_loss:
+                    self.best_val_loss = val_loss
 
                 if autosave:
                     save_path = f'../saved/{notion}/'
