@@ -110,7 +110,7 @@ class BasicTrainer:
                         logfile = open(f"{save_path}{notion}_{self.name}.txt", 'w')
                         logfile.write(f"{notion}_{self.name}\n"
                                       f"Modules: {list(self.models.values())}\n"
-                                      f"Best : val_loss={best_val_loss} @ {self.current_ep()}")
+                                      f"Best : val_loss={self.best_val_loss} @ {self.current_ep()}")
                         for model in train_module:
                             torch.save(self.models[model].state_dict(),
                                        f"{save_path}{notion}_{self.models[model]}_best.pth")
