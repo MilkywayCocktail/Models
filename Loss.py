@@ -18,7 +18,7 @@ class MyLoss:
                      'pred': {term: [] for term in pred_terms}
                      }
         self.lr = []
-        self.epochs = [1, 1]
+        self.epochs = [0, 1]
         self.loss_terms = loss_terms
         self.pred_terms = pred_terms
 
@@ -112,14 +112,14 @@ class MyLoss:
                                 color=stage_color[j],
                                 label=f'lr={learning_rate}')
 
-            axes[i].plot(list(range(len(self.loss['valid'][loss]))),
+            axes[i].plot(
                          self.loss['valid'][loss],
                          line_color[1], label='Valid')
             if double_y:
                 ax_r = axes[i].twinx()
             else:
                 ax_r = axes[i]
-            ax_r.plot(list(range(len(self.loss['train'][loss]))),
+            ax_r.plot(
                       self.loss['train'][loss],
                       line_color[0], label='Train')
             axes[i].set_title(loss)
