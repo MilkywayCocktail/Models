@@ -112,6 +112,7 @@ class BasicTrainer:
                                       f"Best : val_loss={self.best_val_loss} @ epoch {self.current_ep()}\n"
                                       f"Modules:\n{list(self.models.values())}\n"
                                       )
+                        logfile.close()
                         for model in train_module:
                             torch.save(self.models[model].state_dict(),
                                        f"{save_path}{notion}_{self.models[model]}_best.pth")
