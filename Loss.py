@@ -18,8 +18,7 @@ class MyLoss:
                      'pred': {term: [] for term in pred_terms}
                      }
         self.lr = []
-        self.epochs = [0]
-        self.current_epoch = 0
+        self.epochs = [0, 0]
         self.loss_terms = loss_terms
         self.pred_terms = pred_terms
 
@@ -50,22 +49,21 @@ class MyLoss:
         c = map_vir(norm(arr))
         return c
 
-    def logger(self, lr, epochs):
+    def logger(self, lr):
 
         # First round
         if not self.lr:
             self.lr.append(lr)
-            self.epochs.append(epochs)
         else:
-            # Not changing learning rate
+            # Keeping learning rate
             if lr == self.lr[-1]:
-                self.epochs[-1] += epochs
+                self.epochs[-1] += 1
 
             # Changing learning rate
             if lr != self.lr[-1]:
                 last_end = self.epochs[-1]
                 self.lr.append(lr)
-                self.epochs.append(last_end + epochs)
+                self.epochs.append(last_end + 1)
 
     def update(self, mode, losses):
         if mode in ('train', 'valid'):
@@ -77,8 +75,6 @@ class MyLoss:
         elif mode == 'pred':
             for key in losses.keys():
                 self.loss[mode][key].append(losses[key].cpu().detach().numpy().squeeze())
-
-        self.current_epoch += 1
 
     def reset(self, *modes):
         for mode in modes:

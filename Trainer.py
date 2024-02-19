@@ -33,7 +33,7 @@ class BasicTrainer:
         self.best_val_loss = float("inf")
 
     def current_ep(self):
-        return self.loss.current_epoch
+        return self.loss.epochs[-1]
 
     def calculate_loss(self, *inputs):
         # --- Return losses in this way ---
@@ -47,10 +47,10 @@ class BasicTrainer:
         if not train_module:
             train_module = list(self.models.keys())
         optimizer = self.optimizer([{'params': self.models[model].parameters()} for model in train_module], lr=self.lr)
-        self.loss.logger(self.lr, self.epochs)
 
         # ===============train and validate each epoch==============
         for epoch in range(self.epochs):
+            self.loss.logger(self.lr)
             # =====================train============================
             for model in train_module:
                 self.models[model].train()
