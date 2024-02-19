@@ -107,15 +107,15 @@ class BasicTrainer:
                     if not os.path.exists(save_path):
                         os.makedirs(save_path)
 
-                        with open(f"{save_path}{notion}_{self.name}.txt", 'w') as logfile:
-                            logfile.write(f"{notion}_{self.name}\n"
-                                          f"Best : val_loss={self.best_val_loss} @ epoch {self.current_ep()}\n"
-                                          f"Modules:\n{list(self.models.values())}\n"
-                                          )
-                        logfile.close()
-                        for model in train_module:
-                            torch.save(self.models[model].state_dict(),
-                                       f"{save_path}{notion}_{self.models[model]}_best.pth")
+                    with open(f"{save_path}{notion}_{self.name}.txt", 'w') as logfile:
+                        logfile.write(f"{notion}_{self.name}\n"
+                                      f"Best : val_loss={self.best_val_loss} @ epoch {self.current_ep()}\n"
+                                      f"Modules:\n{list(self.models.values())}\n"
+                                      )
+                    logfile.close()
+                    for model in train_module:
+                        torch.save(self.models[model].state_dict(),
+                                   f"{save_path}{notion}_{self.models[model]}_best.pth")
 
             for key in EPOCH_LOSS.keys():
                 EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
