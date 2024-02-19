@@ -18,7 +18,7 @@ class MyLoss:
                      'pred': {term: [] for term in pred_terms}
                      }
         self.lr = []
-        self.epochs = [0, 0]
+        self.epochs = [1, 1]
         self.loss_terms = loss_terms
         self.pred_terms = pred_terms
 
