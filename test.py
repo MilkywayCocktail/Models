@@ -20,10 +20,18 @@ s = samples[inds]
 #print(a1[inds[np.argsort(s)]])
 
 
-def foo(**kwargs):
-    print(kwargs.values())
-    if 'did' in kwargs.keys():
-        print("I did it!")
+def foo(mode, *args):
+    def add(a, b):
+        return a + b
 
-foo(est=1995, did=True)
+    def multiply(a, b):
+        return a * b
+
+    if mode == 'plus':
+        return add(*args)
+    elif mode == 'multiply':
+        return multiply(*args)
+
+
+print(foo('plus', 1, 2))
 

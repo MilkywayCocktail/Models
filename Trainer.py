@@ -185,7 +185,7 @@ class BasicTrainer:
         plt.show()
 
     def plot_test(self, select_ind=None, select_num=8, autosave=False, notion='', **kwargs):
-        # Regarding actual instances
+        # According to actual usages
         pass
 
     def generate_indices(self, source=None, select_num=8):

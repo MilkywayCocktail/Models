@@ -127,19 +127,34 @@ class CSIEncoder(BasicCSIEncoder):
             # nn.ReLU()
         )
 
+        self.fc_mu = nn.Sequential(
+            nn.Linear(7 * 7 * 512, 1024),
+            nn.ReLU(),
+            nn.Linear(4096, self.latent_dim),
+            # self.active_func
+        )
+
+        self.fc_logvar = nn.Sequential(
+            nn.Linear(7 * 7 * 512, 1024),
+            nn.ReLU(),
+            nn.Linear(4096, self.latent_dim),
+            # self.active_func
+        )
+
     def __str__(self):
         return f"CSIEN{version}"
 
     def forward(self, x):
         out = self.cnn(x)
-        out = self.fclayers(out.view(-1, 512 * 7 * 7))
 
         if self.out_length == 2 * self.latent_dim:
-            mu_i, logvar_i = out.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
-            z_i = reparameterize(mu_i, logvar_i)
-            return z_i, mu_i, logvar_i
+            # mu_i, logvar_i = out.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
+            mu = self.fc_mu(out.view(-1, 4 * 4 * 512))
+            logvar = self.fc_logvar(out.view(-1, 4 * 4 * 512))
+            z = reparameterize(mu, logvar)
+            return z, mu, logvar
         else:
-            bbx = out
+            bbx = self.fclayers(out.view(-1, 512 * 7 * 7))
             return bbx
 
 
@@ -178,7 +193,7 @@ class TeacherTrainer(BasicTrainer):
                           }
         return {'GT': data['img'],
                 'PRED': output,
-                'LAT': torch.cat((mu, logvar), -1),
+                'LAT': z,
                 'IND': data['ind']
                 }
 
@@ -250,8 +265,8 @@ class StudentTrainer(BasicTrainer):
                           'LOGVAR': logvar_loss_i,
                           'IMG': image_loss}
         return {'GT': data['img'],
-                'T_LATENT': torch.cat((t_mu, t_logvar), -1),
-                'S_LATENT': torch.cat((s_mu, s_logvar), -1),
+                'T_LATENT': t_z,
+                'S_LATENT': s_z,
                 'T_PRED': t_output,
                 'S_PRED': s_output,
                 'IND': data['ind']}
@@ -357,7 +372,7 @@ class TeacherTrainerMask(TeacherTrainer):
                           }
         return {'GT': mask,
                 'PRED': output,
-                'LAT': torch.cat((mu, logvar), -1),
+                'LAT': z,
                 'IND': data['ind']
                 }
 
@@ -385,8 +400,8 @@ class StudentTrainerMask(StudentTrainer):
                           'LOGVAR': logvar_loss_i,
                           'IMG': image_loss}
         return {'GT': mask,
-                'T_LATENT': torch.cat((t_mu, t_logvar), -1),
-                'S_LATENT': torch.cat((s_mu, s_logvar), -1),
+                'T_LATENT': t_z,
+                'S_LATENT': s_z,
                 'T_PRED': t_output,
                 'S_PRED': s_output,
                 'IND': data['ind']}
