@@ -6,7 +6,8 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 import time
 import os
-from TrainerTS import MyDataset, split_loader, MyArgs
+from DataSetting import MyDataset, DataSplitter
+from TrainerTS import MyArgs
 
 '''
 Notes
@@ -133,7 +134,7 @@ class Wi2Vi(nn.Module):
         )
 
         self.Translator_A = nn.Sequential(
-            # Please fill in the product of the output shape of Encoder.
+            # Please fill in the flattened output shape of Encoder.
             nn.Linear(5120, 972),
             nn.LeakyReLU()
         )
@@ -357,11 +358,12 @@ class CompTrainer:
     def current_title(self):
         return f"e{self.train_loss['epochs'][-1]}"
 
-    def calculate_loss(self, x, y, i=None):
-        output = self.model(x)
-        loss = self.args.criterion(output, y)
+    def calculate_loss(self, csi, img, i=None):
+        mask = torch.where(img > 0, 1., 0.)
+        output = self.model(csi)
+        loss = self.args.criterion(output, img)
         self.temp_loss = {'LOSS': loss}
-        return {'GT': y,
+        return {'GT': img,
                 'PRED': output,
                 'IND': i}
 
@@ -377,12 +379,12 @@ class CompTrainer:
             # =====================train============================
             self.model.train()
             EPOCH_LOSS = {key: [] for key in LOSS_TERMS}
-            for idx, (data_x, data_y, index) in enumerate(self.train_loader, 0):
-                data_x = data_x.to(torch.float32).to(self.args.device)
-                data_y = data_y.to(torch.float32).to(self.args.device)
+            for idx, data in enumerate(self.train_loader, 0):
+                csi = data['csi'].to(torch.float32).to(self.args.device)
+                img = data['img'].to(torch.float32).to(self.args.device)
                 optimizer.zero_grad()
 
-                PREDS = self.calculate_loss(data_x, data_y)
+                PREDS = self.calculate_loss(csi, img)
                 self.temp_loss['LOSS'].backward()
                 optimizer.step()
                 for key in LOSS_TERMS:
@@ -398,11 +400,11 @@ class CompTrainer:
             self.model.eval()
             EPOCH_LOSS = {key: [] for key in LOSS_TERMS}
 
-            for idx, (data_x, data_y, index) in enumerate(self.valid_loader, 0):
-                data_x = data_x.to(torch.float32).to(self.args.device)
-                data_y = data_y.to(torch.float32).to(self.args.device)
+            for idx, data in enumerate(self.valid_loader, 0):
+                csi = data['csi'].to(torch.float32).to(self.args.device)
+                img = data['img'].to(torch.float32).to(self.args.device)
                 with torch.no_grad():
-                    PREDS = self.calculate_loss(data_x, data_y)
+                    PREDS = self.calculate_loss(csi, img)
                 for key in LOSS_TERMS:
                     EPOCH_LOSS[key].append(self.temp_loss[key].item())
             for key in LOSS_TERMS:
@@ -427,15 +429,16 @@ class CompTrainer:
         elif mode == 'train':
             loader = self.train_loader
 
-        for idx, (data_x, data_y, index) in enumerate(loader, 0):
-            data_x = data_x.to(torch.float32).to(self.args.device)
-            data_y = data_y.to(torch.float32).to(self.args.device)
+        for idx, data in enumerate(loader, 0):
+            csi = data['csi'].to(torch.float32).to(self.args.device)
+            img = data['img'].to(torch.float32).to(self.args.device)
+            ind = data['ind']
             with torch.no_grad():
                 for sample in range(loader.batch_size):
-                    ind = index[sample]
-                    csi = data_x[sample][np.newaxis, ...]
-                    gt = data_y[sample][np.newaxis, ...]
-                    PREDS = self.calculate_loss(csi, gt, ind)
+                    ind_ = ind[sample]
+                    csi_ = csi[sample][np.newaxis, ...]
+                    img_ = img[sample][np.newaxis, ...]
+                    PREDS = self.calculate_loss(csi_, img_, ind_)
 
                     for key in LOSS_TERMS:
                         EPOCH_LOSS[key].append(self.temp_loss[key].item())
@@ -595,8 +598,8 @@ class CompTrainer:
 
 
 if __name__ == "__main__":
-    # m1 = Wi2Vi()
-    # summary(m1, input_size=(6, 30, 100))
-    m2 = AutoEncoder()
-    summary(m2, input_size=(2, 90, 100))
+    m1 = Wi2Vi()
+    summary(m1, input_size=(6, 30, 30))
+    #m2 = AutoEncoder()
+    #summary(m2, input_size=(2, 90, 100))
 
