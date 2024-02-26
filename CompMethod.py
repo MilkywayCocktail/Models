@@ -257,6 +257,58 @@ class AutoEncoder(nn.Module):
         return out
 
 
+class AutoEncoderNew(nn.Module):
+    def __init__(self, latent_dim=8, active_func=nn.Sigmoid()):
+        super(AutoEncoderNew, self).__init__()
+        self.latent_dim = latent_dim
+        self.active_func = active_func
+
+        self.cnn = nn.Sequential(
+            nn.Conv2d(6, 128, 5, 1, 1),
+            nn.LeakyReLU(inplace=True),
+            nn.Conv2d(128, 256, 3, 2, 1),
+            nn.LeakyReLU(inplace=True),
+            nn.Conv2d(256, 512, 3, 2, 1),
+            nn.LeakyReLU(inplace=True),
+        )
+
+        self.EnFC = nn.Sequential(
+            nn.Linear(512 * 7 * 7, 1024),
+            nn.ReLU(),
+            nn.Linear(1024, 16),
+            nn.ReLU()
+        )
+
+        self.DeFC = nn.Sequential(
+            nn.Linear(16, 4096),
+            nn.ReLU(),
+            nn.Linear(4096, 2048),
+            nn.ReLU(),
+        )
+        self.DeCNN = nn.Sequential(
+            nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
+            nn.LeakyReLU(inplace=True),
+            nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
+            nn.LeakyReLU(inplace=True),
+            nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
+            nn.LeakyReLU(inplace=True),
+            nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
+            nn.LeakyReLU(inplace=True),
+            nn.ConvTranspose2d(128, 1, kernel_size=4, stride=2, padding=1),
+            self.active_func
+        )
+
+    def __str__(self):
+        return f"AutoEncoder{self.latent_dim}"
+
+    def forward(self, x):
+        x = self.cnn(x)
+        out = self.EnFC(x.view(-1, 512 * 7 * 7))
+        out = self.DeFC(out)
+        out = self.DeCNN(out.view(-1, 128, 4, 4))
+        return out
+
+
 def timer(func):
     from functools import wraps
 
@@ -598,8 +650,8 @@ class CompTrainer:
 
 
 if __name__ == "__main__":
-    m1 = Wi2Vi()
-    summary(m1, input_size=(6, 30, 30))
-    #m2 = AutoEncoder()
-    #summary(m2, input_size=(2, 90, 100))
+    #m1 = Wi2Vi()
+    #summary(m1, input_size=(6, 30, 30))
+    m2 = AutoEncoderNew()
+    summary(m2, input_size=(6, 30, 30))
 
