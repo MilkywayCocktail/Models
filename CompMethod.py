@@ -361,7 +361,7 @@ class CompTrainer:
     def calculate_loss(self, csi, img, i=None):
         mask = torch.where(img > 0, 1., 0.)
         output = self.model(csi)
-        loss = self.args.criterion(output, img)
+        loss = self.args.criterion(output, mask)
         self.temp_loss = {'LOSS': loss}
         return {'GT': img,
                 'PRED': output,
