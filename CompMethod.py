@@ -363,7 +363,7 @@ class CompTrainer:
         output = self.model(csi)
         loss = self.args.criterion(output, mask)
         self.temp_loss = {'LOSS': loss}
-        return {'GT': img,
+        return {'GT': mask,
                 'PRED': output,
                 'IND': i}
 
