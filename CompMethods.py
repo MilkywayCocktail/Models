@@ -41,10 +41,11 @@ class DropIn(nn.Module):
 class Wi2Vi(nn.Module):
     name = 'wi2vi'
 
-    def __init__(self):
+    def __init__(self, batchnorm='instance'):
         super(Wi2Vi, self).__init__()
 
         # 56X29X18 (3x3xamp&phase)
+        self.batchnorm = batchnorm
         self.Dropin = DropIn(17)
         self.EncoderOriginal = nn.Sequential(
             # 56x17x18
@@ -122,11 +123,11 @@ class Wi2Vi(nn.Module):
             # 8x6x128
             # nn.ReflectionPad2d(1),
             # 10x8x128
-            ResidualBlock(128, 128),
+            ResidualBlock(128, 128, self.batchnorm),
             # 8x6x128
-            ResidualBlock(128, 128),
+            ResidualBlock(128, 128, self.batchnorm),
             # 8x6x128
-            ResidualBlock(128, 128),
+            ResidualBlock(128, 128, self.batchnorm),
             # 8x6x128
             Interpolate(size=(12, 16)),
             nn.Conv2d(128, 64, kernel_size=3, stride=1, padding=0),
