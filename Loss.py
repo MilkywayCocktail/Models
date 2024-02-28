@@ -265,7 +265,9 @@ class MyLoss:
             subfigs[i].suptitle(item)
             subfigs[i].scatter(TSNE[item][:, 0], TSNE[item][:, 1],  alpha=0.6)
             for j in range(self.select_num):
-                subfigs[i].annotate(str(samples[self.select_inds[j]]),
+                subfigs[i].scatter(TSNE[item][self.select_inds[j], 0], TSNE[item][self.select_inds[j], 1],
+                                   c='magenta', marker=(5, 1), linewidths=4)
+                subfigs[i].annotate(str(samples[j]),
                                     (TSNE[item][self.select_inds[j], 0], TSNE[item][self.select_inds[j], 1]))
 
         plt.show()
