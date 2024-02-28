@@ -27,7 +27,7 @@ class BasicTrainer:
 
         self.loss_terms = ('loss1', 'loss2', '...')
         self.pred_terms = ('predict1', 'predict2', '...')
-        self.loss = MyLoss(self.loss_terms, self.pred_terms)
+        self.loss = MyLoss(self.name, self.loss_terms, self.pred_terms)
         self.temp_loss = {}
         self.inds = None
         self.best_val_loss = float("inf")
@@ -73,7 +73,7 @@ class BasicTrainer:
 
                 if idx % (len(self.train_loader) // 5) == 0:
                     print(f"\r{self.name} train: epoch={epoch}/{self.epochs}, batch={idx}/{len(self.train_loader)}, "
-                          f"loss={self.temp_loss['LOSS'].item():.4f}", end='')
+                          f"loss={self.temp_loss['LOSS'].item():.4f}", end='', flush=True)
 
             for key in EPOCH_LOSS.keys():
                 EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
@@ -104,7 +104,7 @@ class BasicTrainer:
 
                 if idx % (len(self.train_loader) // 5) == 0:
                     print(f"\r{self.name} valid: epoch={epoch}/{self.epochs}, batch={idx}/{len(self.valid_loader)}, "
-                          f"current best valid loss={self.best_val_loss:.4f}", end='')
+                          f"current best valid loss={self.best_val_loss:.4f}", end='', flush=True)
 
                 if autosave:
                     save_path = f'../saved/{notion}/'
@@ -163,7 +163,8 @@ class BasicTrainer:
                     self.loss.update('pred', PREDS)
 
             if idx % (len(loader)//5) == 0:
-                print(f"\r{self.name} test: sample={idx}/{len(loader)}, loss={self.temp_loss['LOSS'].item():.4f}", end='')
+                print(f"\r{self.name} test: sample={idx}/{len(loader)}, loss={self.temp_loss['LOSS'].item():.4f}",
+                      end='', flush=True)
 
         self.loss.update('test', EPOCH_LOSS)
         for key in EPOCH_LOSS.keys():
@@ -174,31 +175,19 @@ class BasicTrainer:
         print(f"\nTest finished. Average loss={EPOCH_LOSS}")
 
     def plot_train_loss(self, title=None, double_y=False, plot_terms='all', autosave=False, notion='', **kwargs):
-        if not title:
-            title = f"{self.name} Training Status"
-        filename = f"{notion}_{self.name}_train@{self.current_ep()}.jpg"
-
         save_path = f'../saved/{notion}/'
 
-        fig = self.loss.plot_train(title, plot_terms, double_y)
+        fig, filename = self.loss.plot_train(title, plot_terms, double_y)
 
         if autosave:
             if not os.path.exists(save_path):
                 os.makedirs(save_path)
-            fig.savefig(f"{save_path}{filename}")
-        plt.show()
+            fig.savefig(f"{save_path}{notion}_{filename}")
 
-    def plot_test(self, select_ind=None, select_num=8, autosave=False, notion='', **kwargs):
+    def plot_test(self, select_inds=None, select_num=8, autosave=False, notion='', **kwargs):
         # According to actual usages
+        self.loss.generate_indices(select_inds, select_num)
         pass
-
-    def generate_indices(self, source=None, select_num=8):
-        if not source:
-            source = self.loss.loss['pred']['IND']
-        inds = np.random.choice(list(range(len(source))), select_num, replace=False)
-        inds = np.sort(inds)
-        self.inds = inds
-        return inds
 
     def scheduler(self, turns=10,
                   lr_decay=False, decay_rate=0.4,

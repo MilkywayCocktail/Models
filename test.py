@@ -20,18 +20,7 @@ s = samples[inds]
 #print(a1[inds[np.argsort(s)]])
 
 
-def foo(mode, *args):
-    def add(a, b):
-        return a + b
+lsls = (1,1,2,2,2)
 
-    def multiply(a, b):
-        return a * b
-
-    if mode == 'plus':
-        return add(*args)
-    elif mode == 'multiply':
-        return multiply(*args)
-
-
-print(foo('plus', 1, 2))
-
+if not lsls:
+    print("Nothing!")

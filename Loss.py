@@ -11,7 +11,8 @@ These are MyLoss classes that can store and plot losses.\n
 
 
 class MyLoss:
-    def __init__(self, loss_terms, pred_terms):
+    def __init__(self, name, loss_terms, pred_terms):
+        self.name = name
         self.loss = {'train': {term: [] for term in loss_terms},
                      'valid': {term: [] for term in loss_terms},
                      'test': {term: [] for term in loss_terms},
@@ -21,6 +22,8 @@ class MyLoss:
         self.epochs = [0, 1]
         self.loss_terms = loss_terms
         self.pred_terms = pred_terms
+        self.select_inds = None
+        self.select_num = 8
 
     @staticmethod
     def __plot_settings__():
@@ -28,6 +31,7 @@ class MyLoss:
         Prepares plot configurations.
         :return: plt args
         """
+        plt.style.use('default')
         plt.rcParams['figure.figsize'] = (20, 10)
         plt.rcParams["figure.titlesize"] = 35
         plt.rcParams['lines.markersize'] = 10
@@ -83,12 +87,25 @@ class MyLoss:
             elif mode == 'pred':
                 self.loss[mode] = {term: [] for term in self.pred_terms}
 
-    def plot_train(self, title, plot_terms='all', double_y=False):
+    def generate_indices(self, select_ind=None, select_num=8):
+        if select_ind is not None:
+            self.select_inds = select_ind
+        else:
+            if not self.select_inds:
+                inds = np.random.choice(list(range(len(self.loss['pred']['IND']))), select_num, replace=False)
+                inds = np.sort(inds)
+                self.select_inds = inds
+                self.select_num = select_num
+
+    def plot_train(self, title=None, plot_terms='all', double_y=False):
         self.__plot_settings__()
         stage_color = self.colors(self.lr)
         line_color = ['b', 'orange']
 
-        title = f"{title} @ep{self.epochs[-1]}"
+        if title:
+            title = f"{title} @ep{self.epochs[-1]}"
+        else:
+            title = f"{self.name} Training Status @ep{self.epochs[-1]}"
 
         if plot_terms == 'all':
             plot_terms = list(self.loss['train'].keys())
@@ -128,15 +145,20 @@ class MyLoss:
             axes[i].grid()
             axes[i].legend()
         plt.show()
-        return fig
+        filename = f"{self.name}_TRAIN@ep{self.epochs[-1]}.jpg"
+        return fig, filename
 
-    def plot_test(self, title, select_ind, plot_terms='all'):
+    def plot_test(self, title=None, plot_terms='all'):
         self.__plot_settings__()
 
-        title = f"{title} @ep{self.epochs[-1]}"
+        if title:
+            title = f"{title} @ep{self.epochs[-1]}"
+        else:
+            title = f"{self.name} Test Loss @ep{self.epochs[-1]}"
 
         if plot_terms == 'all':
             plot_terms = list(self.loss['test'].keys())
+        samples = np.array(self.loss['pred']['IND'])[self.select_inds]
 
         fig = plt.figure(constrained_layout=True)
         fig.suptitle(title)
@@ -156,17 +178,23 @@ class MyLoss:
             axes[i].set_xlabel('#Sample')
             axes[i].set_ylabel('Loss')
             axes[i].grid()
-            for j in range(len(select_ind)):
-                axes[i].scatter(select_ind[j], self.loss['test'][item][select_ind[j]],
+            for j in range(self.select_num):
+                axes[i].scatter(self.select_inds[j], self.loss['test'][item][self.select_inds[j]],
                                 c='magenta', marker=(5, 1), linewidths=4)
+                axes[i].annotate(str(samples[self.select_inds[j]]),
+                                 (self.select_inds[j], self.loss['test'][item][self.select_inds[j]]))
         plt.show()
-        return fig
+        filename = f"{self.name}_TEST@ep{self.epochs[-1]}.jpg"
+        return fig, filename
 
-    def plot_predict(self, title, select_ind, plot_terms):
+    def plot_predict(self, plot_terms, title=None):
         self.__plot_settings__()
 
-        title = f"{title} @ep{self.epochs[-1]}"
-        samples = np.array(self.loss['pred']['IND'])[select_ind]
+        if title:
+            title = f"{title} @ep{self.epochs[-1]}"
+        else:
+            title = f"{self.name} Image Predicts @ep{self.epochs[-1]}"
+        samples = np.array(self.loss['pred']['IND'])[self.select_inds]
 
         fig = plt.figure(constrained_layout=True)
         fig.suptitle(title)
@@ -174,64 +202,105 @@ class MyLoss:
 
         for i, item in enumerate(plot_terms):
             subfigs[i].suptitle(item)
-            axes = subfigs[i].subplots(nrows=1, ncols=len(select_ind))
+            axes = subfigs[i].subplots(nrows=1, ncols=self.select_num)
             for j in range(len(axes)):
-                img = axes[j].imshow(self.loss['pred'][item][select_ind[j]], vmin=0, vmax=1)
+                img = axes[j].imshow(self.loss['pred'][item][self.select_inds[j]], vmin=0, vmax=1)
                 axes[j].axis('off')
                 axes[j].set_title(f"#{samples[j]}")
             subfigs[i].colorbar(img, ax=axes, shrink=0.8)
         plt.show()
-        return fig
+        filename = f"{self.name}_PRED@ep{self.epochs[-1]}.jpg"
+        return fig, filename
 
-    def plot_latent(self, title, select_ind, plot_items):
+    def plot_latent(self, plot_terms, title=None, ylim=(-1, 1)):
         self.__plot_settings__()
 
-        title = f"{title} @ep{self.epochs[-1]}"
-        samples = np.array(self.loss['pred']['IND'])[select_ind]
+        if title:
+            title = f"{title} @ep{self.epochs[-1]}"
+        else:
+            title = f"{self.name} Latent Predicts @ep{self.epochs[-1]}"
+        samples = np.array(self.loss['pred']['IND'])[self.select_inds]
         colors = ('blue', 'orange')
 
         fig = plt.figure(constrained_layout=True)
         fig.suptitle(title)
-        axes = fig.subplots(nrows=2, ncols=np.ceil(len(select_ind) / 2).astype(int))
+        axes = fig.subplots(nrows=2, ncols=np.ceil(self.select_num / 2).astype(int))
         axes = axes.flatten()
-        for j in range(len(select_ind)):
-            for no, item in enumerate(plot_items):
-                axes[j].bar(range(len(self.loss['pred'][item][select_ind[0]])),
-                            self.loss['pred'][item][select_ind[j]],
+        for j in range(self.select_num):
+            for no, item in enumerate(plot_terms):
+                axes[j].bar(range(len(self.loss['pred'][item][self.select_inds[j]])),
+                            self.loss['pred'][item][self.select_inds[j]],
                             width=1, fc=colors[no], alpha=0.8, label=item)
-            axes[j].set_ylim(-1, 1)
+            if ylim is not None:
+                axes[j].set_ylim(*ylim)
+
             axes[j].set_title(f"#{samples[j]}")
             axes[j].grid()
 
         axes[0].legend()
         plt.show()
-        return fig
+        filename = f"{self.name}_LAT@ep{self.epochs[-1]}.jpg"
+        return fig, filename
 
-
-class MyLossBBX(MyLoss):
-    def __init__(self, loss_terms, pred_terms):
-        super(MyLossBBX, self).__init__(loss_terms, pred_terms)
-
-    def plot_bbx(self, title, select_ind):
+    def plot_tsne(self, plot_terms, title=None):
         self.__plot_settings__()
+        plt.style.use('dark_background')
 
-        title = f"{title} @ep{self.epochs[-1]}"
-        samples = np.array(self.loss['pred']['IND'])[select_ind]
+        if title:
+            title = f"{title} @ep{self.epochs[-1]}"
+        else:
+            title = f"{self.name} T-SNE @ep{self.epochs[-1]}"
+        samples = np.array(self.loss['pred']['IND'])[self.select_inds]
+        TSNE = {}
+
+        for item in plot_terms:
+            unit_shape = self.loss['pred'][item].shape
+            TSNE[item] = TSNE(n_components=2, random_state=33).fit_transform(
+                np.array(self.loss['pred']['GT']).reshape(unit_shape[0], -1))
 
         fig = plt.figure(constrained_layout=True)
         fig.suptitle(title)
-        axes = fig.subplots(nrows=2, ncols=np.ceil(len(select_ind) / 2).astype(int))
+        subfigs = fig.subfigures(nrows=len(plot_terms), ncols=1)
+        for i, item in enumerate(plot_terms):
+            subfigs[i].suptitle(item)
+            subfigs[i].scatter(TSNE[item][:, 0], TSNE[item][:, 1],  alpha=0.6)
+            for j in range(self.select_num):
+                subfigs[i].annotate(str(samples[self.select_inds[j]]),
+                                    (TSNE[item][self.select_inds[j], 0], TSNE[item][self.select_inds[j], 1]))
+
+        plt.show()
+        filename = f"{self.name}_TSNE@ep{self.epochs[-1]}.jpg"
+        return fig, filename
+
+
+class MyLossBBX(MyLoss):
+    def __init__(self, name, loss_terms, pred_terms):
+        super(MyLossBBX, self).__init__(name, loss_terms, pred_terms)
+
+    def plot_bbx(self, title=None):
+        self.__plot_settings__()
+
+        if title:
+            title = f"{title} @ep{self.epochs[-1]}"
+        else:
+            title = f"{self.name} Bounding Box Predicts @ep{self.epochs[-1]}"
+        samples = np.array(self.loss['pred']['IND'])[self.select_inds]
+
+        fig = plt.figure(constrained_layout=True)
+        fig.suptitle(title)
+        axes = fig.subplots(nrows=2, ncols=np.ceil(self.select_num / 2).astype(int))
         axes = axes.flatten()
-        for j in range(len(select_ind)):
+        for j in range(self.select_num):
             axes[j].set_xlim([0, 226])
             axes[j].set_ylim([0, 128])
-            x, y, w, h = self.loss['pred']['GT_BBX'][select_ind[j]]
+            x, y, w, h = self.loss['pred']['GT_BBX'][self.select_inds[j]]
             axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='blue', fill=False, lw=4, label='GroundTruth'))
-            x, y, w, h = self.loss['pred']['S_BBX'][select_ind[j]]
+            x, y, w, h = self.loss['pred']['S_BBX'][self.select_inds[j]]
             axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='orange', fill=False, lw=4, label='Student'))
             axes[j].axis('off')
             axes[j].set_title(f"#{samples[j]}")
 
         axes[0].legend()
         plt.show()
-        return fig
+        filename = f"{self.name}_BBX@ep{self.epochs[-1]}.jpg"
+        return fig, filename
