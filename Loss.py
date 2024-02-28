@@ -212,7 +212,7 @@ class MyLoss:
         filename = f"{self.name}_PRED@ep{self.epochs[-1]}.jpg"
         return fig, filename
 
-    def plot_latent(self, plot_terms, title=None, ylim=(-1, 1)):
+    def plot_latent(self, plot_terms, title=None, ylim: tuple = (-1, 1)):
         self.__plot_settings__()
         if title:
             title = f"{title} @ep{self.epochs[-1]}"
@@ -230,7 +230,7 @@ class MyLoss:
                 axes[j].bar(range(len(self.loss['pred'][item][self.select_inds[j]])),
                             self.loss['pred'][item][self.select_inds[j]],
                             width=1, fc=colors[no], alpha=0.8, label=item)
-            if ylim is not None:
+            if ylim:
                 axes[j].set_ylim(*ylim)
 
             axes[j].set_title(f"#{samples[j]}")
@@ -254,7 +254,7 @@ class MyLoss:
         for item in plot_terms:
             unit_shape = np.array(self.loss['pred'][item]).shape
             tsne[item] = TSNE(n_components=2, random_state=33).fit_transform(
-                np.array(self.loss['pred']['GT']).reshape(unit_shape[0], -1))
+                np.array(self.loss['pred'][item]).reshape(unit_shape[0], -1))
 
         fig = plt.figure(constrained_layout=True)
         fig.suptitle(title)
