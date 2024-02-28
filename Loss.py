@@ -89,11 +89,11 @@ class MyLoss:
             elif mode == 'pred':
                 self.loss[mode] = {term: [] for term in self.pred_terms}
 
-    def generate_indices(self, select_ind=None, select_num=8):
-        if select_ind is not None:
-            self.select_inds = select_ind
+    def generate_indices(self, select_ind: list = None, select_num=8):
+        if select_ind:
+            self.select_inds = np.array(select_ind)
         else:
-            if not self.select_inds:
+            if not np.any(self.select_inds):
                 inds = np.random.choice(list(range(len(self.loss['pred']['IND']))), select_num, replace=False)
                 inds = np.sort(inds)
                 self.select_inds = inds
