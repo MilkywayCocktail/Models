@@ -226,7 +226,7 @@ class CompTrainer(BasicTrainer):
                  *args, **kwargs):
         super(CompTrainer, self).__init__(*args, **kwargs)
 
-        assert mode in ('wi2vi', 'ae', 'vae')
+        assert mode in ('wi2vi', 'ae', 'vae', 'ae_t')
 
         self.mode = mode
         self.mask = mask
@@ -250,7 +250,7 @@ class CompTrainer(BasicTrainer):
         img = torch.where(data['img'] > 0, 1., 0.) if self.mask else data['img']
 
         if self.mode == 'wi2vi':
-            output = self.models[self.mode](data['csi'])
+            output = self.models['wi2vi'](data['csi'])
             loss = self.recon_lossfunc(output, img)
             self.temp_loss = {'LOSS': loss}
             return {'GT': img,
@@ -258,7 +258,7 @@ class CompTrainer(BasicTrainer):
                     'IND': data['ind']}
 
         elif self.mode == 'ae':
-            latent, output = self.models['csien'](data['csi'])
+            latent, output = self.models['ae'](data['csi'])
             loss = self.recon_lossfunc(output, img)
             self.temp_loss = {'LOSS': loss}
             return {'GT': img,
