@@ -31,7 +31,8 @@ class MyLoss:
         Prepares plot configurations.
         :return: plt args
         """
-        plt.style.use('default')
+        # plt.style.use('default')
+        # plt.rcdefaults()
         plt.rcParams['figure.figsize'] = (20, 10)
         plt.rcParams["figure.titlesize"] = 35
         plt.rcParams['lines.markersize'] = 10
@@ -244,7 +245,7 @@ class MyLoss:
 
     def plot_tsne(self, plot_terms, title=None):
         self.__plot_settings__()
-        plt.style.use('dark_background')
+        # plt.style.use('dark_background')
 
         if title:
             title = f"{title} @ep{self.epochs[-1]}"
@@ -254,7 +255,7 @@ class MyLoss:
         TSNE = {}
 
         for item in plot_terms:
-            unit_shape = self.loss['pred'][item].shape
+            unit_shape = np.array(self.loss['pred'][item]).shape
             TSNE[item] = TSNE(n_components=2, random_state=33).fit_transform(
                 np.array(self.loss['pred']['GT']).reshape(unit_shape[0], -1))
 
