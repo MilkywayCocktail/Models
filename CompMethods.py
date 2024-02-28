@@ -2,8 +2,6 @@ import torch
 import torch.nn as nn
 from torchinfo import summary
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib import cm
 import os
 from Trainer import BasicTrainer
 from Loss import MyLoss
@@ -237,7 +235,8 @@ class CompTrainer(BasicTrainer):
         self.loss_terms = {'LOSS'}
         self.pred_terms = ('GT', 'PRED', 'IND') if mode == 'wi2vi' else ('GT', 'PRED', 'LAT', 'IND')
 
-        self.loss = MyLoss(loss_terms=self.loss_terms,
+        self.loss = MyLoss(name=self.name,
+                           loss_terms=self.loss_terms,
                            pred_terms=self.pred_terms)
 
     def vae_loss(self, pred, gt, mu, logvar):
@@ -281,37 +280,33 @@ class CompTrainer(BasicTrainer):
                     'IND': data['ind']
                     }
 
+        elif self.mode == 'ae_t':
+            latent, output = self.models['ae'](data['img'])
+            loss = self.recon_lossfunc(output, img)
+            self.temp_loss = {'LOSS': loss}
+            return {'GT': img,
+                    'PRED': output,
+                    'LAT': latent,
+                    'IND': data['ind']}
+
     def plot_test(self, select_ind=None, select_num=8, autosave=False, notion='', **kwargs):
-        title = {'PRED': "Test IMG Predicts",
-                 'LOSS': "Test Loss"}
-
-        filename = {term: f"{notion}_{self.name}_{term}@{self.current_ep()}.jpg" for term in ('PRED','LOSS')}
-
         save_path = f'../saved/{notion}/'
+        figs = []
+        self.loss.generate_indices(select_ind, select_num)
 
-        if select_ind:
-            inds = select_ind
+        figs.append(self.loss.plot_predict(plot_terms=('GT', 'PRED')))
+        figs.append(self.loss.plot_test(plot_terms='all'))
+        if self.mode in ('ae', 'vae', 'ae_t'):
+            figs.append(self.loss.plot_latent(plot_terms={'LAT'}))
+            figs.append(self.loss.plot_tsne(plot_terms=('GT', 'LAT', 'PRED')))
         else:
-            if self.inds is not None:
-                inds = self.inds
-            else:
-                inds = self.generate_indices(self.loss.loss['pred']['IND'], select_num)
-
-        fig1 = self.loss.plot_predict(title['PRED'], inds, ('GT', 'PRED'))
-        fig3 = self.loss.plot_test(title['LOSS'], inds)
+            figs.append(self.loss.plot_tsne(plot_terms=('GT', 'PRED')))
 
         if autosave:
             if not os.path.exists(save_path):
                 os.makedirs(save_path)
-            fig1.savefig(f"{save_path}{filename['PRED']}")
-            fig3.savefig(f"{save_path}{filename['LOSS']}")
-
-        if self.mode in ('ae', 'vae'):
-            title['LAT'] = "Test Latent Predicts"
-            filename['LAT'] = f"{notion}_{self.name}_LAT@{self.current_ep()}.jpg"
-            fig2 = self.loss.plot_latent(title['LAT'], inds, {'LAT'})
-            if autosave:
-                fig2.savefig(f"{save_path}{filename['LAT']}")
+            for fig, filename in figs:
+                fig.savefig(f"{save_path}{notion}_{filename}")
 
 
 class CompTrainerStudent(BasicTrainer):
@@ -325,7 +320,8 @@ class CompTrainerStudent(BasicTrainer):
         self.recon_lossfunc = nn.BCELoss(reduction='sum') if self.mask else nn.MSELoss(reduction='sum')
         self.loss_terms = ('LOSS', 'MU', 'LOGVAR', 'IMG')
         self.pred_terms = ('GT', 'T_PRED', 'S_PRED', 'T_LATENT', 'S_LATENT', 'IND')
-        self.loss = MyLoss(loss_terms=self.loss_terms,
+        self.loss = MyLoss(name=self.name,
+                           loss_terms=self.loss_terms,
                            pred_terms=self.pred_terms)
 
     def kd_loss(self, mu_s, logvar_s, mu_t, logvar_t):
@@ -360,36 +356,25 @@ class CompTrainerStudent(BasicTrainer):
                 'IND': data['ind']}
 
     def plot_test(self, select_ind=None, select_num=8, autosave=False, notion='', **kwargs):
-        title = {'PRED': "Student Test IMG Predicts",
-                 'LOSS': "Student Test Loss",
-                 'LATENT': f"Student Test Latents for IMG"}
-        filename = {term: f"{notion}_{self.name}_{term}@{self.current_ep()}.jpg" for term in ('PRED', 'LAT', 'LOSS')}
-
         save_path = f'../saved/{notion}/'
+        figs = []
+        self.loss.generate_indices(select_ind, select_num)
 
-        if select_ind:
-            inds = select_ind
-        else:
-            if self.inds is not None:
-                inds = self.inds
-            else:
-                inds = self.generate_indices(self.loss.loss['pred']['IND'], select_num)
-
-        fig1 = self.loss.plot_predict(title['PRED'], inds, ('GT', 'T_PRED', 'S_PRED'))
-        fig3 = self.loss.plot_latent(title['LATENT'], inds, ('T_LATENT', 'S_LATENT'))
-        fig4 = self.loss.plot_test(title['LOSS'], inds)
+        figs.append(self.loss.plot_predict(plot_terms=('GT', 'T_PRED', 'S_PRED')))
+        figs.append(self.loss.plot_latent(plot_terms=('T_LATENT', 'S_LATENT')))
+        figs.append(self.loss.plot_test(plot_terms='all'))
+        figs.append(self.loss.plot_tsne(plot_terms=('GT', 'T_LATENT', 'S_LATENT')))
 
         if autosave:
             if not os.path.exists(save_path):
                 os.makedirs(save_path)
-            fig1.savefig(f"{save_path}{filename['PRED']}")
-            fig3.savefig(f"{save_path}{filename['LAT']}")
-            fig4.savefig(f"{save_path}{filename['LOSS']}")
+            for fig, filename in figs:
+                fig.savefig(f"{save_path}{notion}_{filename}")
 
 
 if __name__ == "__main__":
     #m1 = Wi2Vi()
     #summary(m1, input_size=(6, 30, 30))
-    m2 = AutoEncoderNew()
+    m2 = AutoEncoder()
     summary(m2, input_size=(6, 30, 30))
 

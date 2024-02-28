@@ -271,6 +271,7 @@ class StudentTrainer(BasicTrainer):
         figs.append(self.loss.plot_predict(plot_terms=('GT', 'T_PRED', 'S_PRED')))
         figs.append(self.loss.plot_latent(plot_terms=('T_LATENT', 'S_LATENT')))
         figs.append(self.loss.plot_test(plot_terms='all'))
+        figs.append(self.loss.plot_tsne(plot_terms=('GT', 'T_LATENT', 'S_LATENT')))
 
         if autosave:
             if not os.path.exists(save_path):
@@ -288,7 +289,8 @@ class StudentTrainerBBX(StudentTrainer):
 
         self.loss_terms = ('LOSS', 'BBX')
         self.pred_terms = ('GT', 'GT_BBX', 'S_BBX', 'IND')
-        self.loss = MyLossBBX(loss_terms=self.loss_terms,
+        self.loss = MyLossBBX(name=self.name,
+                              loss_terms=self.loss_terms,
                               pred_terms=self.pred_terms)
 
     @staticmethod
@@ -317,6 +319,7 @@ class StudentTrainerBBX(StudentTrainer):
 
         figs.append(self.loss.plot_bbx())
         figs.append(self.loss.plot_test(plot_terms='all'))
+        figs.append(self.loss.plot_tsne(plot_terms=('GT_BBX', 'S_BBX')))
 
         if autosave:
             if not os.path.exists(save_path):
