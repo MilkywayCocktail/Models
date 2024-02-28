@@ -25,7 +25,6 @@ class MyLoss:
         self.pred_terms = pred_terms
         self.select_inds = None
         self.select_num = 8
-        self.__plot_settings__()
 
     @staticmethod
     def __plot_settings__():
@@ -101,6 +100,7 @@ class MyLoss:
                 self.select_num = select_num
 
     def plot_train(self, title=None, plot_terms='all', double_y=False):
+        self.__plot_settings__()
         stage_color = self.colors(self.lr)
         line_color = ['b', 'orange']
 
@@ -151,6 +151,7 @@ class MyLoss:
         return fig, filename
 
     def plot_test(self, title=None, plot_terms='all'):
+        self.__plot_settings__()
         if title:
             title = f"{title} @ep{self.epochs[-1]}"
         else:
@@ -188,6 +189,7 @@ class MyLoss:
         return fig, filename
 
     def plot_predict(self, plot_terms, title=None):
+        self.__plot_settings__()
         if title:
             title = f"{title} @ep{self.epochs[-1]}"
         else:
@@ -211,6 +213,7 @@ class MyLoss:
         return fig, filename
 
     def plot_latent(self, plot_terms, title=None, ylim=(-1, 1)):
+        self.__plot_settings__()
         if title:
             title = f"{title} @ep{self.epochs[-1]}"
         else:
@@ -239,6 +242,7 @@ class MyLoss:
         return fig, filename
 
     def plot_tsne(self, plot_terms, title=None):
+        self.__plot_settings__()
         # plt.style.use('dark_background')
         if title:
             title = f"{title} @ep{self.epochs[-1]}"
@@ -254,14 +258,14 @@ class MyLoss:
 
         fig = plt.figure(constrained_layout=True)
         fig.suptitle(title)
-        subfigs = fig.subfigures(nrows=len(plot_terms), ncols=1)
+        axes = fig.subplots(nrows=len(plot_terms), ncols=1)
         for i, item in enumerate(plot_terms):
-            subfigs[i].suptitle(item)
-            subfigs[i].scatter(tsne[item][:, 0], tsne[item][:, 1],  alpha=0.6)
+            axes[i].suptitle(item)
+            axes[i].scatter(tsne[item][:, 0], tsne[item][:, 1],  alpha=0.6)
             for j in range(self.select_num):
-                subfigs[i].scatter(tsne[item][self.select_inds[j], 0], tsne[item][self.select_inds[j], 1],
+                axes[i].scatter(tsne[item][self.select_inds[j], 0], tsne[item][self.select_inds[j], 1],
                                    c='magenta', marker=(5, 1), linewidths=4)
-                subfigs[i].annotate(str(samples[j]),
+                axes[i].annotate(str(samples[j]),
                                     (tsne[item][self.select_inds[j], 0], tsne[item][self.select_inds[j], 1]))
 
         plt.show()
@@ -274,6 +278,7 @@ class MyLossBBX(MyLoss):
         super(MyLossBBX, self).__init__(name, loss_terms, pred_terms)
 
     def plot_bbx(self, title=None):
+        self.__plot_settings__()
         if title:
             title = f"{title} @ep{self.epochs[-1]}"
         else:
