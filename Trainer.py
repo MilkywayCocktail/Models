@@ -73,7 +73,8 @@ class BasicTrainer:
 
                 if idx % (len(self.train_loader) // 5) == 0:
                     print(f"\r{self.name} train: epoch={epoch}/{self.epochs}, batch={idx}/{len(self.train_loader)}, "
-                          f"loss={self.temp_loss['LOSS'].item():.4f}", end='', flush=True)
+                          f"loss={self.temp_loss['LOSS'].item():.4f}, "
+                          f"current best valid loss={self.best_val_loss:.4f}    ", end='', flush=True)
 
             for key in EPOCH_LOSS.keys():
                 EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
@@ -102,9 +103,9 @@ class BasicTrainer:
                 if 0 < val_loss < self.best_val_loss:
                     self.best_val_loss = val_loss
 
-                if idx % (len(self.train_loader) // 5) == 0:
+                if idx % (len(self.valid_loader) // 5) == 0:
                     print(f"\r{self.name} valid: epoch={epoch}/{self.epochs}, batch={idx}/{len(self.valid_loader)}, "
-                          f"current best valid loss={self.best_val_loss:.4f}", end='', flush=True)
+                          f"current best valid loss={self.best_val_loss:.4f}        ", end='', flush=True)
 
                 if autosave:
                     save_path = f'../saved/{notion}/'
@@ -163,7 +164,7 @@ class BasicTrainer:
                     self.loss.update('pred', PREDS)
 
             if idx % (len(loader)//5) == 0:
-                print(f"\r{self.name} test: sample={idx}/{len(loader)}, loss={self.temp_loss['LOSS'].item():.4f}",
+                print(f"\r{self.name} test: sample={idx}/{len(loader)}, loss={self.temp_loss['LOSS'].item():.4f}    ",
                       end='', flush=True)
 
         self.loss.update('test', EPOCH_LOSS)
