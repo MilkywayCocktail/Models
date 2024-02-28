@@ -20,7 +20,19 @@ s = samples[inds]
 #print(a1[inds[np.argsort(s)]])
 
 
-lsls = (1,1,2,2,2)
+import time
 
-if not lsls:
-    print("Nothing!")
+# Initial message
+print("Progress:--------", end="", flush=True)
+
+# Simulating a delay for demonstration purposes
+time.sleep(1)
+
+# Updating the message on the same line
+print("\rProgress:++++++", end="", flush=True)
+
+# Simulating another delay
+time.sleep(1)
+
+# Updating the message again
+print("\rProgress:****", end="", flush=True)
