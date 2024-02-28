@@ -258,15 +258,16 @@ class MyLoss:
 
         fig = plt.figure(constrained_layout=True)
         fig.suptitle(title)
-        axes = fig.subplots(nrows=len(plot_terms), ncols=1)
+        axes = fig.subplots(nrows=1, ncols=len(plot_terms))
         for i, item in enumerate(plot_terms):
-            axes[i].suptitle(item)
+            axes[i].set_title(item)
             axes[i].scatter(tsne[item][:, 0], tsne[item][:, 1],  alpha=0.6)
             for j in range(self.select_num):
                 axes[i].scatter(tsne[item][self.select_inds[j], 0], tsne[item][self.select_inds[j], 1],
-                                   c='magenta', marker=(5, 1), linewidths=4)
+                                c='magenta', marker=(5, 1), linewidths=4)
                 axes[i].annotate(str(samples[j]),
-                                    (tsne[item][self.select_inds[j], 0], tsne[item][self.select_inds[j], 1]))
+                                 (tsne[item][self.select_inds[j], 0], tsne[item][self.select_inds[j], 1]),
+                                 fontsize=20)
 
         plt.show()
         filename = f"{self.name}_TSNE@ep{self.epochs[-1]}.jpg"
