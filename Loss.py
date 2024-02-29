@@ -183,7 +183,8 @@ class MyLoss:
                 axes[i].scatter(self.select_inds[j], self.loss['test'][item][self.select_inds[j]],
                                 c='magenta', marker=(5, 1), linewidths=4)
                 axes[i].annotate(str(samples[j]),
-                                 (self.select_inds[j], self.loss['test'][item][self.select_inds[j]]))
+                                 (self.select_inds[j], self.loss['test'][item][self.select_inds[j]]),
+                                 fontsize=20)
         plt.show()
         filename = f"{self.name}_TEST@ep{self.epochs[-1]}.jpg"
         return fig, filename

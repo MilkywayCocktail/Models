@@ -41,9 +41,9 @@ class MyDataset(Data.Dataset):
         :return: converted image
         """
         if self.int_img:
-            return np.uint8(np.array(sample * 255))
+            return Image.fromarray(np.uint8(np.asarray(sample) * 255))
         else:
-            return np.array(sample)
+            return sample
 
     def __transform__(self, sample):
         """
@@ -52,7 +52,7 @@ class MyDataset(Data.Dataset):
         :return: transformed image
         """
         if self.transform:
-            return self.transform(Image.fromarray((self.__convert__(sample)).squeeze(), mode='L'))
+            return self.transform((self.__convert__(sample)), mode='L')
         else:
             return self.__convert__(sample)
 

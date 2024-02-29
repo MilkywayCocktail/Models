@@ -245,7 +245,7 @@ class CompTrainer(BasicTrainer):
         loss = recon_loss + kl_loss * self.beta
         return loss, kl_loss, recon_loss
 
-    def calculate_loss(self, data, i=None):
+    def calculate_loss(self, data):
         img = torch.where(data['img'] > 0, 1., 0.) if self.mask else data['img']
 
         if self.mode == 'wi2vi':
