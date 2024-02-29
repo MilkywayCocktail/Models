@@ -48,11 +48,11 @@ class MyDataset(Data.Dataset):
     def __transform__(self, sample):
         """
         Optionally apply transforms on images.\n
-        :param sample: image
-        :return: transformed image
+        :param sample: image (ndarray by default)
+        :return: transformed image (tensor if transformed; ndarray if not transformed)
         """
         if self.transform:
-            return self.transform((self.__convert__(sample)))
+            return self.transform(torch.Tensor(self.__convert__(sample)))
         else:
             return self.__convert__(sample)
 
