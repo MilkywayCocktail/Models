@@ -19,20 +19,8 @@ s = samples[inds]
 #print(s)
 #print(a1[inds[np.argsort(s)]])
 
+arrr = np.array([1,2,3,4])
 
-import time
+ar = np.asarray(arrr)
 
-# Initial message
-print("Progress:--------", end="", flush=True)
-
-# Simulating a delay for demonstration purposes
-time.sleep(1)
-
-# Updating the message on the same line
-print("\rProgress:++++++", end="", flush=True)
-
-# Simulating another delay
-time.sleep(1)
-
-# Updating the message again
-print("\rProgress:****", end="", flush=True)
+print(type(ar))

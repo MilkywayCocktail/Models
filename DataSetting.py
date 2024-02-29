@@ -37,11 +37,11 @@ class MyDataset(Data.Dataset):
     def __convert__(self, sample):
         """
         Optionally convert a sample to np.uint8.
-        :param sample: image
+        :param sample: image (ndarray by default)
         :return: converted image
         """
         if self.int_img:
-            return Image.fromarray(np.uint8(np.asarray(sample) * 255))
+            return np.uint8(np.asarray(sample) * 255)
         else:
             return sample
 
@@ -52,7 +52,7 @@ class MyDataset(Data.Dataset):
         :return: transformed image
         """
         if self.transform:
-            return self.transform((self.__convert__(sample)), mode='L')
+            return self.transform((self.__convert__(sample)))
         else:
             return self.__convert__(sample)
 
