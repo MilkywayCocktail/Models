@@ -5,7 +5,8 @@ import numpy as np
 import os
 from Trainer import BasicTrainer
 from Loss import MyLoss
-from Model import ResidualBlock, Interpolate, reparameterize
+from Model import *
+from TrainerVTS_V06C1 import ImageDecoder, CSIEncoder
 
 ##############################################################################
 # -------------------------------------------------------------------------- #
