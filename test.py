@@ -19,8 +19,6 @@ s = samples[inds]
 #print(s)
 #print(a1[inds[np.argsort(s)]])
 
-arrr = np.array([1,2,3,4])
+arrr = np.arange(10)
 
-ar = np.asarray(arrr)
-
-print(type(ar))
+print(np.random.choice(arrr, 1))

@@ -29,7 +29,6 @@ class BasicTrainer:
         self.pred_terms = ('predict1', 'predict2', '...')
         self.loss = MyLoss(self.name, self.loss_terms, self.pred_terms)
         self.temp_loss = {}
-        self.inds = None
         self.best_val_loss = float("inf")
 
     def current_ep(self):
@@ -189,6 +188,17 @@ class BasicTrainer:
         # According to actual usages
         self.loss.generate_indices(select_inds, select_num)
         pass
+
+    def save(self, notion=''):
+        print("Saving models...")
+        save_path = f'../saved/{notion}/'
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
+        for model in self.models:
+            print(f"Saving {model}...")
+            torch.save(self.models[model].state_dict(),
+                       f"{save_path}{notion}_{self.models[model]}@ep{self.current_ep()}")
+        print("All saved!")
 
     def scheduler(self, turns=10,
                   lr_decay=False, decay_rate=0.4,
