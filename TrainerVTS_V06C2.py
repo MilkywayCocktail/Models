@@ -8,14 +8,14 @@ from Trainer import BasicTrainer
 from Model import *
 from Loss import MyLoss, MyLossBBX
 
-version = 'V06C2'
+version = 'V06C1'
 
 ##############################################################################
 # -------------------------------------------------------------------------- #
-# Version V06C2
-# Teacher learns and estimates binary masks
-# Student learns (6, 30, 30) CSIs and (2) Phase Differences
-#
+# Version V06C1
+# Teacher learns and estimates binary masks and the depth value of the center
+# pixel of the cropped depth image
+# Student learns (6, 30, 30) CSIs
 
 # ImageEncoder: in = 128 * 128, out = [latent_dim, latent_dim, latent_dim]
 # ImageDecoder: in = 1 * latent_dim, out = 128 * 128
@@ -104,6 +104,26 @@ class ImageDecoder(BasicImageDecoder):
         out = self.fclayers(x)
         out = self.cnn(out.view(-1, 512, 4, 4))
         return out.view(-1, 1, 128, 128)
+
+
+class DepthDecoder(nn.Module):
+    name = 'depde'
+
+    def __init__(self, latent_dim=16):
+        super(DepthDecoder, self).__init__()
+        self.latent_dim = latent_dim
+        self.fc = nn.Sequential(
+            nn.Linear(self.latent_dim, 8),
+            nn.ReLU(),
+            nn.Linear(8, 1)
+        )
+
+    def __str__(self):
+        return f"DEPDE{version}"
+
+    def forward(self, x):
+        out = self.fc(x.view(-1, self.latent_dim))
+        return out
 
 
 class CSIEncoder(BasicCSIEncoder):

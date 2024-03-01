@@ -31,7 +31,7 @@ def batchnorm_layer(channels, batchnorm=None):
     :param batchnorm: False or 'batch' or 'instance'
     :return: batchnorm layer or Identity layer (no batchnorm)
     """
-    assert batchnorm in (False, 'batch', 'instance')
+    assert batchnorm in (None, 'batch', 'instance')
 
     if not batchnorm:
         return nn.Identity(channels)
