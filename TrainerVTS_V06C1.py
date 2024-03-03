@@ -130,14 +130,14 @@ class CSIEncoder(BasicCSIEncoder):
         self.fc_mu = nn.Sequential(
             nn.Linear(7 * 7 * 512, 1024),
             nn.ReLU(),
-            nn.Linear(1024, self.latent_dim),
+            nn.Linear(1024, self.out_length),
             # self.active_func
         )
 
         self.fc_logvar = nn.Sequential(
             nn.Linear(7 * 7 * 512, 1024),
             nn.ReLU(),
-            nn.Linear(1024, self.latent_dim),
+            nn.Linear(1024, self.out_length),
             # self.active_func
         )
 
@@ -147,7 +147,7 @@ class CSIEncoder(BasicCSIEncoder):
     def forward(self, x):
         out = self.cnn(x)
 
-        if self.out_length == 2 * self.latent_dim:
+        if self.out_length == self.latent_dim:
             # mu_i, logvar_i = out.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
             mu = self.fc_mu(out.view(-1, 7 * 7 * 512))
             logvar = self.fc_logvar(out.view(-1, 7 * 7 * 512))
@@ -381,5 +381,5 @@ class StudentTrainerMask(StudentTrainer):
 
 
 if __name__ == '__main__':
-    cc = CSIEncoder(out_length=32)
+    cc = CSIEncoder(out_length=16)
     summary(cc, input_size=CSI2)
