@@ -127,20 +127,6 @@ class CSIEncoder(BasicCSIEncoder):
             # nn.ReLU()
         )
 
-        self.fc_mu = nn.Sequential(
-            nn.Linear(7 * 7 * 512, 1024),
-            nn.ReLU(),
-            nn.Linear(1024, self.out_length),
-            # self.active_func
-        )
-
-        self.fc_logvar = nn.Sequential(
-            nn.Linear(7 * 7 * 512, 1024),
-            nn.ReLU(),
-            nn.Linear(1024, self.out_length),
-            # self.active_func
-        )
-
     def __str__(self):
         return f"CSIEN{version}"
 
@@ -148,14 +134,12 @@ class CSIEncoder(BasicCSIEncoder):
         out = self.cnn(x)
         out = self.fclayers(out.view(-1, 512 * 7 * 7))
 
-        if self.out_length == self.latent_dim:
+        if self.out_length == 2 * self.latent_dim:
             mu, logvar = out.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
-            # mu = self.fc_mu(out.view(-1, 7 * 7 * 512))
-            # logvar = self.fc_logvar(out.view(-1, 7 * 7 * 512))
             z = reparameterize(mu, logvar)
             return z, mu, logvar
         else:
-            bbx = self.fclayers(out.view(-1, 7 * 7 * 512))
+            bbx = out.view(-1, self.out_length)
             return bbx
 
 
