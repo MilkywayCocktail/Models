@@ -197,7 +197,7 @@ class BasicTrainer:
         for model in self.models:
             print(f"Saving {model}...")
             torch.save(self.models[model].state_dict(),
-                       f"{save_path}{notion}_{self.models[model]}@ep{self.current_ep()}")
+                       f"{save_path}{notion}_{self.models[model]}@ep{self.current_ep()}.pth")
         print("All saved!")
 
     def scheduler(self, turns=10,
