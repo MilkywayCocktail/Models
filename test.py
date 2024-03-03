@@ -19,6 +19,6 @@ s = samples[inds]
 #print(s)
 #print(a1[inds[np.argsort(s)]])
 
-arrr = np.arange(10)
+arrr = np.array([ 129, 2223, 3198, 3975, 5332, 5432, 6340, 6361])
 
-print(np.random.choice(arrr, 1))
+print(np.any(arrr > 1099))

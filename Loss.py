@@ -93,7 +93,7 @@ class MyLoss:
         if select_ind:
             self.select_inds = np.array(select_ind)
         else:
-            if not np.any(self.select_inds) or np.any(self.select_inds) > len(self.loss['pred']['IND']):
+            if not np.any(self.select_inds) or np.any(self.select_inds > len(self.loss['pred']['IND'])):
                 inds = np.random.choice(np.arange(len(self.loss['pred']['IND'])), select_num, replace=False)
                 inds = np.sort(inds)
                 self.select_inds = inds
