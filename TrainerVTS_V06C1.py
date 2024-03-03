@@ -149,12 +149,12 @@ class CSIEncoder(BasicCSIEncoder):
 
         if self.out_length == 2 * self.latent_dim:
             # mu_i, logvar_i = out.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
-            mu = self.fc_mu(out.view(-1, 4 * 4 * 512))
-            logvar = self.fc_logvar(out.view(-1, 4 * 4 * 512))
+            mu = self.fc_mu(out.view(-1, self.latent_dim))
+            logvar = self.fc_logvar(out.view(-1, self.latent_dim))
             z = reparameterize(mu, logvar)
             return z, mu, logvar
         else:
-            bbx = self.fclayers(out.view(-1, 512 * 7 * 7))
+            bbx = self.fclayers(out.view(-1, self.latent_dim))
             return bbx
 
 
