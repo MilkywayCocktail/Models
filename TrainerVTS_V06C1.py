@@ -130,14 +130,14 @@ class CSIEncoder(BasicCSIEncoder):
         self.fc_mu = nn.Sequential(
             nn.Linear(7 * 7 * 512, 1024),
             nn.ReLU(),
-            nn.Linear(4096, self.latent_dim),
+            nn.Linear(1024, self.latent_dim),
             # self.active_func
         )
 
         self.fc_logvar = nn.Sequential(
             nn.Linear(7 * 7 * 512, 1024),
             nn.ReLU(),
-            nn.Linear(4096, self.latent_dim),
+            nn.Linear(1024, self.latent_dim),
             # self.active_func
         )
 
