@@ -6,7 +6,7 @@ import os
 from Trainer import BasicTrainer
 from Loss import MyLoss
 from Model import *
-from TrainerVTS_V06C1 import ImageDecoder, CSIEncoder
+from TrainerVTS_V06C1 import ImageDecoder
 
 ##############################################################################
 # -------------------------------------------------------------------------- #
@@ -257,6 +257,38 @@ class ImageEncoder(BasicImageEncoder):
         return z
 
 
+class CSIEncoder(BasicCSIEncoder):
+    def __init__(self, out_length, *args, **kwargs):
+        super(CSIEncoder, self).__init__(*args, **kwargs)
+        self.out_length = out_length
+        self.cnn = nn.Sequential(
+            nn.Conv2d(6, 128, 5, 1, 1),
+            batchnorm_layer(128, self.batchnorm),
+            nn.LeakyReLU(inplace=True),
+            nn.Conv2d(128, 256, 3, 2, 1),
+            batchnorm_layer(256, self.batchnorm),
+            nn.LeakyReLU(inplace=True),
+            nn.Conv2d(256, 512, 3, 2, 1),
+            batchnorm_layer(512, self.batchnorm),
+            nn.LeakyReLU(inplace=True),
+        )
+        self.fclayers = nn.Sequential(
+            nn.Linear(512 * 7 * 7, 1024),
+            nn.ReLU(),
+            nn.Linear(1024, self.out_length)
+            # nn.ReLU()
+        )
+
+    def __str__(self):
+        return f"CSIEN{version}"
+
+    def forward(self, x):
+        out = self.cnn(x)
+        out = self.fclayers(out.view(-1, 512 * 7 * 7))
+        # either z or bbx
+        return out
+
+
 class CompTrainer(BasicTrainer):
     def __init__(self, mode='wi2vi',
                  mask=False,
@@ -267,7 +299,6 @@ class CompTrainer(BasicTrainer):
 
         self.mode = mode
         self.mask = mask
-        self.alpha = kwargs['alpha'] if 'alpha' in kwargs.keys() else 0.8
         self.beta = kwargs['beta'] if 'beta' in kwargs.keys() else 1
         self.modality = {'csi', 'img'}
         self.recon_lossfunc = nn.BCELoss(reduction='sum') if self.mask else nn.MSELoss(reduction='sum')
@@ -359,30 +390,25 @@ class CompTrainerStudent(BasicTrainer):
 
         self.alpha = alpha
         self.recon_lossfunc = nn.BCELoss(reduction='sum') if self.mask else nn.MSELoss(reduction='sum')
+        self.kd_loss = nn.MSELoss()
         self.loss_terms = ('LOSS', 'MU', 'LOGVAR', 'IMG')
         self.pred_terms = ('GT', 'T_PRED', 'S_PRED', 'T_LATENT', 'S_LATENT', 'IND')
         self.loss = MyLoss(name=self.name,
                            loss_terms=self.loss_terms,
                            pred_terms=self.pred_terms)
 
-    def kd_loss(self, mu_s, logvar_s, mu_t, logvar_t):
-        mu_loss = self.recon_lossfunc(mu_s, mu_t) / mu_s.shape[0]
-        logvar_loss = self.recon_lossfunc(logvar_s, logvar_t) / logvar_s.shape[0]
-        loss = self.alpha * mu_loss + (1 - self.alpha) * logvar_loss
-        return loss, mu_loss, logvar_loss
-
     def calculate_loss(self, data):
         img = torch.where(data['img'] > 0, 1., 0.) if self.mask else data['img']
 
-        s_z, s_mu, s_logvar = self.models['csien'](data['csi'])
+        s_z = self.models['csien'](data['csi'])
 
         with torch.no_grad():
-            t_z, t_mu, t_logvar = self.models['imgen'](img)
+            t_z = self.models['imgen'](img)
             s_output = self.models['imgde'](s_z)
             t_output = self.models['imgde'](t_z)
             image_loss = self.recon_lossfunc(s_output, img)
 
-        loss_i, mu_loss_i, logvar_loss_i = self.kd_loss(s_mu, s_logvar, t_mu, t_logvar)
+        loss_i, mu_loss_i, logvar_loss_i = self.kd_loss(s_z, t_z)
         loss = loss_i
 
         self.temp_loss = {'LOSS': loss,
@@ -390,8 +416,8 @@ class CompTrainerStudent(BasicTrainer):
                           'LOGVAR': logvar_loss_i,
                           'IMG': image_loss}
         return {'GT': img,
-                'T_LATENT': torch.cat((t_mu, t_logvar), -1),
-                'S_LATENT': torch.cat((s_mu, s_logvar), -1),
+                'T_LATENT': t_z,
+                'S_LATENT': s_z,
                 'T_PRED': t_output,
                 'S_PRED': s_output,
                 'IND': data['ind']}
