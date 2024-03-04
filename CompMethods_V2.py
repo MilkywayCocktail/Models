@@ -6,7 +6,7 @@ import os
 from Trainer import BasicTrainer
 from Loss import MyLoss
 from Model import *
-from TrainerVTS_V06C1 import ImageDecoder, CSIEncoder
+from TrainerVTS_V06C1 import ImageEncoder, ImageDecoder, CSIEncoder
 
 ##############################################################################
 # -------------------------------------------------------------------------- #
@@ -229,6 +229,7 @@ class CompTrainer(BasicTrainer):
 
         self.mode = mode
         self.mask = mask
+        self.alpha = kwargs['alpha'] if 'alpha' in kwargs.keys() else 0.8
         self.beta = kwargs['beta'] if 'beta' in kwargs.keys() else 1
         self.modality = {'csi', 'img'}
         self.recon_lossfunc = nn.BCELoss(reduction='sum') if self.mask else nn.MSELoss(reduction='sum')
@@ -277,7 +278,7 @@ class CompTrainer(BasicTrainer):
                               }
             return {'GT': img,
                     'PRED': output,
-                    'LAT': z,
+                    'LAT': torch.cat((mu, logvar), -1),
                     'IND': data['ind']
                     }
 

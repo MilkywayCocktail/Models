@@ -179,7 +179,7 @@ class TeacherTrainer(BasicTrainer):
                           }
         return {'GT': data['img'],
                 'PRED': output,
-                'LAT': z,
+                'LAT': torch.cat((mu, logvar), -1),
                 'IND': data['ind']
                 }
 
@@ -242,8 +242,8 @@ class StudentTrainer(BasicTrainer):
                           'LOGVAR': logvar_loss_i,
                           'IMG': image_loss}
         return {'GT': data['img'],
-                'T_LATENT': t_z,
-                'S_LATENT': s_z,
+                'T_LATENT': torch.cat((t_mu, t_logvar), -1),
+                'S_LATENT': torch.cat((s_mu, s_logvar), -1),
                 'T_PRED': t_output,
                 'S_PRED': s_output,
                 'IND': data['ind']}
@@ -330,7 +330,7 @@ class TeacherTrainerMask(TeacherTrainer):
                           }
         return {'GT': mask,
                 'PRED': output,
-                'LAT': z,
+                'LAT': torch.cat((mu, logvar), -1),
                 'IND': data['ind']
                 }
 
@@ -358,8 +358,8 @@ class StudentTrainerMask(StudentTrainer):
                           'LOGVAR': logvar_loss_i,
                           'IMG': image_loss}
         return {'GT': mask,
-                'T_LATENT': t_z,
-                'S_LATENT': s_z,
+                'T_LATENT': torch.cat((t_mu, t_logvar), -1),
+                'S_LATENT': torch.cat((s_mu, s_logvar), -1),
                 'T_PRED': t_output,
                 'S_PRED': s_output,
                 'IND': data['ind']}
