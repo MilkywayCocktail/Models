@@ -283,12 +283,13 @@ class CompTrainer(BasicTrainer):
                     }
 
         elif self.mode == 'ae_t':
-            latent, output = self.models['ae'](data['img'])
+            z = self.models['imgen'](img)
+            output = self.models['imgde'](z)
             loss = self.recon_lossfunc(output, img)
             self.temp_loss = {'LOSS': loss}
             return {'GT': img,
                     'PRED': output,
-                    'LAT': latent,
+                    'LAT': z,
                     'IND': data['ind']}
 
     def plot_test(self, select_ind=None, select_num=8, autosave=False, notion='', **kwargs):
