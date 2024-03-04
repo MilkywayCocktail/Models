@@ -381,9 +381,9 @@ class CompTrainer(BasicTrainer):
                 fig.savefig(f"{save_path}{notion}_{filename}")
 
 
-class CompTrainerStudent(BasicTrainer):
+class CompTrainerAEStudent(BasicTrainer):
     def __init__(self, mask=False, alpha=0.8, *args, **kwargs):
-        super(CompTrainerStudent, self).__init__(*args, **kwargs)
+        super(CompTrainerAEStudent, self).__init__(*args, **kwargs)
 
         self.mask = mask
         self.modality = {'csi', 'img'}
@@ -408,12 +408,9 @@ class CompTrainerStudent(BasicTrainer):
             t_output = self.models['imgde'](t_z)
             image_loss = self.recon_lossfunc(s_output, img)
 
-        loss_i, mu_loss_i, logvar_loss_i = self.kd_loss(s_z, t_z)
-        loss = loss_i
+        loss = self.kd_loss(s_z, t_z)
 
         self.temp_loss = {'LOSS': loss,
-                          'MU': mu_loss_i,
-                          'LOGVAR': logvar_loss_i,
                           'IMG': image_loss}
         return {'GT': img,
                 'T_LATENT': t_z,
