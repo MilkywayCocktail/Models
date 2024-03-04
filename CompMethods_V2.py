@@ -6,7 +6,7 @@ import os
 from Trainer import BasicTrainer
 from Loss import MyLoss
 from Model import *
-from TrainerVTS_V06C1 import ImageEncoder, ImageDecoder, CSIEncoder
+from TrainerVTS_V06C1 import ImageDecoder, CSIEncoder
 
 ##############################################################################
 # -------------------------------------------------------------------------- #
@@ -25,6 +25,8 @@ from TrainerVTS_V06C1 import ImageEncoder, ImageDecoder, CSIEncoder
 # 6) Wi2Vi outputs 320x240 images
 # -------------------------------------------------------------------------- #
 ##############################################################################
+
+version = 'CompV2'
 
 
 class DropIn(nn.Module):
@@ -217,6 +219,42 @@ class AutoEncoder(nn.Module):
         out = self.DeFC(z)
         out = self.DeCNN(out.view(-1, 128, 4, 4))
         return z, out
+
+
+class ImageEncoder(BasicImageEncoder):
+    def __init__(self, *args, **kwargs):
+        super(ImageEncoder, self).__init__(*args, **kwargs)
+
+        channels = [1, 128, 128, 256, 256, 512]
+        block = []
+        for i in range(len(channels) - 1):
+            block.extend([nn.Conv2d(channels[i], channels[i+1], 3, 2, 1),
+                          batchnorm_layer(channels[i+1], self.batchnorm),
+                          nn.LeakyReLU(inplace=True)])
+        self.cnn = nn.Sequential(*block)
+
+        # 1 * 128 * 128
+        # 128 * 64 * 64
+        # 128 * 32 * 32
+        # 256 * 16 * 16
+        # 256 * 8 * 8
+        # 512 * 4 * 4
+
+        self.fc = nn.Sequential(
+            nn.Linear(4 * 4 * 512, 4096),
+            nn.ReLU(),
+            nn.Linear(4096, self.latent_dim),
+            # self.active_func
+        )
+
+    def __str__(self):
+        return f"IMGEN{version}"
+
+    def forward(self, x):
+        out = self.cnn(x)
+        z = self.fc(out.view(-1, 4 * 4 * 512))
+
+        return z
 
 
 class CompTrainer(BasicTrainer):
