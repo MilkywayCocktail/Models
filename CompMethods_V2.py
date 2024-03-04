@@ -391,7 +391,7 @@ class CompTrainerAEStudent(BasicTrainer):
         self.alpha = alpha
         self.recon_lossfunc = nn.BCELoss(reduction='sum') if self.mask else nn.MSELoss(reduction='sum')
         self.kd_loss = nn.MSELoss()
-        self.loss_terms = ('LOSS', 'MU', 'LOGVAR', 'IMG')
+        self.loss_terms = ('LOSS', 'IMG')
         self.pred_terms = ('GT', 'T_PRED', 'S_PRED', 'T_LATENT', 'S_LATENT', 'IND')
         self.loss = MyLoss(name=self.name,
                            loss_terms=self.loss_terms,
