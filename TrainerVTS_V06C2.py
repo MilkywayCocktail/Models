@@ -239,6 +239,7 @@ class TeacherTrainer(BasicTrainer):
                 fig.savefig(f"{save_path}{notion}_{filename}")
 
 
+# Student is Mask + BBX + Depth
 class StudentTrainer(BasicTrainer):
     def __init__(self,
                  alpha=0.8,
@@ -246,16 +247,21 @@ class StudentTrainer(BasicTrainer):
                  *args, **kwargs):
         super(StudentTrainer, self).__init__(*args, **kwargs)
 
-        self.modality = {'csi', 'img'}
+        self.modality = {'img', 'csi', 'bbx', 'pd'}
 
         self.alpha = alpha
         self.recon_lossfunc = recon_lossfunc
+        self.depth_loss = nn.MSELoss()
 
-        self.loss_terms = ('LOSS', 'MU', 'LOGVAR', 'IMG')
-        self.pred_terms = ('GT', 'T_PRED', 'S_PRED', 'T_LATENT', 'S_LATENT', 'IND')
-        self.loss = MyLoss(name=self.name,
-                           loss_terms=self.loss_terms,
-                           pred_terms=self.pred_terms)
+        self.loss_terms = ('LOSS', 'MU', 'LOGVAR', 'BBX', 'DPT', 'IMG')
+        self.pred_terms = ('GT', 'T_PRED', 'S_PRED',
+                           'T_LATENT', 'S_LATENT',
+                           'GT_BBX', 'S_BBX',
+                           'GT_DPT', 'S_DPT',
+                           'IND')
+        self.loss = MyLossBBX(name=self.name,
+                              loss_terms=self.loss_terms,
+                              pred_terms=self.pred_terms)
 
     def kd_loss(self, mu_s, logvar_s, mu_t, logvar_t):
         mu_loss = self.recon_lossfunc(mu_s, mu_t) / mu_s.shape[0]
@@ -263,28 +269,44 @@ class StudentTrainer(BasicTrainer):
         loss = self.alpha * mu_loss + (1 - self.alpha) * logvar_loss
         return loss, mu_loss, logvar_loss
 
-    def calculate_loss(self, data):
+    @staticmethod
+    def bbx_loss(bbx1, bbx2):
+        # --- x, y, w, h to x1, y1, x2, y2 ---
+        # Done in datasetting
+        return complete_box_iou_loss(bbx1, bbx2, reduction='sum')
 
-        s_z, s_mu, s_logvar = self.models['csien'](data['csi'])
+    def calculate_loss(self, data):
+        mask = torch.where(data['img'] > 0, 1., 0.)
+        features, s_z, s_mu, s_logvar = self.models['csien'](data['csi'])
+        s_image = self.models['imgde'](s_z)
+        s_bbx, s_depth = self.models['bbxde'](features)
 
         with torch.no_grad():
             t_z, t_mu, t_logvar = self.models['imgen'](data['img'])
-            s_output = self.models['imgde'](s_z)
-            t_output = self.models['imgde'](t_z)
-            image_loss = self.recon_lossfunc(s_output, data['img'])
+            t_image = self.models['imgde'](t_z)
 
-        loss_i, mu_loss_i, logvar_loss_i = self.kd_loss(s_mu, s_logvar, t_mu, t_logvar)
-        loss = loss_i
+        image_loss = self.recon_lossfunc(s_image, mask)
+        bbx_loss = self.bbx_loss(s_bbx, torch.squeeze(data['bbx']))
+        depth_loss = self.depth_loss(s_depth, data['dpt'])
+        latent_loss, mu_loss, logvar_loss = self.kd_loss(s_mu, s_logvar, t_mu, t_logvar)
+
+        loss = image_loss + bbx_loss + depth_loss + latent_loss
 
         self.temp_loss = {'LOSS': loss,
-                          'MU': mu_loss_i,
-                          'LOGVAR': logvar_loss_i,
-                          'IMG': image_loss}
-        return {'GT': data['img'],
+                          'MU': mu_loss,
+                          'LOGVAR': logvar_loss,
+                          'IMG': image_loss,
+                          'BBX': bbx_loss,
+                          'DPT': depth_loss}
+        return {'GT': mask,
                 'T_LATENT': t_z,
                 'S_LATENT': s_z,
-                'T_PRED': t_output,
-                'S_PRED': s_output,
+                'T_PRED': t_image,
+                'S_PRED': s_image,
+                'GT_BBX': data['bbx'],
+                'S_BBX': s_bbx,
+                'GT_DPT': data['dpt'],
+                'S_DPT': s_depth,
                 'IND': data['ind']}
 
     def plot_test(self, select_ind=None, select_num=8, autosave=False, notion='', **kwargs):
@@ -294,56 +316,9 @@ class StudentTrainer(BasicTrainer):
 
         figs.append(self.loss.plot_predict(plot_terms=('GT', 'T_PRED', 'S_PRED')))
         figs.append(self.loss.plot_latent(plot_terms=('T_LATENT', 'S_LATENT')))
+        figs.append(self.loss.plot_bbx()) # with_depth
         figs.append(self.loss.plot_test(plot_terms='all'))
         figs.append(self.loss.plot_tsne(plot_terms=('GT', 'T_LATENT', 'S_LATENT')))
-
-        if autosave:
-            if not os.path.exists(save_path):
-                os.makedirs(save_path)
-            for fig, filename in figs:
-                fig.savefig(f"{save_path}{notion}_{filename}")
-
-
-class StudentTrainerBBX(StudentTrainer):
-    def __init__(self,
-                 *args, **kwargs):
-        super(StudentTrainerBBX, self).__init__(*args, **kwargs)
-
-        self.modality = {'img', 'csi', 'bbx'}
-
-        self.loss_terms = ('LOSS', 'BBX')
-        self.pred_terms = ('GT', 'GT_BBX', 'S_BBX', 'IND')
-        self.loss = MyLossBBX(name=self.name,
-                              loss_terms=self.loss_terms,
-                              pred_terms=self.pred_terms)
-
-    @staticmethod
-    def bbx_loss(bbx1, bbx2):
-        # --- x, y, w, h to x1, y1, x2, y2 ---
-        # Done in datasetting
-        return complete_box_iou_loss(bbx1, bbx2, reduction='sum')
-
-    def calculate_loss(self, data):
-
-        s_bbx = self.models['csien'](data['csi'])
-        bbx_loss = self.bbx_loss(s_bbx, torch.squeeze(data['bbx']))
-        loss = bbx_loss
-
-        self.temp_loss = {'LOSS': loss,
-                          'BBX': bbx_loss}
-        return {'GT': data['img'],
-                'GT_BBX': data['bbx'],
-                'S_BBX': s_bbx,
-                'IND': data['ind']}
-
-    def plot_test(self, select_ind=None, select_num=8, autosave=False, notion='', **kwargs):
-        save_path = f'../saved/{notion}/'
-        figs = []
-        self.loss.generate_indices(select_ind, select_num)
-
-        figs.append(self.loss.plot_bbx())
-        figs.append(self.loss.plot_test(plot_terms='all'))
-        figs.append(self.loss.plot_tsne(plot_terms=('GT_BBX', 'S_BBX')))
 
         if autosave:
             if not os.path.exists(save_path):
@@ -372,36 +347,6 @@ class TeacherTrainerMask(TeacherTrainer):
                 'LAT': z,
                 'IND': data['ind']
                 }
-
-
-class StudentTrainerMask(StudentTrainer):
-    def __init__(self,
-                 *args, **kwargs):
-        super(StudentTrainerMask, self).__init__(*args, **kwargs)
-
-    def calculate_loss(self, data):
-        mask = torch.where(data['img'] > 0, 1., 0.)
-        s_z, s_mu, s_logvar = self.models['csien'](data['csi'])
-
-        with torch.no_grad():
-            t_z, t_mu, t_logvar = self.models['imgen'](mask)
-            s_output = self.models['imgde'](s_z)
-            t_output = self.models['imgde'](t_z)
-            image_loss = self.recon_lossfunc(s_output, mask)
-
-        loss_i, mu_loss_i, logvar_loss_i = self.kd_loss(s_mu, s_logvar, t_mu, t_logvar)
-        loss = loss_i
-
-        self.temp_loss = {'LOSS': loss,
-                          'MU': mu_loss_i,
-                          'LOGVAR': logvar_loss_i,
-                          'IMG': image_loss}
-        return {'GT': mask,
-                'T_LATENT': t_z,
-                'S_LATENT': s_z,
-                'T_PRED': t_output,
-                'S_PRED': s_output,
-                'IND': data['ind']}
 
 
 if __name__ == '__main__':
