@@ -8,18 +8,21 @@ from Trainer import BasicTrainer
 from Model import *
 from Loss import MyLoss, MyLossBBX
 
-version = 'V06C1'
+version = 'V06C2'
 
 ##############################################################################
 # -------------------------------------------------------------------------- #
-# Version V06C1
+# Version V06C2
 # Teacher learns and estimates binary masks and the depth value of the center
 # pixel of the cropped depth image
-# Student learns (6, 30, 30) CSIs
+# Student learns (6, 30, 30) CSIs and (2) PhaseDiffs (late fusion)
 
-# ImageEncoder: in = 128 * 128, out = [latent_dim, latent_dim, latent_dim]
-# ImageDecoder: in = 1 * latent_dim, out = 128 * 128
-# CSIEncoder: in = 6 * 30 * 30, out = [latent_dim, latent_dim, latent_dim]
+# ImageEncoder: in = 128 * 128,
+#               out = [latent_dim, latent_dim, latent_dim]
+# ImageDecoder: in = 1 * latent_dim,
+#               out = 128 * 128
+# CSIEncoder: in = [6 * 30 * 30, 2],
+#               out = [latent_dim, latent_dim, latent_dim]
 # -------------------------------------------------------------------------- #
 ##############################################################################
 
