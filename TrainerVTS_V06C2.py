@@ -122,7 +122,7 @@ class BBXDecoder(nn.Module):
         )
 
     def __str__(self):
-        return f"DEPDE{version}"
+        return f"BBXDE{version}"
 
     def forward(self, x):
         *out, depth = self.fc(x.view(-1, 2048))
@@ -250,7 +250,8 @@ class StudentTrainer(BasicTrainer):
                            'IND')
         self.loss = MyLossBBX(name=self.name,
                               loss_terms=self.loss_terms,
-                              pred_terms=self.pred_terms)
+                              pred_terms=self.pred_terms,
+                              depth=True)
 
         self.img_weight = torch.nn.Parameter(torch.tensor([0.5], device=self.device), requires_grad=True)
         self.bbx_weight = torch.nn.Parameter(torch.tensor([0.5], device=self.device), requires_grad=True)
@@ -309,7 +310,7 @@ class StudentTrainer(BasicTrainer):
 
         figs.append(self.loss.plot_predict(plot_terms=('GT', 'T_PRED', 'S_PRED')))
         figs.append(self.loss.plot_latent(plot_terms=('T_LATENT', 'S_LATENT')))
-        figs.append(self.loss.plot_bbx()) # with_depth
+        figs.append(self.loss.plot_bbx())
         figs.append(self.loss.plot_test(plot_terms='all'))
         figs.append(self.loss.plot_tsne(plot_terms=('GT', 'T_LATENT', 'S_LATENT')))
 

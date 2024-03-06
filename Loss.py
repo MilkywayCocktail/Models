@@ -276,8 +276,9 @@ class MyLoss:
 
 
 class MyLossBBX(MyLoss):
-    def __init__(self, name, loss_terms, pred_terms):
-        super(MyLossBBX, self).__init__(name, loss_terms, pred_terms)
+    def __init__(self, depth=False, *args, **kwargs):
+        super(MyLossBBX, self).__init__(*args, **kwargs)
+        self.depth = depth
 
     def plot_bbx(self, title=None):
         self.__plot_settings__()
@@ -296,8 +297,16 @@ class MyLossBBX(MyLoss):
             axes[j].set_ylim([0, 128])
             x, y, w, h = self.loss['pred']['GT_BBX'][self.select_inds[j]]
             axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='blue', fill=False, lw=4, label='GroundTruth'))
+            if self.depth:
+                axes[j].annotate(f"GT={self.loss['pred']['GT_DPT'][self.select_inds[j]]}",
+                                 (x + int(w / 2), y + int(h / 4)),
+                                 fontsize=20)
             x, y, w, h = self.loss['pred']['S_BBX'][self.select_inds[j]]
             axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='orange', fill=False, lw=4, label='Student'))
+            if self.depth:
+                axes[j].annotate(f"Pred={self.loss['pred']['S_DPT'][self.select_inds[j]]}",
+                                 (x + int(w / 2), y + int(3 * h / 4)),
+                                 fontsize=20)
             axes[j].axis('off')
             axes[j].set_title(f"#{samples[j]}")
 
