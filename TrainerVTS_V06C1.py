@@ -365,6 +365,40 @@ class StudentTrainerMask(StudentTrainer):
                 'IND': data['ind']}
 
 
+class StudentTrainer2(StudentTrainer):
+    # Include image loss in loss function
+    def __init__(self,
+                 mask=False,
+                 *args, **kwargs):
+        super(StudentTrainer2, self).__init__(*args, **kwargs)
+        self.mask = mask
+        self.img_weight = torch.nn.Parameter(torch.tensor([0.5]), requires_grad=True)
+
+    def calculate_loss(self, data):
+        img = torch.where(data['img'] > 0, 1., 0.) if self.mask else data['img']
+        s_z, s_mu, s_logvar = self.models['csien'](data['csi'])
+
+        with torch.no_grad():
+            t_z, t_mu, t_logvar = self.models['imgen'](img)
+            s_output = self.models['imgde'](s_z)
+            t_output = self.models['imgde'](t_z)
+
+        image_loss = self.recon_lossfunc(s_output, img)
+        loss_i, mu_loss_i, logvar_loss_i = self.kd_loss(s_mu, s_logvar, t_mu, t_logvar)
+        loss = loss_i + image_loss * self.img_weight
+
+        self.temp_loss = {'LOSS': loss,
+                          'MU': mu_loss_i,
+                          'LOGVAR': logvar_loss_i,
+                          'IMG': image_loss}
+        return {'GT': img,
+                'T_LATENT': torch.cat((t_mu, t_logvar), -1),
+                'S_LATENT': torch.cat((s_mu, s_logvar), -1),
+                'T_PRED': t_output,
+                'S_PRED': s_output,
+                'IND': data['ind']}
+
+
 if __name__ == '__main__':
     cc = CSIEncoder(out_length=16)
     summary(cc, input_size=CSI2)
