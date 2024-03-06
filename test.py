@@ -21,4 +21,7 @@ s = samples[inds]
 
 arrr = np.array([ 129, 2223, 3198, 3975, 5332, 5432, 6340, 6361])
 
-print(np.any(arrr > 1099))
+*first, last = arrr
+
+print(first)
+print(last)
