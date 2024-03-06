@@ -133,17 +133,15 @@ class CSIEncoder(BasicCSIEncoder):
     def __init__(self, out_length, *args, **kwargs):
         super(CSIEncoder, self).__init__(*args, **kwargs)
         self.out_length = out_length
-        self.cnn = nn.Sequential(
-            nn.Conv2d(6, 128, 5, 1, 1),
-            batchnorm_layer(128, self.batchnorm),
-            nn.LeakyReLU(inplace=True),
-            nn.Conv2d(128, 256, 3, 2, 1),
-            batchnorm_layer(256, self.batchnorm),
-            nn.LeakyReLU(inplace=True),
-            nn.Conv2d(256, 512, 3, 2, 1),
-            batchnorm_layer(512, self.batchnorm),
-            nn.LeakyReLU(inplace=True),
-        )
+        channels = [6, 128, 128, 256, 256, 512]
+        block = []
+        for i in range(len(channels) - 1):
+            block.extend([nn.Conv2d(channels[i], channels[i+1], 3, 1, 1),
+                          batchnorm_layer(channels[i+1], self.batchnorm),
+                          nn.LeakyReLU(inplace=True)])
+        self.cnn = nn.Sequential(*block,
+                                 nn.AvgPool2d(kernel_size=(20, 20), stride=1, padding=0))
+
         self.fclayers = nn.Sequential(
             nn.Linear(512 * 7 * 7, 1024),
             nn.ReLU(),
@@ -185,6 +183,7 @@ class CSIEncoder(BasicCSIEncoder):
 class TeacherTrainer(BasicTrainer):
     def __init__(self,
                  beta=1.2,
+                 mask=False,
                  recon_lossfunc=nn.BCELoss(reduction='sum'),
                  *args, **kwargs):
         super(TeacherTrainer, self).__init__(*args, **kwargs)
@@ -193,6 +192,7 @@ class TeacherTrainer(BasicTrainer):
 
         self.beta = beta
         self.recon_lossfunc = recon_lossfunc
+        self.mask = mask
 
         self.loss_terms = ('LOSS', 'KL', 'RECON')
         self.pred_terms = ('GT', 'PRED', 'LAT', 'IND')
@@ -207,18 +207,18 @@ class TeacherTrainer(BasicTrainer):
         return loss, kl_loss, recon_loss
 
     def calculate_loss(self, data):
-
-        z, mu, logvar = self.models['imgen'](data['img'])
+        img = torch.where(data['img'] > 0, 1., 0.) if self.mask else data['img']
+        z, mu, logvar = self.models['imgen'](img)
         output = self.models['imgde'](z)
-        loss, kl_loss, recon_loss = self.vae_loss(output, data['img'], mu, logvar)
+        loss, kl_loss, recon_loss = self.vae_loss(output, img, mu, logvar)
 
         self.temp_loss = {'LOSS': loss,
                           'KL': kl_loss,
                           'RECON': recon_loss
                           }
-        return {'GT': data['img'],
+        return {'GT': img,
                 'PRED': output,
-                'LAT': z,
+                'LAT': torch.cat((mu, logvar), -1),
                 'IND': data['ind']
                 }
 
@@ -243,6 +243,7 @@ class TeacherTrainer(BasicTrainer):
 class StudentTrainer(BasicTrainer):
     def __init__(self,
                  alpha=0.8,
+                 mask=True,
                  recon_lossfunc=nn.MSELoss(reduction='sum'),
                  *args, **kwargs):
         super(StudentTrainer, self).__init__(*args, **kwargs)
@@ -252,6 +253,7 @@ class StudentTrainer(BasicTrainer):
         self.alpha = alpha
         self.recon_lossfunc = recon_lossfunc
         self.depth_loss = nn.MSELoss()
+        self.mask = mask
 
         self.loss_terms = ('LOSS', 'MU', 'LOGVAR', 'BBX', 'DPT', 'IMG')
         self.pred_terms = ('GT', 'T_PRED', 'S_PRED',
@@ -262,6 +264,10 @@ class StudentTrainer(BasicTrainer):
         self.loss = MyLossBBX(name=self.name,
                               loss_terms=self.loss_terms,
                               pred_terms=self.pred_terms)
+
+        self.img_weight = torch.nn.Parameter(torch.tensor([0.5], device=self.device), requires_grad=True)
+        self.bbx_weight = torch.nn.Parameter(torch.tensor([0.5], device=self.device), requires_grad=True)
+        self.depth_weight = torch.nn.Parameter(torch.tensor([0.5], device=self.device), requires_grad=True)
 
     def kd_loss(self, mu_s, logvar_s, mu_t, logvar_t):
         mu_loss = self.recon_lossfunc(mu_s, mu_t) / mu_s.shape[0]
@@ -276,21 +282,21 @@ class StudentTrainer(BasicTrainer):
         return complete_box_iou_loss(bbx1, bbx2, reduction='sum')
 
     def calculate_loss(self, data):
-        mask = torch.where(data['img'] > 0, 1., 0.)
+        img = torch.where(data['img'] > 0, 1., 0.) if self.mask else data['img']
         features, s_z, s_mu, s_logvar = self.models['csien'](data['csi'])
         s_image = self.models['imgde'](s_z)
         s_bbx, s_depth = self.models['bbxde'](features)
 
         with torch.no_grad():
-            t_z, t_mu, t_logvar = self.models['imgen'](data['img'])
+            t_z, t_mu, t_logvar = self.models['imgen'](img)
             t_image = self.models['imgde'](t_z)
 
-        image_loss = self.recon_lossfunc(s_image, mask)
+        image_loss = self.recon_lossfunc(s_image, img)
         bbx_loss = self.bbx_loss(s_bbx, torch.squeeze(data['bbx']))
         depth_loss = self.depth_loss(s_depth, data['dpt'])
         latent_loss, mu_loss, logvar_loss = self.kd_loss(s_mu, s_logvar, t_mu, t_logvar)
 
-        loss = image_loss + bbx_loss + depth_loss + latent_loss
+        loss = image_loss * self.img_weight + bbx_loss * self.bbx_weight + depth_loss * self.depth_weight + latent_loss
 
         self.temp_loss = {'LOSS': loss,
                           'MU': mu_loss,
@@ -298,7 +304,7 @@ class StudentTrainer(BasicTrainer):
                           'IMG': image_loss,
                           'BBX': bbx_loss,
                           'DPT': depth_loss}
-        return {'GT': mask,
+        return {'GT': img,
                 'T_LATENT': t_z,
                 'S_LATENT': s_z,
                 'T_PRED': t_image,
@@ -325,28 +331,6 @@ class StudentTrainer(BasicTrainer):
                 os.makedirs(save_path)
             for fig, filename in figs:
                 fig.savefig(f"{save_path}{notion}_{filename}")
-
-
-class TeacherTrainerMask(TeacherTrainer):
-    def __init__(self,
-                 *args, **kwargs):
-        super(TeacherTrainerMask, self).__init__(*args, **kwargs)
-
-    def calculate_loss(self, data):
-        mask = torch.where(data['img'] > 0, 1., 0.)
-        z, mu, logvar = self.models['imgen'](mask)
-        output = self.models['imgde'](z)
-        loss, kl_loss, recon_loss = self.vae_loss(output, mask, mu, logvar)
-
-        self.temp_loss = {'LOSS': loss,
-                          'KL': kl_loss,
-                          'RECON': recon_loss
-                          }
-        return {'GT': mask,
-                'PRED': output,
-                'LAT': z,
-                'IND': data['ind']
-                }
 
 
 if __name__ == '__main__':

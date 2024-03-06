@@ -322,7 +322,7 @@ class StudentTrainer2(StudentTrainer):
     def __init__(self,
                  *args, **kwargs):
         super(StudentTrainer2, self).__init__(*args, **kwargs)
-        self.img_weight = torch.nn.Parameter(torch.tensor([0.5]), requires_grad=True)
+        self.img_weight = torch.nn.Parameter(torch.tensor([0.5], device=self.device), requires_grad=True)
 
     def calculate_loss(self, data):
         img = torch.where(data['img'] > 0, 1., 0.) if self.mask else data['img']
