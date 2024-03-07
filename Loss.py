@@ -32,8 +32,6 @@ class MyLoss:
         Prepares plot configurations.
         :return: plt args
         """
-        # plt.style.use('default')
-        # plt.rcdefaults()
         plt.rcParams['figure.figsize'] = (20, 10)
         plt.rcParams["figure.titlesize"] = 35
         plt.rcParams['lines.markersize'] = 10

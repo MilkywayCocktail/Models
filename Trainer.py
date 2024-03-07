@@ -6,6 +6,35 @@ from Loss import MyLoss
 from misc import timer
 
 
+class ExtraParams:
+    def __init__(self, device):
+        self.device = device
+        self.params = {}
+        self.track = {}
+
+    def add(self, **kwargs):
+        for key, value in kwargs.items():
+            self.params[key] = torch.nn.Parameter(torch.tensor(value, device=self.device), requires_grad=True)
+            self.track[key] = kwargs[key]
+
+    def update(self):
+        for param, value in self.params.items():
+            self.track[param].append(value.cpu().detach().numpy().squeeze())
+
+    def plot_track(self, *args: str):
+        fig = plt.figure(constrained_layout=True)
+        fig.suptitle("Extra Parameters")
+
+        for param in args:
+            if param in self.params.keys():
+                plt.plot(self.params[param], label=param)
+
+        plt.grid()
+        plt.legend()
+        plt.show()
+        return fig, "Extra_Parameters.jpg"
+
+
 class BasicTrainer:
     def __init__(self, name, networks,
                  lr, epochs, cuda,
@@ -17,6 +46,7 @@ class BasicTrainer:
         self.device = torch.device("cuda:" + str(cuda) if torch.cuda.is_available() else "cpu")
         self.optimizer = torch.optim.Adam
 
+        self.extra_params = ExtraParams(self.device)
         self.models = {network.name: network.to(self.device) for network in networks
                        }
 
@@ -46,6 +76,9 @@ class BasicTrainer:
         if not train_module:
             train_module = list(self.models.keys())
         optimizer = self.optimizer([{'params': self.models[model].parameters()} for model in train_module], lr=self.lr)
+        if self.extra_params.params:
+            for param, value in self.extra_params.params.items():
+                optimizer.param_groups.append({'params': value})
 
         # ===============train and validate each epoch==============
         for epoch in range(self.epochs):
@@ -59,9 +92,9 @@ class BasicTrainer:
             EPOCH_LOSS = {loss: [] for loss in self.loss_terms}
             for idx, data in enumerate(self.train_loader, 0):
                 data_ = {}
-                for key in data.keys():
+                for key, value in data.items():
                     if key in self.modality:
-                        data_[key] = data[key].to(torch.float32).to(self.device)
+                        data_[key] = value.to(torch.float32).to(self.device)
 
                 optimizer.zero_grad()
                 PREDS = self.calculate_loss(data_)
@@ -89,9 +122,9 @@ class BasicTrainer:
 
             for idx, data in enumerate(self.valid_loader, 0):
                 data_ = {}
-                for key in data.keys():
+                for key, value in data.items():
                     if key in self.modality:
-                        data_[key] = data[key].to(torch.float32).to(self.device)
+                        data_[key] = value.to(torch.float32).to(self.device)
 
                 with torch.no_grad():
                     PREDS = self.calculate_loss(data_)
@@ -144,13 +177,12 @@ class BasicTrainer:
             loader = self.train_loader
 
         self.loss.reset('test', 'pred')
-        self.inds = None
 
         for idx, data in enumerate(loader, 0):
             data_ = {}
-            for key in data.keys():
+            for key, value in data.items():
                 if key in self.modality:
-                    data_[key] = data[key].to(torch.float32).to(self.device)
+                    data_[key] = value.to(torch.float32).to(self.device)
 
             with torch.no_grad():
                 for sample in range(loader.batch_size):

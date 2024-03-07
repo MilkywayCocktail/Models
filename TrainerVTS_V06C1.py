@@ -322,7 +322,7 @@ class StudentTrainer2(StudentTrainer):
     def __init__(self,
                  *args, **kwargs):
         super(StudentTrainer2, self).__init__(*args, **kwargs)
-        self.img_weight = torch.nn.Parameter(torch.tensor([0.5], device=self.device), requires_grad=True)
+        self.extra_params['img_weight'] = torch.nn.Parameter(torch.tensor([0.5], device=self.device), requires_grad=True)
 
     def calculate_loss(self, data):
         img = torch.where(data['img'] > 0, 1., 0.) if self.mask else data['img']
@@ -335,7 +335,7 @@ class StudentTrainer2(StudentTrainer):
 
         image_loss = self.recon_lossfunc(s_output, img)
         loss_i, mu_loss_i, logvar_loss_i = self.kd_loss(s_mu, s_logvar, t_mu, t_logvar)
-        loss = loss_i + image_loss * self.img_weight
+        loss = loss_i + image_loss * self.extra_params['img_weight']
 
         self.temp_loss = {'LOSS': loss,
                           'MU': mu_loss_i,

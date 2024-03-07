@@ -25,3 +25,17 @@ arrr = np.array([ 129, 2223, 3198, 3975, 5332, 5432, 6340, 6361])
 
 print(first)
 print(last)
+
+params = {}
+
+if params:
+    print("Aru")
+else:
+    print("Nai")
+
+params['weight'] = 0
+
+if params:
+    print("Aru")
+else:
+    print("Nai")
