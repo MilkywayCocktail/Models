@@ -31,7 +31,7 @@ class ExtraParams:
 
         for param in args:
             if param in self.params.keys():
-                plt.plot(self.params[param], label=param)
+                plt.plot(self.track[param], label=param)
 
         plt.grid()
         plt.legend()
