@@ -18,7 +18,7 @@ class ExtraParams:
             self.updatable = True
         for key, value in kwargs.items():
             self.params[key] = torch.nn.Parameter(torch.tensor(value, device=self.device), requires_grad=True)
-            self.track[key] = kwargs[key]
+            self.track[key] = [kwargs[key]]
 
     def update(self):
         if self.updatable:
