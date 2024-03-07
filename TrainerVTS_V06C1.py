@@ -322,7 +322,7 @@ class StudentTrainer2(StudentTrainer):
     def __init__(self,
                  *args, **kwargs):
         super(StudentTrainer2, self).__init__(*args, **kwargs)
-        self.extra_params['img_weight'] = torch.nn.Parameter(torch.tensor([0.5], device=self.device), requires_grad=True)
+        self.extra_params.add(img_weight=[0.5])
 
     def calculate_loss(self, data):
         img = torch.where(data['img'] > 0, 1., 0.) if self.mask else data['img']
@@ -335,7 +335,7 @@ class StudentTrainer2(StudentTrainer):
 
         image_loss = self.recon_lossfunc(s_output, img)
         loss_i, mu_loss_i, logvar_loss_i = self.kd_loss(s_mu, s_logvar, t_mu, t_logvar)
-        loss = loss_i + image_loss * self.extra_params['img_weight']
+        loss = loss_i + image_loss * self.extra_params.params['img_weight']
 
         self.temp_loss = {'LOSS': loss,
                           'MU': mu_loss_i,
@@ -347,6 +347,23 @@ class StudentTrainer2(StudentTrainer):
                 'T_PRED': t_output,
                 'S_PRED': s_output,
                 'IND': data['ind']}
+
+    def plot_test(self, select_ind=None, select_num=8, autosave=False, notion='', **kwargs):
+        save_path = f'../saved/{notion}/'
+        figs = []
+        self.loss.generate_indices(select_ind, select_num)
+
+        figs.append(self.loss.plot_predict(plot_terms=('GT', 'T_PRED', 'S_PRED')))
+        figs.append(self.loss.plot_latent(plot_terms=('T_LATENT', 'S_LATENT')))
+        figs.append(self.loss.plot_test(plot_terms='all'))
+        figs.append(self.loss.plot_tsne(plot_terms=('GT', 'T_LATENT', 'S_LATENT')))
+        figs.append(self.extra_params.track('img_weight'))
+
+        if autosave:
+            if not os.path.exists(save_path):
+                os.makedirs(save_path)
+            for fig, filename in figs:
+                fig.savefig(f"{save_path}{notion}_{filename}")
 
 
 if __name__ == '__main__':

@@ -11,15 +11,19 @@ class ExtraParams:
         self.device = device
         self.params = {}
         self.track = {}
+        self.updatable = False
 
     def add(self, **kwargs):
+        if kwargs:
+            self.updatable = True
         for key, value in kwargs.items():
             self.params[key] = torch.nn.Parameter(torch.tensor(value, device=self.device), requires_grad=True)
             self.track[key] = kwargs[key]
 
     def update(self):
-        for param, value in self.params.items():
-            self.track[param].append(value.cpu().detach().numpy().squeeze())
+        if self.updatable:
+            for param, value in self.params.items():
+                self.track[param].append(value.cpu().detach().numpy().squeeze())
 
     def plot_track(self, *args: str):
         fig = plt.figure(constrained_layout=True)
@@ -76,7 +80,7 @@ class BasicTrainer:
         if not train_module:
             train_module = list(self.models.keys())
         optimizer = self.optimizer([{'params': self.models[model].parameters()} for model in train_module], lr=self.lr)
-        if self.extra_params.params:
+        if self.extra_params.updatable:
             for param, value in self.extra_params.params.items():
                 optimizer.param_groups.append({'params': value})
 
@@ -111,6 +115,7 @@ class BasicTrainer:
             for key in EPOCH_LOSS.keys():
                 EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
             self.loss.update('train', EPOCH_LOSS)
+            self.extra_params.update()
 
             # =====================valid============================
             for model in train_module:
