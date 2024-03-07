@@ -23,19 +23,5 @@ arrr = np.array([ 129, 2223, 3198, 3975, 5332, 5432, 6340, 6361])
 
 *first, last = arrr
 
-print(first)
-print(last)
+#optimizer = self.optimizer([{'params': self.models[model].parameters()} for model in train_module], lr=self.lr)
 
-params = {}
-
-if params:
-    print("Aru")
-else:
-    print("Nai")
-
-params['weight'] = 0
-
-if params:
-    print("Aru")
-else:
-    print("Nai")

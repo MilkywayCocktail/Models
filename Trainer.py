@@ -79,10 +79,10 @@ class BasicTrainer:
             self.modality.add('ind')
         if not train_module:
             train_module = list(self.models.keys())
-        params = list(self.models[model].parameters() for model in train_module)
+        params = [{'params': self.models[model].parameters()} for model in train_module]
         if self.extra_params.updatable:
             for param, value in self.extra_params.params.items():
-                params.append(value)
+                params.append({'params': value})
         optimizer = self.optimizer(params, lr=self.lr)
 
         # ===============train and validate each epoch==============
