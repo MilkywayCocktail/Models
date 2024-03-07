@@ -19,9 +19,7 @@ s = samples[inds]
 #print(s)
 #print(a1[inds[np.argsort(s)]])
 
-arrr = np.array([ 129, 2223, 3198, 3975, 5332, 5432, 6340, 6361])
+arrr = np.array([ [129], [2223], [3198], [3975], [5332], [5432], [6340], [6361]])
 
-*first, last = arrr
-
-#optimizer = self.optimizer([{'params': self.models[model].parameters()} for model in train_module], lr=self.lr)
-
+plt.plot(arrr)
+plt.show()

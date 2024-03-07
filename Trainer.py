@@ -23,7 +23,7 @@ class ExtraParams:
     def update(self):
         if self.updatable:
             for param, value in self.params.items():
-                self.track[param].append(value.cpu().detach().numpy().squeeze())
+                self.track[param].append(value.cpu().detach().tolist())
 
     def plot_track(self, *args: str):
         fig = plt.figure(constrained_layout=True)
