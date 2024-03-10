@@ -8,8 +8,9 @@ class MyDataset(Data.Dataset):
     """
     DATASET READER
     """
-    def __init__(self, name, csi_path, img_path, img_size=(128, 128), transform=None, int_image=False, number=0,
-                 random=True,
+    def __init__(self, name, csi_path=None, img_path=None,
+                 img_size=(128, 128), transform=None, int_image=False,
+                 number=0, random=True,
                  mmap_mode='r'):
         """
         Wraps a dataset.\n
@@ -385,3 +386,64 @@ class MyDatasetPDBBX3(MyDataset):
 
     def __len__(self):
         return self.data['csi'].shape[0]
+
+
+class MyDatasetV2(MyDataset):
+    def __init__(self,
+                 paths: dict,
+                 bbx_ver='xywh',
+                 *args,
+                 **kwargs):
+        super(MyDatasetV2, self).__init__(**kwargs)
+
+        self.bbx_ver = bbx_ver
+        self.paths = paths
+
+    def adjust_bbx(self):
+        if self.bbx_ver == 'xyxy':
+            _bbx = np.zeros_like(self.data['bbx'])
+            _bbx[..., 0:2] = self.data['bbx'][..., 0:2]
+            _bbx[..., -1] = self.data['bbx'][..., -1] + self.data['bbx'][..., -3]
+            _bbx[..., -2] = self.data['bbx'][..., -2] + self.data['bbx'][..., -4]
+            self.data['bbx'] = _bbx
+
+    def __getitem__(self, index):
+        return {'csi': self.data['csi'][index],
+                'img': self.__transform__(self.data['img'][index]),
+                'pd': self.data['pd'][index],
+                'bbx': self.data['bbx'][index],
+                'dpt': self.data['dpt'][index],
+                'ind': index}
+
+    def __len__(self):
+        return self.data['csi'].shape[0]
+
+    def load_data(self):
+        """
+        Load data.\n
+        :return: loaded dataset
+        """
+        print(f"{self.name} loading...")
+        result = {}
+        count = 0
+        for key, value in self.paths.items():
+            if value:
+                item = np.load(value, mmap_mode=self.mmap_mode)
+                result[key] = item
+                count = item.shape[0]
+                print(f"loaded {key} of {item.shape}")
+            else:
+                result[key] = None
+                print(f"skipping {key}")
+
+        if self.number != 0:
+            if self.random:
+                picked = np.random.choice(list(range(count)), size=self.number, replace=False)
+            else:
+                picked = np.arange(self.number)
+            self.seeds = picked
+            for key in self.paths.keys():
+                result[key] = result[key][picked]
+
+        self.data = result
+        return result
