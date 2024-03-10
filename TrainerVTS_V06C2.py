@@ -160,7 +160,7 @@ class CSIEncoder(BasicCSIEncoder):
 
     def forward(self, csi, pd):
         features = self.cnn(csi)
-        features = torch.cat((features.view(-1, 512), pd), -1)
+        features = torch.cat((features.view(-1, 512), pd.view(-1, 2)), -1)
         mu = self.fc_mu(features)
         logvar = self.fc_logvar(features)
         z = reparameterize(mu, logvar)
@@ -326,5 +326,5 @@ class StudentTrainer(BasicTrainer):
 
 
 if __name__ == '__main__':
-    cc = CSIEncoder(out_length=32)
-    summary(cc, input_size=(CSI2, PD))
+    cc = ImageDecoder()
+    summary(cc, input_size=(LAT))
