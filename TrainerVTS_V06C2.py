@@ -125,8 +125,10 @@ class BBXDecoder(nn.Module):
         return f"BBXDE{version}"
 
     def forward(self, x):
-        *out, depth = self.fc(x.view(-1, 514))
-        return out, depth
+        out = self.fc(x.view(-1, 514))
+        bbx = out[..., :-1]
+        depth = out[..., -1]
+        return bbx, depth
 
 
 class CSIEncoder(BasicCSIEncoder):
