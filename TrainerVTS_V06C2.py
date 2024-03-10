@@ -116,23 +116,22 @@ class BBXDecoder(nn.Module):
         super(BBXDecoder, self).__init__()
 
         self.fc = nn.Sequential(
-            nn.Linear(2048, 512),
+            nn.Linear(514, 128),
             nn.ReLU(),
-            nn.Linear(512, 5)
+            nn.Linear(128, 5)
         )
 
     def __str__(self):
         return f"BBXDE{version}"
 
     def forward(self, x):
-        *out, depth = self.fc(x.view(-1, 2048))
+        *out, depth = self.fc(x.view(-1, 514))
         return out, depth
 
 
 class CSIEncoder(BasicCSIEncoder):
-    def __init__(self, out_length, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super(CSIEncoder, self).__init__(*args, **kwargs)
-        self.out_length = out_length
         channels = [6, 128, 128, 256, 256, 512]
         block = []
         for i in range(len(channels) - 1):
@@ -140,19 +139,19 @@ class CSIEncoder(BasicCSIEncoder):
                           batchnorm_layer(channels[i+1], self.batchnorm),
                           nn.LeakyReLU(inplace=True)])
         self.cnn = nn.Sequential(*block,
-                                 nn.AvgPool2d(kernel_size=(10, 10), stride=10, padding=0))
+                                 nn.AvgPool2d(kernel_size=(20, 20), stride=20, padding=0))
 
         self.fc_mu = nn.Sequential(
-            nn.Linear(2048, 512),
+            nn.Linear(514, 128),
             nn.ReLU(),
-            nn.Linear(512, self.latent_dim),
+            nn.Linear(128, self.latent_dim),
             # self.active_func
         )
 
         self.fc_logvar = nn.Sequential(
-            nn.Linear(2048, 512),
+            nn.Linear(514, 128),
             nn.ReLU(),
-            nn.Linear(512, self.latent_dim),
+            nn.Linear(128, self.latent_dim),
             # self.active_func
         )
 
@@ -161,10 +160,11 @@ class CSIEncoder(BasicCSIEncoder):
 
     def forward(self, csi, pd):
         features = self.cnn(csi)
-        mu = self.fc_mu(features.view(-1, 2048))
-        logvar = self.fc_logvar(features.view(-1, 2048))
+        features = torch.cat((features.view(-1, 512), pd), -1)
+        mu = self.fc_mu(features)
+        logvar = self.fc_logvar(features)
         z = reparameterize(mu, logvar)
-        return features.view(-1, 2048), z, mu, logvar
+        return features.view(-1, 514), z, mu, logvar
 
 
 class TeacherTrainer(BasicTrainer):
@@ -327,4 +327,4 @@ class StudentTrainer(BasicTrainer):
 
 if __name__ == '__main__':
     cc = CSIEncoder(out_length=32)
-    summary(cc, input_size=CSI2)
+    summary(cc, input_size=(CSI2, PD))
