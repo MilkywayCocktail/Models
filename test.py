@@ -19,7 +19,6 @@ s = samples[inds]
 #print(s)
 #print(a1[inds[np.argsort(s)]])
 
-arrr = np.array([ [129], [2223], [3198], [3975], [5332], [5432], [6340], [6361]])
+arrr = 0.3,
 
-plt.plot(arrr)
-plt.show()
+print(type(arrr))

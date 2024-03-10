@@ -237,7 +237,7 @@ class StudentTrainer(BasicTrainer):
                  *args, **kwargs):
         super(StudentTrainer, self).__init__(*args, **kwargs)
 
-        self.modality = {'img', 'csi', 'bbx', 'pd'}
+        self.modality = {'img', 'csi', 'bbx', 'pd', 'dpt'}
 
         self.alpha = alpha
         self.recon_lossfunc = recon_lossfunc
@@ -256,8 +256,8 @@ class StudentTrainer(BasicTrainer):
                               depth=True)
 
         # self.extra_params.add(img_weight=[0.5], bbx_weight=[0.5], depth_weight=[0.5])
-        self.img_weight = 0.3,
-        self.bbx_weight = 0.3,
+        self.img_weight = 0.3
+        self.bbx_weight = 0.3
         self.depth_weight = 0.3
 
     def kd_loss(self, mu_s, logvar_s, mu_t, logvar_t):
@@ -299,8 +299,8 @@ class StudentTrainer(BasicTrainer):
                           'BBX': bbx_loss,
                           'DPT': depth_loss}
         return {'GT': img,
-                'T_LATENT': t_z,
-                'S_LATENT': s_z,
+                'T_LATENT': torch.cat((t_mu, t_logvar), -1),
+                'S_LATENT': torch.cat((s_mu, s_logvar), -1),
                 'T_PRED': t_image,
                 'S_PRED': s_image,
                 'GT_BBX': data['bbx'],
