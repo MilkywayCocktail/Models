@@ -256,9 +256,10 @@ class StudentTrainer(BasicTrainer):
                               depth=True)
 
         # self.extra_params.add(img_weight=[0.5], bbx_weight=[0.5], depth_weight=[0.5])
-        self.img_weight = 0.3
-        self.bbx_weight = 0.3
-        self.depth_weight = 0.3
+        self.latent_weight = 0.03
+        self.img_weight = 0
+        self.bbx_weight = 1
+        self.depth_weight = 0.03
 
     def kd_loss(self, mu_s, logvar_s, mu_t, logvar_t):
         mu_loss = self.recon_lossfunc(mu_s, mu_t) / mu_s.shape[0]
@@ -281,8 +282,8 @@ class StudentTrainer(BasicTrainer):
         with torch.no_grad():
             t_z, t_mu, t_logvar = self.models['imgen'](img)
             t_image = self.models['imgde'](t_z)
+            image_loss = self.recon_lossfunc(s_image, img)
 
-        image_loss = self.recon_lossfunc(s_image, img)
         bbx_loss = self.bbx_loss(s_bbx, torch.squeeze(data['bbx']))
         depth_loss = self.depth_loss(s_depth, data['dpt'])
         latent_loss, mu_loss, logvar_loss = self.kd_loss(s_mu, s_logvar, t_mu, t_logvar)
@@ -290,7 +291,7 @@ class StudentTrainer(BasicTrainer):
         loss = image_loss * self.img_weight + \
                bbx_loss * self.bbx_weight + \
                depth_loss * self.depth_weight + \
-               latent_loss
+               latent_loss * self.latent_weight
 
         self.temp_loss = {'LOSS': loss,
                           'MU': mu_loss,
