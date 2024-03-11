@@ -431,7 +431,7 @@ class MyDatasetV2(MyDataset):
                 item = np.load(value, mmap_mode=self.mmap_mode)
                 result[key] = item
                 count = item.shape[0]
-                print(f"loaded {key} of {item.shape}")
+                print(f"loaded {key} of {item.shape} as {item.dtype}")
             else:
                 result[key] = None
                 print(f"skipping {key}")

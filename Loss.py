@@ -297,7 +297,7 @@ class MyLossBBX(MyLoss):
             axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='blue', fill=False, lw=4, label='GroundTruth'))
             if self.depth:
                 axes[j].annotate(f"GT={self.loss['pred']['GT_DPT'][self.select_inds[j]]:.2f}",
-                                 (48, 35),
+                                 (48, 20),
                                  fontsize=20, color='blue')
             x, y, w, h = self.loss['pred']['S_BBX'][self.select_inds[j]]
             axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='orange', fill=False, lw=4, label='Student'))
@@ -305,7 +305,7 @@ class MyLossBBX(MyLoss):
                 axes[j].annotate(f"Pred={self.loss['pred']['S_DPT'][self.select_inds[j]]:.2f}",
                                  (48, 10),
                                  fontsize=20, color='orange')
-                axes[j].scatter(48, 35,
+                axes[j].scatter(48, 20,
                                 c='blue', marker=(5, 1), linewidths=4)
                 axes[j].scatter(48, 10,
                                 c='orange', marker=(5, 1), linewidths=4)
