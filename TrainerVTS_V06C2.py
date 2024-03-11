@@ -233,7 +233,7 @@ class StudentTrainer(BasicTrainer):
     def __init__(self,
                  alpha=0.8,
                  mask=True,
-                 recon_lossfunc=nn.MSELoss(reduction='sum'),
+                 recon_lossfunc=nn.MSELoss(),
                  *args, **kwargs):
         super(StudentTrainer, self).__init__(*args, **kwargs)
 

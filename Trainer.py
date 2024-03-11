@@ -35,7 +35,7 @@ class ExtraParams:
         plt.xlabel("#Epoch")
         plt.ylabel("Value")
         plt.grid()
-        plt.legend()
+        plt.legend(fontsize="20")
         plt.show()
         return fig, "Extra_Parameters.jpg"
 
@@ -114,8 +114,8 @@ class BasicTrainer:
                           f"loss={self.temp_loss['LOSS'].item():.4f}, "
                           f"current best valid loss={self.best_val_loss:.4f}    ", end='', flush=True)
 
-            for key in EPOCH_LOSS.keys():
-                EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
+            for key, value in EPOCH_LOSS.items():
+                EPOCH_LOSS[key] = np.average(value)
             self.loss.update('train', EPOCH_LOSS)
             self.extra_params.update()
 
