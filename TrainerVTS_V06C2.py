@@ -116,16 +116,16 @@ class BBXDecoder(nn.Module):
         super(BBXDecoder, self).__init__()
 
         self.fc = nn.Sequential(
-            nn.Linear(514, 128),
+            nn.Linear(512 * 7 * 7 + 2, 1024),
             nn.ReLU(),
-            nn.Linear(128, 5)
+            nn.Linear(1024, 5)
         )
 
     def __str__(self):
         return f"BBXDE{version}"
 
     def forward(self, x):
-        out = self.fc(x.view(-1, 514))
+        out = self.fc(x.view(-1, 512 * 7 * 7 + 2))
         bbx = out[..., :-1]
         depth = out[..., -1]
         return bbx, depth
@@ -140,33 +140,59 @@ class CSIEncoder(BasicCSIEncoder):
             block.extend([nn.Conv2d(channels[i], channels[i+1], 3, 1, 1),
                           batchnorm_layer(channels[i+1], self.batchnorm),
                           nn.LeakyReLU(inplace=True)])
-        self.cnn = nn.Sequential(*block,
-                                 nn.AvgPool2d(kernel_size=(20, 20), stride=20, padding=0))
+        # self.cnn = nn.Sequential(*block,
+        #                         nn.AvgPool2d(kernel_size=(20, 20), stride=20, padding=0))
+
+        self.cnn = nn.Sequential(
+            nn.Conv2d(6, 128, 5, 1, 1),
+            batchnorm_layer(128, self.batchnorm),
+            nn.LeakyReLU(inplace=True),
+            nn.Conv2d(128, 256, 3, 2, 1),
+            batchnorm_layer(256, self.batchnorm),
+            nn.LeakyReLU(inplace=True),
+            nn.Conv2d(256, 512, 3, 2, 1),
+            batchnorm_layer(512, self.batchnorm),
+            nn.LeakyReLU(inplace=True),
+        )
 
         self.fc_mu = nn.Sequential(
-            nn.Linear(514, 128),
+            nn.Linear(512 * 7 * 7 + 2, 1024),
             nn.ReLU(),
-            nn.Linear(128, self.latent_dim),
-            # self.active_func
+            nn.Linear(1024, self.latent_dim)
+            # nn.ReLU()
         )
 
         self.fc_logvar = nn.Sequential(
-            nn.Linear(514, 128),
+            nn.Linear(512 * 7 * 7 + 2, 1024),
             nn.ReLU(),
-            nn.Linear(128, self.latent_dim),
-            # self.active_func
+            nn.Linear(1024, self.latent_dim)
+            # nn.ReLU()
         )
+
+        # self.fc_mu = nn.Sequential(
+        #     nn.Linear(514, 128),
+        #     nn.ReLU(),
+        #     nn.Linear(128, self.latent_dim),
+        #     # self.active_func
+        # )
+
+        # self.fc_logvar = nn.Sequential(
+        #     nn.Linear(514, 128),
+        #     nn.ReLU(),
+        #     nn.Linear(128, self.latent_dim),
+        #     # self.active_func
+        # )
 
     def __str__(self):
         return f"CSIEN{version}"
 
     def forward(self, csi, pd):
         features = self.cnn(csi)
-        features = torch.cat((features.view(-1, 512), pd.view(-1, 2)), -1)
+        features = torch.cat((features.view(-1, 512 * 7 * 7), pd.view(-1, 2)), -1)
         mu = self.fc_mu(features)
         logvar = self.fc_logvar(features)
         z = reparameterize(mu, logvar)
-        return features.view(-1, 514), z, mu, logvar
+        return features.view(-1, 512 * 7 * 7 + 2), z, mu, logvar
 
 
 class TeacherTrainer(BasicTrainer):
@@ -329,5 +355,5 @@ class StudentTrainer(BasicTrainer):
 
 
 if __name__ == '__main__':
-    cc = ImageDecoder()
-    summary(cc, input_size=(LAT))
+    cc = CSIEncoder()
+    summary(cc, input_size=(CSI2, PD))
