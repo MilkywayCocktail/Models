@@ -22,3 +22,7 @@ s = samples[inds]
 arrr = 0.3,
 
 print(type(arrr))
+fig = plt.figure()
+ax = plt.gca()
+ax.set_facecolor("#eafff5")
+plt.show()

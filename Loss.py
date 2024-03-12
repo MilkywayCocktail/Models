@@ -293,7 +293,7 @@ class MyLossBBX(MyLoss):
         for j in range(self.select_num):
             axes[j].set_xlim([0, 226])
             axes[j].set_ylim([0, 128])
-            axes[j].set_facecolor("# eafff5")
+            axes[j].set_facecolor("#eafff5")
             x, y, w, h = self.loss['pred']['GT_BBX'][self.select_inds[j]]
             axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='blue', fill=False, lw=4, label='GroundTruth'))
             if self.depth:
