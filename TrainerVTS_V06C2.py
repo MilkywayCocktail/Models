@@ -26,7 +26,7 @@ version = 'V06C2'
 # -------------------------------------------------------------------------- #
 ##############################################################################
 
-feature_length = 512 * 7 * 7
+feature_length = 512 * 7 * 7 + 2
 
 
 class ImageEncoder(BasicImageEncoder):
@@ -114,11 +114,12 @@ class ImageDecoder(BasicImageDecoder):
 class BBXDecoder(nn.Module):
     name = 'bbxde'
 
-    def __init__(self):
+    def __init__(self, batchnorm=None):
         super(BBXDecoder, self).__init__()
 
         self.fc = nn.Sequential(
             nn.Linear(feature_length, 1024),
+            batchnorm_layer(1024, batchnorm),
             nn.ReLU(),
             nn.Linear(1024, 5)
         )
@@ -190,8 +191,8 @@ class CSIEncoder(BasicCSIEncoder):
 
     def forward(self, csi, pd):
         features = self.cnn(csi)
-        # features = torch.cat((features.view(-1, 512 * 7 * 7), pd.view(-1, 2)), -1)
-        features = features.view(-1, feature_length)
+        features = torch.cat((features.view(-1, 512 * 7 * 7), pd.view(-1, 2)), -1)
+        # features = features.view(-1, feature_length)
         mu = self.fc_mu(features)
         logvar = self.fc_logvar(features)
         z = reparameterize(mu, logvar)
@@ -347,7 +348,7 @@ class StudentTrainer(BasicTrainer):
         figs.append(self.loss.plot_predict(plot_terms=('GT', 'T_PRED', 'S_PRED')))
         figs.append(self.loss.plot_latent(plot_terms=('T_LATENT', 'S_LATENT')))
         figs.append(self.loss.plot_bbx())
-        figs.append(self.loss.plot_test(plot_terms='all'))
+        figs.append(self.loss.plot_test(train_basis=True, plot_terms='all'))
         figs.append(self.loss.plot_tsne(plot_terms=('GT', 'T_LATENT', 'S_LATENT')))
 
         if autosave:

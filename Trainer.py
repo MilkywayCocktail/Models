@@ -55,9 +55,10 @@ class BasicTrainer:
         self.models = {network.name: network.to(self.device) for network in networks
                        }
 
-        self.train_loader = train_loader
-        self.valid_loader = valid_loader
-        self.test_loader = test_loader
+        self.dataloader = {'train': train_loader,
+                           'valid': valid_loader,
+                           'test': test_loader}
+
         self.modality = {'modality1', 'modality2', '...'}
 
         self.loss_terms = ('loss1', 'loss2', '...')
@@ -96,7 +97,7 @@ class BasicTrainer:
                 for model in eval_module:
                     self.models[model].eval()
             EPOCH_LOSS = {loss: [] for loss in self.loss_terms}
-            for idx, data in enumerate(self.train_loader, 0):
+            for idx, data in enumerate(self.dataloader['train'], 0):
                 data_ = {}
                 for key, value in data.items():
                     if key in self.modality:
@@ -109,8 +110,9 @@ class BasicTrainer:
                 for key in EPOCH_LOSS.keys():
                     EPOCH_LOSS[key].append(self.temp_loss[key].item())
 
-                if idx % (len(self.train_loader) // 5) == 0:
-                    print(f"\r{self.name} train: epoch={epoch}/{self.epochs}, batch={idx}/{len(self.train_loader)}, "
+                if idx % (len(self.dataloader['train']) // 5) == 0:
+                    print(f"\r{self.name} train: epoch={epoch}/{self.epochs}, "
+                          f"batch={idx}/{len(self.dataloader['train'])}, "
                           f"loss={self.temp_loss['LOSS'].item():.4f}, "
                           f"current best valid loss={self.best_val_loss:.4f}    ", end='', flush=True)
 
@@ -127,7 +129,7 @@ class BasicTrainer:
                     self.models[model].eval()
             EPOCH_LOSS = {loss: [] for loss in self.loss_terms}
 
-            for idx, data in enumerate(self.valid_loader, 0):
+            for idx, data in enumerate(self.dataloader['valid'], 0):
                 data_ = {}
                 for key, value in data.items():
                     if key in self.modality:
@@ -142,8 +144,9 @@ class BasicTrainer:
                 if 0 < val_loss < self.best_val_loss:
                     self.best_val_loss = val_loss
 
-                if idx % (len(self.valid_loader) // 5) == 0:
-                    print(f"\r{self.name} valid: epoch={epoch}/{self.epochs}, batch={idx}/{len(self.valid_loader)}, "
+                if idx % (len(self.dataloader['valid']) // 5) == 0:
+                    print(f"\r{self.name} valid: epoch={epoch}/{self.epochs}, "
+                          f"batch={idx}/{len(self.dataloader['valid'])}, "
                           f"current best valid loss={self.best_val_loss:.4f}        ", end='', flush=True)
 
                 if autosave:
@@ -170,7 +173,7 @@ class BasicTrainer:
             self.loss.update('valid', EPOCH_LOSS)
 
     @timer
-    def test(self, test_module=None, loader='test', **kwargs):
+    def test(self, test_module=None, loader: str = 'test', **kwargs):
         if not test_module:
             test_module = list(self.models.keys())
         for model in test_module:
@@ -179,19 +182,14 @@ class BasicTrainer:
         EPOCH_LOSS = {loss: [] for loss in self.loss_terms}
         self.loss.reset('test', 'pred', dataset=loader)
 
-        if loader == 'test':
-            loader = self.test_loader
-        elif loader == 'train':
-            loader = self.train_loader
-
-        for idx, data in enumerate(loader, 0):
+        for idx, data in enumerate(self.dataloader[loader], 0):
             data_ = {}
             for key, value in data.items():
                 if key in self.modality:
                     data_[key] = value.to(torch.float32).to(self.device)
 
             with torch.no_grad():
-                for sample in range(loader.batch_size):
+                for sample in range(self.dataloader[loader].batch_size):
                     data_i = {key: data_[key][sample][np.newaxis, ...] for key in data_.keys()}
                     PREDS = self.calculate_loss(data_i)
 
@@ -200,8 +198,9 @@ class BasicTrainer:
 
                     self.loss.update('pred', PREDS)
 
-            if idx % (len(loader)//5) == 0:
-                print(f"\r{self.name} test: sample={idx}/{len(loader)}, loss={self.temp_loss['LOSS'].item():.4f}    ",
+            if idx % (len(self.dataloader[loader])//5) == 0:
+                print(f"\r{self.name} test: sample={idx}/{len(self.dataloader[loader])}, "
+                      f"loss={self.temp_loss['LOSS'].item():.4f}    ",
                       end='', flush=True)
 
         self.loss.update('test', EPOCH_LOSS)
@@ -233,7 +232,7 @@ class BasicTrainer:
         for model in self.models:
             print(f"Saving {model}...")
             torch.save(self.models[model].state_dict(),
-                       f"{save_path}{notion}_{self.models[model]}@ep{self.current_ep()}.pth")
+                       f"{save_path}{notion}_{self.name}_{self.models[model]}@ep{self.current_ep()}.pth")
         print("All saved!")
 
     def scheduler(self, turns=10,
