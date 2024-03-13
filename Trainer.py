@@ -183,7 +183,7 @@ class BasicTrainer:
         elif loader == 'train':
             loader = self.train_loader
 
-        self.loss.reset('test', 'pred')
+        self.loss.reset(('test', 'pred'), dataset=loader)
 
         for idx, data in enumerate(loader, 0):
             data_ = {}

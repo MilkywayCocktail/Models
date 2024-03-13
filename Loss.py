@@ -12,7 +12,7 @@ These are MyLoss classes that can store and plot losses.\n
 
 
 class MyLoss:
-    def __init__(self, name, loss_terms, pred_terms, dataset='TRAIN'):
+    def __init__(self, name, loss_terms, pred_terms, dataset: str = 'TRAIN'):
         self.name = name
         self.dataset = dataset
         self.loss = {'train': {term: [] for term in loss_terms},
@@ -26,6 +26,7 @@ class MyLoss:
         self.pred_terms = pred_terms
         self.select_inds = None
         self.select_num = 8
+        self.ind_range = 0
 
     @staticmethod
     def __plot_settings__():
@@ -81,19 +82,21 @@ class MyLoss:
             for key in losses.keys():
                 self.loss[mode][key].append(losses[key].cpu().detach().numpy().squeeze())
 
-    def reset(self, *modes):
+    def reset(self, *modes, dataset: str = 'TRAIN'):
         for mode in modes:
             if mode in ('train', 'valid', 'test'):
                 self.loss[mode] = {term: [] for term in self.loss_terms}
             elif mode == 'pred':
                 self.loss[mode] = {term: [] for term in self.pred_terms}
+        self.dataset = dataset.upper()
 
     def generate_indices(self, select_ind: list = None, select_num=8):
         if select_ind:
             self.select_inds = np.array(select_ind)
         else:
-            if not np.any(self.select_inds) or np.any(self.select_inds > len(self.loss['pred']['IND'])):
-                inds = np.random.choice(np.arange(len(self.loss['pred']['IND'])), select_num, replace=False)
+            if not np.any(self.select_inds) or self.ind_range != len(self.loss['pred']['IND']):
+                self.ind_range = len(self.loss['pred']['IND'])
+                inds = np.random.choice(np.arange(self.ind_range), select_num, replace=False)
                 inds = np.sort(inds)
                 self.select_inds = inds
                 self.select_num = select_num
