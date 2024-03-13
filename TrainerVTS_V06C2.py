@@ -26,6 +26,8 @@ version = 'V06C2'
 # -------------------------------------------------------------------------- #
 ##############################################################################
 
+feature_length = 512 * 7 * 7
+
 
 class ImageEncoder(BasicImageEncoder):
     def __init__(self, *args, **kwargs):
@@ -116,7 +118,7 @@ class BBXDecoder(nn.Module):
         super(BBXDecoder, self).__init__()
 
         self.fc = nn.Sequential(
-            nn.Linear(512 * 7 * 7 + 2, 1024),
+            nn.Linear(feature_length, 1024),
             nn.ReLU(),
             nn.Linear(1024, 5)
         )
@@ -125,7 +127,7 @@ class BBXDecoder(nn.Module):
         return f"BBXDE{version}"
 
     def forward(self, x):
-        out = self.fc(x.view(-1, 512 * 7 * 7 + 2))
+        out = self.fc(x.view(-1, feature_length))
         bbx = out[..., :-1]
         depth = out[..., -1]
         return bbx, depth
@@ -156,14 +158,14 @@ class CSIEncoder(BasicCSIEncoder):
         )
 
         self.fc_mu = nn.Sequential(
-            nn.Linear(512 * 7 * 7 + 2, 1024),
+            nn.Linear(feature_length, 1024),
             nn.ReLU(),
             nn.Linear(1024, self.latent_dim)
             # nn.ReLU()
         )
 
         self.fc_logvar = nn.Sequential(
-            nn.Linear(512 * 7 * 7 + 2, 1024),
+            nn.Linear(feature_length, 1024),
             nn.ReLU(),
             nn.Linear(1024, self.latent_dim)
             # nn.ReLU()
@@ -188,11 +190,12 @@ class CSIEncoder(BasicCSIEncoder):
 
     def forward(self, csi, pd):
         features = self.cnn(csi)
-        features = torch.cat((features.view(-1, 512 * 7 * 7), pd.view(-1, 2)), -1)
+        # features = torch.cat((features.view(-1, 512 * 7 * 7), pd.view(-1, 2)), -1)
+        features = features.view(-1, feature_length)
         mu = self.fc_mu(features)
         logvar = self.fc_logvar(features)
         z = reparameterize(mu, logvar)
-        return features.view(-1, 512 * 7 * 7 + 2), z, mu, logvar
+        return features.view(-1, feature_length), z, mu, logvar
 
 
 class TeacherTrainer(BasicTrainer):
