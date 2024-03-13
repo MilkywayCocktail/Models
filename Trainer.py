@@ -177,13 +177,12 @@ class BasicTrainer:
             self.models[model].eval()
 
         EPOCH_LOSS = {loss: [] for loss in self.loss_terms}
+        self.loss.reset(('test', 'pred'), dataset=loader)
 
         if loader == 'test':
             loader = self.test_loader
         elif loader == 'train':
             loader = self.train_loader
-
-        self.loss.reset(('test', 'pred'), dataset=loader)
 
         for idx, data in enumerate(loader, 0):
             data_ = {}
