@@ -154,7 +154,7 @@ class MyLoss:
         filename = f"{self.name}_TRAIN@ep{self.epochs[-1]}.jpg"
         return fig, filename
 
-    def plot_test(self, title=None, plot_terms='all'):
+    def plot_test(self, title=None, train_basis=False, plot_terms='all'):
         self.__plot_settings__()
         if title:
             title = f"{title} @ep{self.epochs[-1]}"
@@ -183,6 +183,11 @@ class MyLoss:
             axes[i].set_xlabel('#Sample')
             axes[i].set_ylabel('Loss')
             axes[i].grid()
+            if train_basis:
+                axes[i].axhline(self.loss['train'][item][-1],
+                                linestyle='--',
+                                color='green',
+                                label='Training Loss')
             for j in range(self.select_num):
                 axes[i].scatter(self.select_inds[j], self.loss['test'][item][self.select_inds[j]],
                                 c='magenta', marker=(5, 1), linewidths=4)

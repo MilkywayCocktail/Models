@@ -177,7 +177,7 @@ class BasicTrainer:
             self.models[model].eval()
 
         EPOCH_LOSS = {loss: [] for loss in self.loss_terms}
-        self.loss.reset(('test', 'pred'), dataset=loader)
+        self.loss.reset('test', 'pred', dataset=loader)
 
         if loader == 'test':
             loader = self.test_loader
