@@ -12,8 +12,9 @@ These are MyLoss classes that can store and plot losses.\n
 
 
 class MyLoss:
-    def __init__(self, name, loss_terms, pred_terms):
+    def __init__(self, name, loss_terms, pred_terms, dataset='TRAIN'):
         self.name = name
+        self.dataset = dataset
         self.loss = {'train': {term: [] for term in loss_terms},
                      'valid': {term: [] for term in loss_terms},
                      'test': {term: [] for term in loss_terms},
@@ -153,7 +154,7 @@ class MyLoss:
         if title:
             title = f"{title} @ep{self.epochs[-1]}"
         else:
-            title = f"{self.name} Test Loss @ep{self.epochs[-1]}"
+            title = f"{self.name} Test Loss on {self.dataset} @ep{self.epochs[-1]}"
 
         if plot_terms == 'all':
             plot_terms = list(self.loss['test'].keys())
@@ -184,7 +185,7 @@ class MyLoss:
                                  (self.select_inds[j], self.loss['test'][item][self.select_inds[j]]),
                                  fontsize=20)
         plt.show()
-        filename = f"{self.name}_TEST@ep{self.epochs[-1]}.jpg"
+        filename = f"{self.name}_TEST_{self.dataset}SET@ep{self.epochs[-1]}.jpg"
         return fig, filename
 
     def plot_predict(self, plot_terms, title=None):
@@ -192,7 +193,7 @@ class MyLoss:
         if title:
             title = f"{title} @ep{self.epochs[-1]}"
         else:
-            title = f"{self.name} Image Predicts @ep{self.epochs[-1]}"
+            title = f"{self.name} Image Predicts on {self.dataset} @ep{self.epochs[-1]}"
         samples = np.array(self.loss['pred']['IND'])[self.select_inds]
 
         fig = plt.figure(constrained_layout=True)
@@ -208,7 +209,7 @@ class MyLoss:
                 axes[j].set_title(f"#{samples[j]}")
             subfigs[i].colorbar(img, ax=axes, shrink=0.8)
         plt.show()
-        filename = f"{self.name}_PRED@ep{self.epochs[-1]}.jpg"
+        filename = f"{self.name}_PRED_{self.dataset}SET@ep{self.epochs[-1]}.jpg"
         return fig, filename
 
     def plot_latent(self, plot_terms, title=None, ylim: tuple = (-1, 1)):
@@ -216,7 +217,7 @@ class MyLoss:
         if title:
             title = f"{title} @ep{self.epochs[-1]}"
         else:
-            title = f"{self.name} Latent Predicts @ep{self.epochs[-1]}"
+            title = f"{self.name} Latent Predicts on {self.dataset} @ep{self.epochs[-1]}"
         samples = np.array(self.loss['pred']['IND'])[self.select_inds]
         colors = ('blue', 'orange')
 
@@ -237,7 +238,7 @@ class MyLoss:
 
         axes[0].legend()
         plt.show()
-        filename = f"{self.name}_LAT@ep{self.epochs[-1]}.jpg"
+        filename = f"{self.name}_LAT_{self.dataset}SET@ep{self.epochs[-1]}.jpg"
         return fig, filename
 
     def plot_tsne(self, plot_terms, title=None):
@@ -246,7 +247,7 @@ class MyLoss:
         if title:
             title = f"{title} @ep{self.epochs[-1]}"
         else:
-            title = f"{self.name} T-SNE @ep{self.epochs[-1]}"
+            title = f"{self.name} T-SNE on {self.dataset} @ep{self.epochs[-1]}"
         samples = np.array(self.loss['pred']['IND'])[self.select_inds]
         tsne = {}
 
@@ -269,7 +270,7 @@ class MyLoss:
                                  fontsize=20)
 
         plt.show()
-        filename = f"{self.name}_TSNE@ep{self.epochs[-1]}.jpg"
+        filename = f"{self.name}_TSNE_{self.dataset}SET@ep{self.epochs[-1]}.jpg"
         return fig, filename
 
 
@@ -283,7 +284,7 @@ class MyLossBBX(MyLoss):
         if title:
             title = f"{title} @ep{self.epochs[-1]}"
         else:
-            title = f"{self.name} Bounding Box Predicts @ep{self.epochs[-1]}"
+            title = f"{self.name} Bounding Box Predicts on {self.dataset} @ep{self.epochs[-1]}"
         samples = np.array(self.loss['pred']['IND'])[self.select_inds]
 
         fig = plt.figure(constrained_layout=True)
@@ -316,5 +317,5 @@ class MyLossBBX(MyLoss):
 
         axes[0].legend()
         plt.show()
-        filename = f"{self.name}_BBX@ep{self.epochs[-1]}.jpg"
+        filename = f"{self.name}_BBX_{self.dataset}SET@ep{self.epochs[-1]}.jpg"
         return fig, filename
