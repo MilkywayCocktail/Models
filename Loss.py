@@ -81,6 +81,8 @@ class MyLoss:
         elif mode == 'pred':
             for key in losses.keys():
                 self.loss[mode][key].append(losses[key].cpu().detach().numpy().squeeze())
+        # for i in range(len(self.loss['pred']['IND'])):
+        #     self.loss['pred']['IND'][i] = self.loss['pred']['IND'][i].astype(int).tolist()
 
     def reset(self, *modes, dataset: str = 'TRAIN'):
         for mode in modes:
