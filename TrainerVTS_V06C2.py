@@ -114,12 +114,12 @@ class ImageDecoder(BasicImageDecoder):
 class BBXDecoder(nn.Module):
     name = 'bbxde'
 
-    def __init__(self, batchnorm=None):
+    def __init__(self):
         super(BBXDecoder, self).__init__()
 
         self.fc = nn.Sequential(
             nn.Linear(feature_length, 1024),
-            batchnorm_layer(1024, batchnorm),
+            nn.BatchNorm1d(1024),
             nn.ReLU(),
             nn.Linear(1024, 5)
         )
@@ -314,7 +314,7 @@ class StudentTrainer(BasicTrainer):
             t_image = self.models['imgde'](t_z)
             image_loss = self.recon_lossfunc(s_image, img)
 
-        bbx_loss = self.bbx_loss(s_bbx, torch.squeeze(data['bbx']))
+        bbx_loss = self.bbx_loss(s_bbx, data['bbx'])
         depth_loss = self.depth_loss(s_depth, data['dpt'])
         latent_loss, mu_loss, logvar_loss = self.kd_loss(s_mu, s_logvar, t_mu, t_logvar)
 
