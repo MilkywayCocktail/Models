@@ -314,8 +314,8 @@ class StudentTrainer(BasicTrainer):
             t_image = self.models['imgde'](t_z)
             image_loss = self.recon_lossfunc(s_image, img)
 
-        bbx_loss = self.bbx_loss(s_bbx, data['bbx'])
-        depth_loss = self.depth_loss(s_depth, data['dpt'])
+        bbx_loss = self.bbx_loss(s_bbx, torch.squeeze(data['bbx']))
+        depth_loss = self.depth_loss(s_depth, torch.squeeze(data['dpt']))
         latent_loss, mu_loss, logvar_loss = self.kd_loss(s_mu, s_logvar, t_mu, t_logvar)
 
         loss = image_loss * self.img_weight + \
