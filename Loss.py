@@ -42,7 +42,8 @@ class MyLoss:
         mpl.rcParams['axes.labelsize'] = 30
         mpl.rcParams['xtick.labelsize'] = 20
         mpl.rcParams['ytick.labelsize'] = 20
-        plt.figure()
+        fig = plt.figure(constrained_layout=True)
+        return fig
 
     @staticmethod
     def colors(arrays):
@@ -208,7 +209,7 @@ class MyLoss:
             axes[i].plot(bin_edges[1:], cdf, '-*', color='orange')
             axes[i].set_ylim([0, 1])
             axes[i].set_title(item)
-            axes[i].set_xlabel('%Sample')
+            axes[i].set_xlabel('Per-sample Loss')
             axes[i].set_ylabel('Frequency')
             axes[i].grid()
 
@@ -217,14 +218,13 @@ class MyLoss:
         return fig, filename
 
     def plot_predict(self, plot_terms, title=None):
-        self.__plot_settings__()
+        fig = self.__plot_settings__()
         if title:
             title = f"{title} @ep{self.epochs[-1]}"
         else:
             title = f"{self.name} Image Predicts on {self.dataset} @ep{self.epochs[-1]}"
         samples = np.array(self.loss['pred']['IND'])[self.select_inds]
 
-        fig = plt.figure(constrained_layout=True)
         fig.suptitle(title)
         subfigs = fig.subfigures(nrows=len(plot_terms), ncols=1)
 
