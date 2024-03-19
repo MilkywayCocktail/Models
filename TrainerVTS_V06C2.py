@@ -350,7 +350,7 @@ class StudentTrainer(BasicTrainer):
         figs.append(self.loss.plot_bbx())
         figs.append(self.loss.plot_test(plot_terms='all'))
         figs.append(self.loss.plot_test_cdf(plot_terms='all'))
-        figs.append(self.loss.plot_tsne(plot_terms=('GT', 'T_LATENT', 'S_LATENT')))
+        #figs.append(self.loss.plot_tsne(plot_terms=('GT', 'T_LATENT', 'S_LATENT')))
 
         if autosave:
             if not os.path.exists(save_path):
