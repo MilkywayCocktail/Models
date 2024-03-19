@@ -101,7 +101,7 @@ class MyLoss:
         else:
             if not np.any(self.select_inds) or self.ind_range != len(self.loss['pred']['IND']):
                 self.ind_range = len(self.loss['pred']['IND'])
-                inds = np.random.choice(np.arange(self.ind_range), select_num, replace=False)
+                inds = np.random.choice(np.arange(self.ind_range).astype(int), select_num, replace=False)
                 inds = np.sort(inds)
                 self.select_inds = inds
                 self.select_num = select_num
@@ -148,7 +148,7 @@ class MyLoss:
             ax_r.plot(
                       self.loss['train'][loss],
                       line_color[0], label='Train')
-            axes[i].set_title(loss)
+            axes[i].set_title(loss, fontweight="bold")
             axes[i].set_xlabel('#Epoch')
             axes[i].set_ylabel('Loss')
             axes[i].grid()
@@ -208,7 +208,7 @@ class MyLoss:
             axes[i].bar(bin_edges[1:], hist / max(hist), width=width, color='blue')
             axes[i].plot(bin_edges[1:], cdf, '-*', color='orange')
             axes[i].set_ylim([0, 1])
-            axes[i].set_title(item)
+            axes[i].set_title(item, fontweight="bold")
             axes[i].set_xlabel('Per-sample Loss')
             axes[i].set_ylabel('Frequency')
             axes[i].grid()
@@ -234,7 +234,7 @@ class MyLoss:
             for j in range(len(axes)):
                 img = axes[j].imshow(self.loss['pred'][item][self.select_inds[j]], vmin=0, vmax=1)
                 axes[j].axis('off')
-                axes[j].set_title(f"#{samples[j]}")
+                axes[j].set_title(f"#{samples[j]}", fontweight="bold")
             subfigs[i].colorbar(img, ax=axes, shrink=0.8)
         plt.show()
         filename = f"{self.name}_PRED_{self.dataset}SET@ep{self.epochs[-1]}.jpg"
@@ -261,7 +261,7 @@ class MyLoss:
             if ylim:
                 axes[j].set_ylim(*ylim)
 
-            axes[j].set_title(f"#{samples[j]}")
+            axes[j].set_title(f"#{samples[j]}", fontweight="bold")
             axes[j].grid()
 
         axes[0].legend()
@@ -288,7 +288,7 @@ class MyLoss:
         fig.suptitle(title)
         axes = fig.subplots(nrows=1, ncols=len(plot_terms))
         for i, item in enumerate(plot_terms):
-            axes[i].set_title(item)
+            axes[i].set_title(item, fontweight="bold")
             axes[i].scatter(tsne[item][:, 0], tsne[item][:, 1],  alpha=0.6)
             for j in range(self.select_num):
                 axes[i].scatter(tsne[item][self.select_inds[j], 0], tsne[item][self.select_inds[j], 1],
@@ -322,6 +322,7 @@ class MyLossBBX(MyLoss):
         for j in range(self.select_num):
             axes[j].set_xlim([0, 226])
             axes[j].set_ylim([0, 128])
+            axes[j].set_title(f"#{samples[j]}", fontweight="bold")
             x, y, w, h = self.loss['pred']['GT_BBX'][self.select_inds[j]]
             axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='blue', fill=False, lw=4, label='GroundTruth'))
             if self.depth:
@@ -341,7 +342,6 @@ class MyLossBBX(MyLoss):
             axes[j].axis('off')
             axes[j].add_patch(plt.Rectangle((0, 0), 226, 128, facecolor="#eafff5",
                                             transform=axes[j].transAxes, zorder=-1))
-            axes[j].set_title(f"#{samples[j]}")
 
         axes[0].legend()
         plt.show()
