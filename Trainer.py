@@ -174,6 +174,8 @@ class BasicTrainer:
 
     @timer
     def test(self, test_module=None, loader: str = 'test', **kwargs):
+        if 'ind' not in self.modality:
+            self.modality.add('ind')
         if not test_module:
             test_module = list(self.models.keys())
         for model in test_module:
