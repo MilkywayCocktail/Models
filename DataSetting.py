@@ -425,7 +425,7 @@ class MyDatasetV2(MyDataset):
         :return: loaded dataset
         """
         print(f"{self.name} loading...")
-        result = {}
+        result = set()
         count = 0
         for key, value in self.paths.items():
             if value:
