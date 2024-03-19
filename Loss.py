@@ -42,6 +42,7 @@ class MyLoss:
         mpl.rcParams['axes.labelsize'] = 30
         mpl.rcParams['xtick.labelsize'] = 20
         mpl.rcParams['ytick.labelsize'] = 20
+        plt.figure()
 
     @staticmethod
     def colors(arrays):
@@ -205,7 +206,7 @@ class MyLoss:
 
             axes[i].bar(bin_edges[1:], hist / max(hist), width=width, color='blue')
             axes[i].plot(bin_edges[1:], cdf, '-*', color='orange')
-            axes[i].ylim([0, 1])
+            axes[i].set_ylim([0, 1])
             axes[i].set_title(item)
             axes[i].set_xlabel('%Sample')
             axes[i].set_ylabel('Frequency')
