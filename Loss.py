@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 from matplotlib.patches import Rectangle
 from matplotlib import cm
 from sklearn.manifold import TSNE
@@ -34,13 +35,13 @@ class MyLoss:
         Prepares plot configurations.
         :return: plt args
         """
-        plt.rcParams['figure.figsize'] = (20, 10)
-        plt.rcParams["figure.titlesize"] = 35
-        plt.rcParams['lines.markersize'] = 10
-        plt.rcParams['axes.titlesize'] = 30
-        plt.rcParams['axes.labelsize'] = 30
-        plt.rcParams['xtick.labelsize'] = 20
-        plt.rcParams['ytick.labelsize'] = 20
+        mpl.rcParams['figure.figsize'] = (20, 10)
+        mpl.rcParams["figure.titlesize"] = 35
+        mpl.rcParams['lines.markersize'] = 10
+        mpl.rcParams['axes.titlesize'] = 30
+        mpl.rcParams['axes.labelsize'] = 30
+        mpl.rcParams['xtick.labelsize'] = 20
+        mpl.rcParams['ytick.labelsize'] = 20
 
     @staticmethod
     def colors(arrays):
@@ -168,7 +169,7 @@ class MyLoss:
         fig.suptitle(title)
         plt.yscale('log', base=2)
         for i, item in enumerate(plot_terms):
-            plt.boxplot(self.loss['test'][item], labels=item, positions=i+1, vert=True, showmeans=True,
+            plt.boxplot(self.loss['test'][item], labels=[item], positions=i+1, vert=True, showmeans=True,
                         patch_artist=True,
                         boxprops={'facecolor': 'lightgreen'})
 
