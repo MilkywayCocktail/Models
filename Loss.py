@@ -169,7 +169,7 @@ class MyLoss:
         fig.suptitle(title)
         plt.yscale('log', base=2)
         for i, item in enumerate(plot_terms):
-            plt.boxplot([self.loss['test'][item]], labels=[item], positions=i+1, vert=True, showmeans=True,
+            plt.boxplot([self.loss['test'][item]], labels=[item], positions=[i+1], vert=True, showmeans=True,
                         patch_artist=True,
                         boxprops={'facecolor': 'lightgreen'})
 
