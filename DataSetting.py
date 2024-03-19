@@ -398,7 +398,7 @@ class MyDatasetV2(MyDataset):
 
         self.bbx_ver = bbx_ver
         self.paths = paths
-        self.modality = {}
+        self.modality = set()
 
     def adjust_bbx(self):
         if self.bbx_ver == 'xyxy':
@@ -425,11 +425,11 @@ class MyDatasetV2(MyDataset):
         :return: loaded dataset
         """
         print(f"{self.name} loading...")
-        result = set()
+        result = {}
         count = 0
         for key, value in self.paths.items():
             if value:
-                self.modality.update({key})
+                self.modality.add(key)
                 item = np.load(value, mmap_mode=self.mmap_mode)
                 result[key] = item
                 count = item.shape[0]
