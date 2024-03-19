@@ -154,7 +154,7 @@ class MyLoss:
         filename = f"{self.name}_TRAIN@ep{self.epochs[-1]}.jpg"
         return fig, filename
 
-    def plot_test(self, title=None, train_basis=False, plot_terms='all'):
+    def plot_test(self, title=None, plot_terms='all'):
         self.__plot_settings__()
         if title:
             title = f"{title} @ep{self.epochs[-1]}"
@@ -163,39 +163,55 @@ class MyLoss:
 
         if plot_terms == 'all':
             plot_terms = list(self.loss['test'].keys())
-        samples = np.array(self.loss['pred']['IND'])[self.select_inds]
+
+        fig = plt.figure(constrained_layout=True)
+        fig.suptitle(title)
+        plt.yscale('log', base=2)
+        for i, item in enumerate(plot_terms):
+            plt.boxplot(self.loss['test'][item], labels=item, positions=i+1, vert=True, showmeans=True,
+                        patch_artist=True,
+                        boxprops={'facecolor': 'lightgreen'})
+
+        plt.show()
+        filename = f"{self.name}_TEST_{self.dataset}SET@ep{self.epochs[-1]}.jpg"
+        return fig, filename
+
+    def plot_test_cdf(self, title=None, plot_terms='all'):
+        self.__plot_settings__()
+        if title:
+            title = f"{title} @ep{self.epochs[-1]}"
+        else:
+            title = f"{self.name} Test PDF-CDF on {self.dataset} @ep{self.epochs[-1]}"
+
+        if plot_terms == 'all':
+            plot_terms = list(self.loss['test'].keys())
 
         fig = plt.figure(constrained_layout=True)
         fig.suptitle(title)
         if len(plot_terms) == 1:
             axes = [plt.gca()]
         elif len(plot_terms) > 3:
-            axes = fig.subplots(2, np.ceil(len(plot_terms)/2).astype(int))
+            axes = fig.subplots(2, np.ceil(len(plot_terms) / 2).astype(int))
             axes = axes.flatten()
         else:
             axes = fig.subplots(1, len(plot_terms))
             axes = axes.flatten()
 
         for i, item in enumerate(plot_terms):
-            axes[i].scatter(list(range(len(self.loss['test'][item]))),
-                            self.loss['test'][item], alpha=0.6)
+            hist, bin_edges = np.histogram(self.loss['test'][item])
+            width = (bin_edges[1] - bin_edges[0]) * 0.8
+            cdf = np.cumsum(hist / sum(hist))
+
+            axes[i].bar(bin_edges[1:], hist / max(hist), width=width, color='blue')
+            axes[i].plot(bin_edges[1:], cdf, '-*', color='orange')
+            axes[i].ylim([0, 1])
             axes[i].set_title(item)
-            axes[i].set_xlabel('#Sample')
-            axes[i].set_ylabel('Loss')
+            axes[i].set_xlabel('%Sample')
+            axes[i].set_ylabel('Frequency')
             axes[i].grid()
-            if train_basis:
-                axes[i].axhline(self.loss['train'][item][-1],
-                                linestyle='--',
-                                color='green',
-                                label='Training Loss')
-            for j in range(self.select_num):
-                axes[i].scatter(self.select_inds[j], self.loss['test'][item][self.select_inds[j]],
-                                c='magenta', marker=(5, 1), linewidths=4)
-                axes[i].annotate(str(samples[j]),
-                                 (self.select_inds[j], self.loss['test'][item][self.select_inds[j]]),
-                                 fontsize=20)
+
         plt.show()
-        filename = f"{self.name}_TEST_{self.dataset}SET@ep{self.epochs[-1]}.jpg"
+        filename = f"{self.name}_PDF_{self.dataset}SET@ep{self.epochs[-1]}.jpg"
         return fig, filename
 
     def plot_predict(self, plot_terms, title=None):

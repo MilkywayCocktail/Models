@@ -398,6 +398,7 @@ class MyDatasetV2(MyDataset):
 
         self.bbx_ver = bbx_ver
         self.paths = paths
+        self.modality = {}
 
     def adjust_bbx(self):
         if self.bbx_ver == 'xyxy':
@@ -408,12 +409,12 @@ class MyDatasetV2(MyDataset):
             self.data['bbx'] = _bbx
 
     def __getitem__(self, index):
-        return {'csi': self.data['csi'][index],
-                'img': self.__transform__(self.data['img'][index]),
-                'pd': self.data['pd'][index],
-                'bbx': self.data['bbx'][index],
-                'dpt': self.data['dpt'][index],
-                'ind': index}
+        ret = {key: self.__transform__(value[index]) if key == 'img' else value[index]
+               for key, value in self.data.items()
+               }
+        ret['ind'] = index
+
+        return ret
 
     def __len__(self):
         return self.data['csi'].shape[0]
@@ -428,12 +429,12 @@ class MyDatasetV2(MyDataset):
         count = 0
         for key, value in self.paths.items():
             if value:
+                self.modality.update({key})
                 item = np.load(value, mmap_mode=self.mmap_mode)
                 result[key] = item
                 count = item.shape[0]
                 print(f"loaded {key} of {item.shape} as {item.dtype}")
             else:
-                result[key] = None
                 print(f"skipping {key}")
 
         if self.number != 0:

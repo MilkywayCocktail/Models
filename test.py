@@ -19,10 +19,12 @@ s = samples[inds]
 #print(s)
 #print(a1[inds[np.argsort(s)]])
 
-arrr = 0.3,
 
-print(type(arrr))
-fig = plt.figure()
-ax = plt.gca()
-ax.set_facecolor("#eafff5")
-plt.show()
+mat = np.array([[0, 2, 0],
+               [2, 0, 2],
+               [0, 2, 0]])
+
+non_zero = (mat != 0)
+print(non_zero)
+avg = np.sum(mat) / np.sum(non_zero)
+print(avg)
