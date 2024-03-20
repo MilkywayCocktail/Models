@@ -119,7 +119,7 @@ class BBXDecoder(nn.Module):
 
         self.fc = nn.Sequential(
             nn.Linear(feature_length, 1024),
-            nn.BatchNorm1d(1024),
+            # nn.BatchNorm1d(1024),
             nn.ReLU(),
             nn.Linear(1024, 5)
         )
