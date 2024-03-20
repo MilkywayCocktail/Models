@@ -248,7 +248,7 @@ class TeacherTrainer(BasicTrainer):
 
         figs.append(self.loss.plot_predict(plot_terms=('GT', 'PRED')))
         figs.append(self.loss.plot_latent(plot_terms={'LAT'}))
-        figs.append(self.loss.plot_test(plot_terms='all'))
+        # figs.append(self.loss.plot_test(plot_terms='all'))
         # figs.append(self.loss.plot_tsne(plot_terms=('GT', 'LAT', 'PRED')))
 
         if autosave:

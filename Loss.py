@@ -274,7 +274,7 @@ class MyLoss:
             if ylim:
                 axes[j].set_ylim(*ylim)
 
-            axes[j].set_title(f"#{samples[j]}", fontweight="bold")
+            axes[j].set_title(f"#{samples[j].astype(int)}", fontweight="bold")
             axes[j].grid()
 
         axes[0].legend()
