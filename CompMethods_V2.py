@@ -368,11 +368,12 @@ class CompTrainer(BasicTrainer):
 
         figs.append(self.loss.plot_predict(plot_terms=('GT', 'PRED')))
         figs.append(self.loss.plot_test(plot_terms='all'))
+        figs.append(self.loss.plot_test_cdf(plot_terms='all'))
         if self.mode in ('ae', 'vae', 'ae_t'):
             figs.append(self.loss.plot_latent(plot_terms={'LAT'}))
-            figs.append(self.loss.plot_tsne(plot_terms=('GT', 'LAT', 'PRED')))
-        else:
-            figs.append(self.loss.plot_tsne(plot_terms=('GT', 'PRED')))
+            # figs.append(self.loss.plot_tsne(plot_terms=('GT', 'LAT', 'PRED')))
+        # else:
+            # figs.append(self.loss.plot_tsne(plot_terms=('GT', 'PRED')))
 
         if autosave:
             if not os.path.exists(save_path):
@@ -427,7 +428,8 @@ class CompTrainerAEStudent(BasicTrainer):
         figs.append(self.loss.plot_predict(plot_terms=('GT', 'T_PRED', 'S_PRED')))
         figs.append(self.loss.plot_latent(plot_terms=('T_LATENT', 'S_LATENT')))
         figs.append(self.loss.plot_test(plot_terms='all'))
-        figs.append(self.loss.plot_tsne(plot_terms=('GT', 'T_LATENT', 'S_LATENT')))
+        figs.append(self.loss.plot_test_cdf(plot_terms='all'))
+        # figs.append(self.loss.plot_tsne(plot_terms=('GT', 'T_LATENT', 'S_LATENT')))
 
         if autosave:
             if not os.path.exists(save_path):

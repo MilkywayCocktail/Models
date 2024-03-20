@@ -97,14 +97,11 @@ class MyLoss:
         self.dataset = dataset.upper()
 
     def save(self, save_term: str = 'test', notion=None):
-        assert save_term in ('train', 'test', 'pred')
         save_path = f"../saved/{notion}/"
-        for term in save_term:
-            print(f"Saving {term} including {' '.join([key for key in self.loss[term].keys()])}...", end='')
-            for key, value in self.loss[term].items():
-                np.save(f"{save_path}{term}_{key}.npy", value)
-            print('Done')
-        print("All saved!")
+        print(f"Saving {save_term} including {' '.join([key for key in self.loss[save_term].keys()])}...", end='')
+        for key, value in self.loss[save_term].items():
+            np.save(f"{save_path}{self.name}_{save_term}_{key}.npy", value)
+        print('Done')
 
     def generate_indices(self, select_ind: list = None, select_num=8):
         if select_ind:
@@ -326,7 +323,7 @@ class MyLossBBX(MyLoss):
             title = f"{title} @ep{self.epochs[-1]}"
         else:
             title = f"{self.name} Bounding Box Predicts on {self.dataset} @ep{self.epochs[-1]}"
-        samples = np.array(self.loss['pred']['IND'])[self.select_inds]
+        samples = np.array(self.loss['pred']['IND']).astype(int)[self.select_inds]
 
         fig = plt.figure(constrained_layout=True)
         fig.suptitle(title)
