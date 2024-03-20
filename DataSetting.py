@@ -53,7 +53,7 @@ class MyDataset(Data.Dataset):
         :return: transformed image (tensor if transformed; ndarray if not transformed)
         """
         if self.transform:
-            return self.transform(torch.Tensor(self.__convert__(sample)))
+            return self.transform(self.__convert__(sample))
         else:
             return self.__convert__(sample)
 
