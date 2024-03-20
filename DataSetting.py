@@ -41,10 +41,8 @@ class MyDataset(Data.Dataset):
         :param sample: image (ndarray by default)
         :return: converted image
         """
-        if self.int_img:
-            return np.uint8(np.asarray(sample) * 255)
-        else:
-            return sample
+
+        return np.uint8(np.asarray(sample) * 255)
 
     def __transform__(self, sample):
         """
@@ -53,9 +51,9 @@ class MyDataset(Data.Dataset):
         :return: transformed image (tensor if transformed; ndarray if not transformed)
         """
         if self.transform:
-            return self.transform(self.__convert__(sample))
+            return self.transform(Image.fromarray(self.__convert__(sample)))
         else:
-            return self.__convert__(sample)
+            return sample
 
     def __getitem__(self, index):
         """
