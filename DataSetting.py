@@ -42,7 +42,7 @@ class MyDataset(Data.Dataset):
         :return: converted image
         """
 
-        return np.uint8(np.asarray(sample) * 255)
+        return np.squeeze(np.uint8(np.asarray(sample) * 255))
 
     def __transform__(self, sample):
         """
