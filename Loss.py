@@ -5,6 +5,7 @@ import matplotlib as mpl
 from matplotlib.patches import Rectangle
 from matplotlib import cm
 from sklearn.manifold import TSNE
+import os
 
 """
 These definitions are not for loss functions.\n
@@ -95,13 +96,23 @@ class MyLoss:
                 self.loss[mode] = {term: [] for term in self.pred_terms}
         self.dataset = dataset.upper()
 
+    def save(self, save_term: str = 'test', notion=None):
+        assert save_term in ('train', 'test', 'pred')
+        save_path = f"../saved/{notion}/"
+        for term in save_term:
+            print(f"Saving {term} including {' '.join([key for key in self.loss[term].keys()])}...", end='')
+            for key, value in self.loss[term].items():
+                np.save(f"{save_path}{term}_{key}.npy", value)
+            print('Done')
+        print("All saved!")
+
     def generate_indices(self, select_ind: list = None, select_num=8):
         if select_ind:
             self.select_inds = np.array(select_ind)
         else:
             if not np.any(self.select_inds) or self.ind_range != len(self.loss['pred']['IND']):
                 self.ind_range = len(self.loss['pred']['IND'])
-                inds = np.random.choice(np.arange(self.ind_range).astype(int), select_num, replace=False)
+                inds = np.random.choice(np.arange(self.ind_range), select_num, replace=False).astype(int)
                 inds = np.sort(inds)
                 self.select_inds = inds
                 self.select_num = select_num
@@ -170,6 +181,8 @@ class MyLoss:
         fig = plt.figure(constrained_layout=True)
         fig.suptitle(title)
         plt.yscale('log', base=2)
+        plt.ylim([2 ** -18, 2])
+        plt.axhline(1, linestyle='--', color='lightgreen', label='1.0')
         for i, item in enumerate(plot_terms):
             plt.boxplot([self.loss['test'][item]], labels=[item], positions=[i+1], vert=True, showmeans=True,
                         patch_artist=True,
@@ -223,7 +236,7 @@ class MyLoss:
             title = f"{title} @ep{self.epochs[-1]}"
         else:
             title = f"{self.name} Image Predicts on {self.dataset} @ep{self.epochs[-1]}"
-        samples = np.array(self.loss['pred']['IND'])[self.select_inds]
+        samples = np.array(self.loss['pred']['IND']).astype(int)[self.select_inds]
 
         fig.suptitle(title)
         subfigs = fig.subfigures(nrows=len(plot_terms), ncols=1)

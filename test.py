@@ -19,12 +19,4 @@ s = samples[inds]
 #print(s)
 #print(a1[inds[np.argsort(s)]])
 
-
-mat = np.array([[0, 2, 0],
-               [2, 0, 2],
-               [0, 2, 0]])
-
-non_zero = (mat != 0)
-print(non_zero)
-avg = np.sum(mat) / np.sum(non_zero)
-print(avg)
+print(2 ** -18)
