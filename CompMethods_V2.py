@@ -285,8 +285,13 @@ class CSIEncoder(BasicCSIEncoder):
     def forward(self, x):
         out = self.cnn(x)
         out = self.fclayers(out.view(-1, 512 * 7 * 7))
-        # either z or bbx
-        return out
+        if self.out_length == 2 * self.latent_dim:
+            mu, logvar = out.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
+            z = reparameterize(mu, logvar)
+            return z, mu, logvar
+        else:
+            bbx = out.view(-1, self.out_length)
+            return bbx
 
 
 class CompTrainer(BasicTrainer):
