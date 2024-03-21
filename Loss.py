@@ -36,6 +36,7 @@ class MyLoss:
         Prepares plot configurations.
         :return: plt args
         """
+        _ = plt.figure()
         mpl.rcParams['figure.figsize'] = (20, 10)
         mpl.rcParams["figure.titlesize"] = 35
         mpl.rcParams['lines.markersize'] = 10
@@ -115,7 +116,6 @@ class MyLoss:
                 self.select_num = select_num
 
     def plot_train(self, title=None, plot_terms='all', double_y=False):
-        self.__plot_settings__()
         stage_color = self.colors(self.lr)
         line_color = ['b', 'orange']
 
@@ -127,7 +127,7 @@ class MyLoss:
         if plot_terms == 'all':
             plot_terms = list(self.loss['train'].keys())
 
-        fig = plt.figure(constrained_layout=True)
+        fig = self.__plot_settings__()
         fig.suptitle(title)
 
         if len(plot_terms) == 1:
@@ -166,7 +166,6 @@ class MyLoss:
         return fig, filename
 
     def plot_test(self, title=None, plot_terms='all'):
-        self.__plot_settings__()
         if title:
             title = f"{title} @ep{self.epochs[-1]}"
         else:
@@ -175,7 +174,7 @@ class MyLoss:
         if plot_terms == 'all':
             plot_terms = list(self.loss['test'].keys())
 
-        fig = plt.figure(constrained_layout=True)
+        fig = self.__plot_settings__()
         fig.suptitle(title)
         plt.yscale('log', base=2)
         plt.ylim([2 ** -18, 2])
@@ -190,7 +189,6 @@ class MyLoss:
         return fig, filename
 
     def plot_test_cdf(self, title=None, plot_terms='all'):
-        self.__plot_settings__()
         if title:
             title = f"{title} @ep{self.epochs[-1]}"
         else:
@@ -199,7 +197,7 @@ class MyLoss:
         if plot_terms == 'all':
             plot_terms = list(self.loss['test'].keys())
 
-        fig = plt.figure(constrained_layout=True)
+        fig = self.__plot_settings__()
         fig.suptitle(title)
         if len(plot_terms) == 1:
             axes = [plt.gca()]
@@ -228,13 +226,13 @@ class MyLoss:
         return fig, filename
 
     def plot_predict(self, plot_terms, title=None):
-        fig = self.__plot_settings__()
         if title:
             title = f"{title} @ep{self.epochs[-1]}"
         else:
             title = f"{self.name} Image Predicts on {self.dataset} @ep{self.epochs[-1]}"
         samples = np.array(self.loss['pred']['IND']).astype(int)[self.select_inds]
 
+        fig = self.__plot_settings__()
         fig.suptitle(title)
         subfigs = fig.subfigures(nrows=len(plot_terms), ncols=1)
 
@@ -251,7 +249,6 @@ class MyLoss:
         return fig, filename
 
     def plot_latent(self, plot_terms, title=None, ylim: tuple = (-1, 1)):
-        self.__plot_settings__()
         if title:
             title = f"{title} @ep{self.epochs[-1]}"
         else:
@@ -259,7 +256,7 @@ class MyLoss:
         samples = np.array(self.loss['pred']['IND']).astype(int)[self.select_inds]
         colors = ('blue', 'orange')
 
-        fig = plt.figure(constrained_layout=True)
+        fig = self.__plot_settings__()
         fig.suptitle(title)
         axes = fig.subplots(nrows=2, ncols=np.ceil(self.select_num / 2).astype(int))
         axes = axes.flatten()
@@ -280,7 +277,6 @@ class MyLoss:
         return fig, filename
 
     def plot_tsne(self, plot_terms, title=None):
-        self.__plot_settings__()
         # plt.style.use('dark_background')
         if title:
             title = f"{title} @ep{self.epochs[-1]}"
@@ -294,7 +290,7 @@ class MyLoss:
             tsne[item] = TSNE(n_components=2, random_state=33).fit_transform(
                 np.array(self.loss['pred'][item]).reshape(unit_shape[0], -1))
 
-        fig = plt.figure(constrained_layout=True)
+        fig = self.__plot_settings__()
         fig.suptitle(title)
         axes = fig.subplots(nrows=1, ncols=len(plot_terms))
         for i, item in enumerate(plot_terms):
@@ -318,14 +314,13 @@ class MyLossBBX(MyLoss):
         self.depth = depth
 
     def plot_bbx(self, title=None):
-        self.__plot_settings__()
         if title:
             title = f"{title} @ep{self.epochs[-1]}"
         else:
             title = f"{self.name} Bounding Box Predicts on {self.dataset} @ep{self.epochs[-1]}"
         samples = np.array(self.loss['pred']['IND']).astype(int)[self.select_inds]
 
-        fig = plt.figure(constrained_layout=True)
+        fig = self.__plot_settings__()
         fig.suptitle(title)
         axes = fig.subplots(nrows=2, ncols=np.ceil(self.select_num / 2).astype(int))
         axes = axes.flatten()
