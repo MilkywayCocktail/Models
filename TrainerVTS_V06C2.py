@@ -121,7 +121,8 @@ class BBXDecoder(nn.Module):
             nn.Linear(feature_length, 1024),
             # nn.BatchNorm1d(1024),
             nn.ReLU(),
-            nn.Linear(1024, 5)
+            nn.Linear(1024, 5),
+            nn.ReLU()
         )
 
     def __str__(self):
