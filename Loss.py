@@ -99,9 +99,8 @@ class MyLoss:
 
     def save(self, save_term: str = 'test', notion=None):
         save_path = f"../saved/{notion}/"
-        print(f"Saving {save_term} including {' '.join([key for key in self.loss[save_term].keys()])}...", end='')
-        for key, value in self.loss[save_term].items():
-            np.save(f"{save_path}{self.name}_{save_term}_{key}.npy", value)
+        print(f"Saving {save_term} including {', '.join([key for key in self.loss[save_term].keys()])}...", end='')
+        np.save(f"{save_path}{self.name}_{save_term}.npy", self.loss[save_term])
         print('Done')
 
     def generate_indices(self, select_ind: list = None, select_num=8):
@@ -352,3 +351,4 @@ class MyLossBBX(MyLoss):
         plt.show()
         filename = f"{self.name}_BBX_{self.dataset}SET@ep{self.epochs[-1]}.jpg"
         return fig, filename
+
