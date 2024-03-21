@@ -410,7 +410,6 @@ class MyDatasetV2(MyDataset):
         ret = {key: self.__transform__(value[index]) if key == 'img' else value[index]
                for key, value in self.data.items()
                }
-        ret['ind'] = index
 
         return ret
 
