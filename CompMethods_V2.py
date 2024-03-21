@@ -306,7 +306,7 @@ class CompTrainer(BasicTrainer):
         self.mask = mask
         self.beta = kwargs['beta'] if 'beta' in kwargs.keys() else 1
         self.modality = {'csi', 'img'}
-        self.recon_lossfunc = nn.BCELoss(reduction='sum') if self.mask else nn.MSELoss(reduction='sum')
+        self.recon_lossfunc = nn.BCELoss() if self.mask else nn.MSELoss()
 
         self.loss_terms = {'LOSS'}
         self.pred_terms = ('GT', 'PRED', 'IND') if mode == 'wi2vi' else ('GT', 'PRED', 'LAT', 'IND')
