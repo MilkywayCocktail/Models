@@ -256,7 +256,7 @@ class MyLoss:
             title = f"{title} @ep{self.epochs[-1]}"
         else:
             title = f"{self.name} Latent Predicts on {self.dataset} @ep{self.epochs[-1]}"
-        samples = np.array(self.loss['pred']['IND'])[self.select_inds]
+        samples = np.array(self.loss['pred']['IND']).astype(int)[self.select_inds]
         colors = ('blue', 'orange')
 
         fig = plt.figure(constrained_layout=True)
@@ -271,7 +271,7 @@ class MyLoss:
             if ylim:
                 axes[j].set_ylim(*ylim)
 
-            axes[j].set_title(f"#{samples[j].astype(int)}", fontweight="bold")
+            axes[j].set_title(f"#{samples[j]}", fontweight="bold")
             axes[j].grid()
 
         axes[0].legend()
@@ -286,7 +286,7 @@ class MyLoss:
             title = f"{title} @ep{self.epochs[-1]}"
         else:
             title = f"{self.name} T-SNE on {self.dataset} @ep{self.epochs[-1]}"
-        samples = np.array(self.loss['pred']['IND'])[self.select_inds]
+        samples = np.array(self.loss['pred']['IND']).astype(int)[self.select_inds]
         tsne = {}
 
         for item in plot_terms:
