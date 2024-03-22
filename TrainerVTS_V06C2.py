@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.init as init
 from torchvision.ops import complete_box_iou_loss
 import numpy as np
 import matplotlib.pyplot as plt
@@ -134,6 +135,10 @@ class BBXDecoder(nn.Module):
             nn.Linear(128, 1),
             nn.Sigmoid()
         )
+
+        init.kaiming_uniform_(self.fc.weight, mode='fan_in', nonlinearity='relu')
+        init.kaiming_uniform_(self.fc_bbx.weight, mode='fan_in', nonlinearity='relu')
+        init.xavier_normal_(self.fc_dpt.weight)
 
     def __str__(self):
         return f"BBXDE{version}"
