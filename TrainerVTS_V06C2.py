@@ -121,7 +121,17 @@ class BBXDecoder(nn.Module):
             nn.Linear(feature_length, 1024),
             # nn.BatchNorm1d(1024),
             nn.ReLU(),
-            nn.Linear(1024, 5),
+            nn.Linear(1024, 128),
+            nn.ReLU(),
+        )
+
+        self.fc_bbx = nn.Sequential(
+            nn.Linear(128, 4),
+            nn.ReLU()
+        )
+
+        self.fc_dpt = nn.Sequential(
+            nn.Linear(128, 1),
             nn.Sigmoid()
         )
 
@@ -130,8 +140,8 @@ class BBXDecoder(nn.Module):
 
     def forward(self, x):
         out = self.fc(x.view(-1, feature_length))
-        bbx = out[..., :-1]
-        depth = out[..., -1]
+        bbx = self.fc_bbx(out)
+        depth = self.fc_dpt(out)
         return bbx, depth
 
 
