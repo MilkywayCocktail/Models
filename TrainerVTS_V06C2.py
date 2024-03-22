@@ -136,9 +136,8 @@ class BBXDecoder(nn.Module):
             nn.Sigmoid()
         )
 
-        init.kaiming_uniform_(self.fc.weight, mode='fan_in', nonlinearity='relu')
-        init.kaiming_uniform_(self.fc_bbx.weight, mode='fan_in', nonlinearity='relu')
-        init.xavier_normal_(self.fc_dpt.weight)
+        init.kaiming_uniform_(self.fc_bbx[0].weight, mode='fan_in', nonlinearity='relu')
+        init.xavier_normal_(self.fc_dpt[0].weight)
 
     def __str__(self):
         return f"BBXDE{version}"
