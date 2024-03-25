@@ -124,28 +124,19 @@ class BBXDecoder(nn.Module):
             nn.ReLU(),
             nn.Linear(1024, 128),
             nn.ReLU(),
-        )
-
-        self.fc_bbx = nn.Sequential(
-            nn.Linear(128, 4),
-            nn.ReLU()
-        )
-
-        self.fc_dpt = nn.Sequential(
-            nn.Linear(128, 1),
+            nn.Linear(128, 5),
             nn.Sigmoid()
         )
 
-        init.kaiming_uniform_(self.fc_bbx[0].weight, mode='fan_in', nonlinearity='relu')
-        init.xavier_normal_(self.fc_dpt[0].weight)
+        # init.kaiming_uniform_(self.fc_bbx[0].weight, mode='fan_in', nonlinearity='relu')
+        init.xavier_normal_(self.fc[-2].weight)
 
     def __str__(self):
         return f"BBXDE{version}"
 
     def forward(self, x):
-        out = self.fc(x.view(-1, feature_length))
-        bbx = self.fc_bbx(out)
-        depth = self.fc_dpt(out)
+        *bbx, depth = self.fc(x.view(-1, feature_length))
+
         return bbx, depth
 
 
