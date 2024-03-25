@@ -136,8 +136,8 @@ class BBXDecoder(nn.Module):
 
     def forward(self, x):
         out = self.fc(x.view(-1, feature_length))
-        bbx = out[:4]
-        depth = out[-1]
+        bbx = out[..., :4]
+        depth = out[..., -1]
         return bbx, depth
 
 
