@@ -328,6 +328,11 @@ class MyLossBBX(MyLoss):
             axes[j].set_ylim([0, 128])
             axes[j].set_title(f"#{samples[j]}", fontweight="bold")
             x, y, w, h = self.loss['pred']['GT_BBX'][self.select_inds[j]]
+            x = int(x * 226)
+            y = int(y * 128)
+            w = int(w * 226)
+            h = int(h * 128)
+
             axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='blue', fill=False, lw=4, label='GroundTruth'))
             if self.depth:
                 axes[j].annotate(f"GT={self.loss['pred']['GT_DPT'][self.select_inds[j]]:.2f}",
