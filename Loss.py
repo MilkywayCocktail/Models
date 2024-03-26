@@ -99,6 +99,8 @@ class MyLoss:
 
     def save(self, save_term: str = 'test', notion=None):
         save_path = f"../saved/{notion}/"
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
         print(f"Saving {save_term} including {', '.join([key for key in self.loss[save_term].keys()])}...", end='')
         np.save(f"{save_path}{notion}_{self.name}_{save_term}.npy", self.loss[save_term])
         print('Done')
