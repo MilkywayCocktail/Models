@@ -86,5 +86,28 @@ def visualization(*args: ResultCalculator, select_ind=None):
     fig.suptitle('Comparison Results')
 
     if not select_ind:
-        pass
+        select_ind = np.random.choice(args[0].gt_ind, 8, replace=False).astype(int)
 
+    subfigs = fig.subfigures(nrows=len(args) + 1, ncols=1)
+
+    subfigs[0].suptitle("Ground Truth", fontweight="bold")
+    axes = subfigs[0].subplots(nrows=1, ncols=8)
+    for j in range(len(axes)):
+        ind = args[0].pred['IND'][j]
+        _ind = np.where(args[0].gt_ind == ind)
+        img = axes[j].imshow(args[0].gt[_ind], vmin=0, vmax=1)
+        axes[j].axis('off')
+        axes[j].set_title(f"#{_ind}")
+
+    for i, ar in enumerate(args):
+        subfigs[i+1].suptitle(ar.name, fontweight="bold")
+        axes = subfigs[i+1].subplots(nrows=1, ncols=8)
+        for j in range(len(axes)):
+            ind = ar.pred['IND'][j]
+            _ind = np.where(args[0].gt_ind == ind)
+            img = axes[j].imshow(ar.resized[select_ind[j]], vmin=0, vmax=1)
+            axes[j].axis('off')
+            axes[j].set_title(f"#{_ind}")
+    plt.show()
+
+    
