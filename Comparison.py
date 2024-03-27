@@ -23,8 +23,6 @@ class ResultCalculator:
         self.resized = np.zeros((len(self.preds['IND']), *self.image_size))
         self.loss = F.mse_loss
         self.result = np.zeros(len(self.preds['IND']))
-        self.bin_edges = None
-        self.hist = None
 
     def resize(self):
         print(f"{self.name} resizing...", end='')
@@ -45,10 +43,27 @@ class ResultCalculator:
         if np.any(np.isnan(self.result)):
             print("nan detected!")
 
-    def calculate_hist(self):
+    def calculate_cdf(self):
         print(f"{self.name} calculating histograms...", end='')
-        self.hist, self.bin_edges = np.histogram(self.result)
+        hist, bin_edges = np.histogram(self.result)
         print("Done!")
+        fig = plot_settings()
+        fig.suptitle(f"{self.name} Loss on Raw Images")
+        width = (bin_edges[1] - bin_edges[0]) * 0.8
+        cdf = np.cumsum(hist / sum(hist))
+
+        plt.bar(bin_edges[1:], hist / max(hist), width=width, alpha=0.5)
+        plt.plot(bin_edges[1:], cdf, '-*')
+
+        plt.ylim([0, 1])
+        plt.title('Test PDF-CDF', fontweight="bold")
+        plt.xlabel('Per-sample Loss')
+        plt.ylabel('Frequency')
+        plt.grid()
+        plt.legend()
+        plt.show()
+        filename = f"{self.name}_CDF.jpg"
+        return fig, filename
 
 
 class PropResultCalculator(ResultCalculator):
@@ -61,7 +76,7 @@ class PropResultCalculator(ResultCalculator):
         self.min_area = 0
         self.fail_count = 0
 
-    def reconstruct(self):
+    def resize(self):
         print("Reconstructing...", end='')
         for i in range(len(self.inds)):
             img = np.squeeze(self.preds['S_PRED'][i]) * np.squeeze(self.depth[i])
@@ -148,6 +163,9 @@ class PropResultCalculator(ResultCalculator):
 def gather_plot(*args: ResultCalculator):
     fig = plot_settings()
     fig.suptitle('Comparison Results')
+    bins = np.linspace(np.min([np.min(ar.result) for ar in args]), np.max([np.max(ar.result) for ar in args]), 30)
+    results = np.hstack(args)
+    plt.hist(results, 30, density=True, histtype='bar', stacked=True)
 
     for ar in args:
         width = (ar.bin_edges[1] - ar.bin_edges[0]) * 0.8
@@ -181,7 +199,7 @@ def visualization(*args: ResultCalculator, inds=None):
     axes = subfigs[0].subplots(nrows=1, ncols=8)
     for j in range(len(axes)):
         _ind = np.where(args[0].gt_ind == samples[j])
-        img = axes[j].imshow(args[0].gt[_ind], vmin=0, vmax=1)
+        img = axes[j].imshow(np.squeeze(args[0].gt[_ind]), vmin=0, vmax=1)
         axes[j].axis('off')
         axes[j].set_title(f"#{samples[j]}")
 
@@ -190,7 +208,7 @@ def visualization(*args: ResultCalculator, inds=None):
         axes = subfigs[i+1].subplots(nrows=1, ncols=8)
         for j in range(len(axes)):
             _ind = np.where(args[0].gt_ind == samples[j])
-            img = axes[j].imshow(ar.resized[inds[j]], vmin=0, vmax=1)
+            img = axes[j].imshow(np.squeeze(ar.resized[inds[j]]), vmin=0, vmax=1)
             axes[j].axis('off')
             axes[j].set_title(f"#{samples[j]}")
     plt.show()
