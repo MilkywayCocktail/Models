@@ -116,13 +116,13 @@ class PropResultCalculator(ResultCalculator):
         if not inds:
             inds = np.random.choice(np.arange(len(self.preds['IND'])), 8, replace=False).astype(int)
             inds = np.sort(inds)
+        samples = np.array(self.preds['IND']).astype(int)[inds]
 
         for i, (key, value) in enumerate(plot_terms.items()):
             subfigs[i].suptitle(key, fontweight="bold")
             axes = subfigs[i].subplots(nrows=1, ncols=8)
             for j in range(len(axes)):
-                ind = self.preds['IND'][inds[j]]
-                _ind = np.where(self.gt_ind == ind)
+                _ind = np.where(self.gt_ind == samples[inds[j]]).astype(int)
                 img = axes[j].imshow(np.squeeze(value[_ind]) if key == 'Raw Ground Truth' else np.squeeze(value[inds[j]]), vmin=0, vmax=1)
                 if key == 'Raw Ground Truth':
                     x, y, w, h = self.preds['GT_BBX'][inds[j]]
@@ -173,14 +173,14 @@ def visualization(*args: ResultCalculator, inds=None):
     if not inds:
         inds = np.random.choice(np.arange(len(args[0].preds['IND'])), 8, replace=False).astype(int)
         inds = np.sort(inds)
+    samples = np.array(args[0].preds['IND']).astype(int)[inds]
 
     subfigs = fig.subfigures(nrows=len(args) + 1, ncols=1)
 
     subfigs[0].suptitle("Ground Truth", fontweight="bold")
     axes = subfigs[0].subplots(nrows=1, ncols=8)
     for j in range(len(axes)):
-        ind = args[0].preds['IND'][inds[j]]
-        _ind = np.where(args[0].gt_ind == ind)
+        _ind = np.where(args[0].gt_ind == samples[inds[j]]).astype(int)
         img = axes[j].imshow(args[0].gt[_ind], vmin=0, vmax=1)
         axes[j].axis('off')
         axes[j].set_title(f"#{_ind}")
@@ -189,8 +189,7 @@ def visualization(*args: ResultCalculator, inds=None):
         subfigs[i+1].suptitle(ar.name, fontweight="bold")
         axes = subfigs[i+1].subplots(nrows=1, ncols=8)
         for j in range(len(axes)):
-            ind = ar.preds['IND'][inds[j]]
-            _ind = np.where(args[0].gt_ind == ind)
+            _ind = np.where(args[0].gt_ind == samples[inds[j]]).astype(int)
             img = axes[j].imshow(ar.resized[inds[j]], vmin=0, vmax=1)
             axes[j].axis('off')
             axes[j].set_title(f"#{_ind}")
