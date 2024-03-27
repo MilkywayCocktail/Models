@@ -113,30 +113,35 @@ class PropResultCalculator(ResultCalculator):
                       'Raw Ground Truth': self.gt,
                       'Raw Estimates': self.resized}
 
+        inds = np.random.choice(np.arange(len(self.preds['IND'])), 8, replace=False).astype(int)
+        inds = np.sort(inds)
+
         for i, (key, value) in enumerate(plot_terms.items()):
             subfigs[i].suptitle(key, fontweight="bold")
             axes = subfigs[i].subplots(nrows=1, ncols=8)
             for j in range(len(axes)):
-                ind = self.preds['IND'][j]
+                ind = self.preds['IND'][inds[j]]
                 _ind = np.where(self.gt_ind == ind)
-                img = axes[j].imshow(value[_ind] if key == 'Raw Ground Truth' else value[j], vmin=0, vmax=1)
-                if key in ('Raw Ground Truth', 'Raw Estimates'):
-                    if key == 'Raw Ground Truth':
-                        x, y, w, h = self.preds['GT_BBX'][j]
-                        x = int(x * 226)
-                        y = int(y * 128)
-                        w = int(w * 226)
-                        h = int(h * 128)
-                        axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='blue', fill=False, lw=3))
-                    elif key == 'Raw Estimates':
-                        x, y, w, h = self.preds['S_BBX'][j]
-                        x = int(x * 226)
-                        y = int(y * 128)
-                        w = int(w * 226)
-                        h = int(h * 128)
-                        axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='orange', fill=False, lw=3))
+                img = axes[j].imshow(value[_ind] if key == 'Raw Ground Truth' else value[inds[j]], vmin=0, vmax=1)
+                if key == 'Raw Ground Truth':
+                    x, y, w, h = self.preds['GT_BBX'][inds[j]]
+                    x = int(x * 226)
+                    y = int(y * 128)
+                    w = int(w * 226)
+                    h = int(h * 128)
+                    axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='blue', fill=False, lw=3))
+                elif key == 'Raw Estimates':
+                    x, y, w, h = self.preds['S_BBX'][inds[j]]
+                    x = int(x * 226)
+                    y = int(y * 128)
+                    w = int(w * 226)
+                    h = int(h * 128)
+                    axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='orange', fill=False, lw=3))
                 axes[j].axis('off')
                 axes[j].set_title(f"#{_ind}")
+        plt.show()
+        filename = f"{self.name}_Reconstruct.jpg"
+        return fig, filename
 
 
 def gather_plot(*args: ResultCalculator):
@@ -156,11 +161,13 @@ def gather_plot(*args: ResultCalculator):
     plt.grid()
     plt.legend()
     plt.show()
+    filename = f"comparison_CDF.jpg"
+    return fig, filename
 
 
 def visualization(*args: ResultCalculator, select_ind=None):
     fig = plot_settings()
-    fig.suptitle('Comparison Results')
+    fig.suptitle('Comparison Visualization')
 
     if not select_ind:
         select_ind = np.random.choice(args[0].gt_ind, 8, replace=False).astype(int)
@@ -186,4 +193,6 @@ def visualization(*args: ResultCalculator, select_ind=None):
             axes[j].axis('off')
             axes[j].set_title(f"#{_ind}")
     plt.show()
+    filename = f"comparison_visual.jpg"
+    return fig, filename
 
