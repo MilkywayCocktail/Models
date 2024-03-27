@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import cv2
+from misc import plot_settings
 
 
 class Reconstruct:
@@ -61,4 +62,17 @@ class Reconstruct:
         print("Done")
         print(f"Reconstruction finished. Failure count = {self.fail_count}")
 
-    
+    def plot_example(self):
+        fig = plot_settings()
+        fig.suptitle('Reconstruction Examples')
+
+        subfigs = fig.subfigures(nrows=4, ncols=1)
+
+        subfigs[0].suptitle("Cropped Ground Truth", fontweight="bold")
+        axes = subfigs[0].subplots(nrows=1, ncols=8)
+        for j in range(len(axes)):
+            ind = self.preds['IND'][j]
+            _ind = np.where(self.gt_ind == ind)
+            img = axes[j].imshow(args[0].gt[_ind], vmin=0, vmax=1)
+            axes[j].axis('off')
+            axes[j].set_title(f"#{_ind}")

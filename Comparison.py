@@ -1,17 +1,17 @@
 import torch
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
-import matplotlib as mpl
+from matplotlib.patches import Rectangle
 import numpy as np
-import random
 import cv2
+from misc import plot_settings
 
 
 class ResultCalculator:
     def __init__(self, name, pred_path, gt_path, gt_ind_path):
         self.name = name
 
-        self.pred: dict = np.load(pred_path, allow_pickle=True).item() if pred_path else None
+        self.preds: dict = np.load(pred_path, allow_pickle=True).item() if pred_path else None
         self.gt = np.load(gt_path) if gt_path else None
         self.gt_ind = np.load(gt_ind_path) if gt_ind_path else None
         self.image_size = (128, 226)  # in rows * columns
@@ -24,16 +24,16 @@ class ResultCalculator:
     def resize(self):
         print(f"{self.name} resizing...", end='')
         for i in range(len(self.gt)):
-            if 'PRED' in self.pred.keys():
-                self.resized[i] = cv2.resize(self.pred['PRED'][i], (self.image_size[1], self.image_size[0]))
-            elif 'S_PRED' in self.pred.keys():
-                self.resized[i] = cv2.resize(self.pred['S_PRED'][i], (self.image_size[1], self.image_size[0]))
+            if 'PRED' in self.preds.keys():
+                self.resized[i] = cv2.resize(self.preds['PRED'][i], (self.image_size[1], self.image_size[0]))
+            elif 'S_PRED' in self.preds.keys():
+                self.resized[i] = cv2.resize(self.preds['S_PRED'][i], (self.image_size[1], self.image_size[0]))
         print("Done!")
 
     def calculate_loss(self):
         print(f"{self.name} calculating loss...", end='')
         for i in range(len(self.gt)):
-            ind = self.pred['IND'][i]
+            ind = self.preds['IND'][i]
             _ind = np.where(self.gt_ind == ind)
             pred = torch.from_numpy(self.resized[i])
             self.result[i] = F.mse_loss(pred, torch.from_numpy(self.gt[_ind]))
@@ -47,16 +47,100 @@ class ResultCalculator:
         print("Done!")
 
 
+class PropResultCalculator(ResultCalculator):
+    def __init__(self, *args, **kwargs):
+        super(PropResultCalculator, self).__init__(*args, **kwargs)
+
+        self.bbx = np.array(self.preds['S_BBX'])
+        self.depth = np.array(self.preds['S_DPT'])
+        self.mask = np.array(self.preds['S_PRED'])
+        self.inds = self.preds['IND']
+
+        print(f"Loaded bbx of {self.bbx.shape}, depth of {self.depth.shape}, mask of {self.mask.shape}")
+
+        self.imgs = np.zeros((len(self.bbx), *self.image_size))
+        self.min_area = 0
+        self.fail_count = 0
+
+    def reconstruct(self):
+        print("Reconstructing...", end='')
+        for i in range(len(self.bbx)):
+            img = np.squeeze(self.mask[i]).astype('float32')
+            (T, timg) = cv2.threshold((img * 255).astype(np.uint8), 1, 255, cv2.THRESH_BINARY)
+            contours, hierarchy = cv2.findContours(timg, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+            if len(contours) != 0:
+                contour = max(contours, key=lambda x: cv2.contourArea(x))
+                area = cv2.contourArea(contour)
+
+                if area < self.min_area:
+                    # print(area)
+                    pass
+
+                else:
+                    x, y, w, h = cv2.boundingRect(contour)
+                    subject = img[y:y + h, x:x + w] * np.squeeze(self.depth[i])
+
+                    x1, y1, x2, y2 = self.bbx[i]
+                    x1 = int(x1 * 226)
+                    y1 = int(y1 * 128)
+                    x2 = int(x2 * 226)
+                    y2 = int(y2 * 128)
+                    w1 = x2 - x1
+                    h1 = y2 - y1
+
+                    try:
+                        subject1 = cv2.resize(subject, (w1, h1))
+                        for x in range(w1):
+                            for y in range(h1):
+                                self.imgs[i, y1 + y, x1 + x] = subject1[y, x]
+                    except Exception as e:
+                        print(e)
+                        print(x1, y1, x2, y2, w1, h1)
+                        print(subject1.shape)
+                        self.fail_count += 1
+        print("Done")
+        print(f"Reconstruction finished. Failure count = {self.fail_count}")
+
+    def plot_example(self):
+        fig = plot_settings()
+        fig.suptitle('Reconstruction Examples')
+
+        subfigs = fig.subfigures(nrows=4, ncols=1)
+
+        plot_terms = {'Cropped Ground Truth': self.preds['GT'],
+                      'Cropped Estimates': self.preds['S_PRED'],
+                      'Raw Ground Truth': self.gt,
+                      'Raw Estimates': self.resized}
+
+        for i, (key, value) in enumerate(plot_terms.items()):
+            subfigs[i].suptitle(key, fontweight="bold")
+            axes = subfigs[i].subplots(nrows=1, ncols=8)
+            for j in range(len(axes)):
+                ind = self.preds['IND'][j]
+                _ind = np.where(self.gt_ind == ind)
+                img = axes[j].imshow(value[_ind] if key == 'Raw Ground Truth' else value[j], vmin=0, vmax=1)
+                if key in ('Raw Ground Truth', 'Raw Estimates'):
+                    if key == 'Raw Ground Truth':
+                        x, y, w, h = self.preds['GT_BBX'][j]
+                        x = int(x * 226)
+                        y = int(y * 128)
+                        w = int(w * 226)
+                        h = int(h * 128)
+                        axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='blue', fill=False, lw=3))
+                    elif key == 'Raw Estimates':
+                        x, y, w, h = self.preds['S_BBX'][j]
+                        x = int(x * 226)
+                        y = int(y * 128)
+                        w = int(w * 226)
+                        h = int(h * 128)
+                        axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='orange', fill=False, lw=3))
+                axes[j].axis('off')
+                axes[j].set_title(f"#{_ind}")
+
+
 def gather_plot(*args: ResultCalculator):
-    _ = plt.figure()
-    mpl.rcParams['figure.figsize'] = (20, 10)
-    mpl.rcParams["figure.titlesize"] = 35
-    mpl.rcParams['lines.markersize'] = 10
-    mpl.rcParams['axes.titlesize'] = 30
-    mpl.rcParams['axes.labelsize'] = 30
-    mpl.rcParams['xtick.labelsize'] = 20
-    mpl.rcParams['ytick.labelsize'] = 20
-    fig = plt.figure(constrained_layout=True)
+    fig = plot_settings()
     fig.suptitle('Comparison Results')
 
     for ar in args:
@@ -75,15 +159,7 @@ def gather_plot(*args: ResultCalculator):
 
 
 def visualization(*args: ResultCalculator, select_ind=None):
-    _ = plt.figure()
-    mpl.rcParams['figure.figsize'] = (20, 10)
-    mpl.rcParams["figure.titlesize"] = 35
-    mpl.rcParams['lines.markersize'] = 10
-    mpl.rcParams['axes.titlesize'] = 30
-    mpl.rcParams['axes.labelsize'] = 30
-    mpl.rcParams['xtick.labelsize'] = 20
-    mpl.rcParams['ytick.labelsize'] = 20
-    fig = plt.figure(constrained_layout=True)
+    fig = plot_settings()
     fig.suptitle('Comparison Results')
 
     if not select_ind:
@@ -94,7 +170,7 @@ def visualization(*args: ResultCalculator, select_ind=None):
     subfigs[0].suptitle("Ground Truth", fontweight="bold")
     axes = subfigs[0].subplots(nrows=1, ncols=8)
     for j in range(len(axes)):
-        ind = args[0].pred['IND'][j]
+        ind = args[0].preds['IND'][j]
         _ind = np.where(args[0].gt_ind == ind)
         img = axes[j].imshow(args[0].gt[_ind], vmin=0, vmax=1)
         axes[j].axis('off')
@@ -104,7 +180,7 @@ def visualization(*args: ResultCalculator, select_ind=None):
         subfigs[i+1].suptitle(ar.name, fontweight="bold")
         axes = subfigs[i+1].subplots(nrows=1, ncols=8)
         for j in range(len(axes)):
-            ind = ar.pred['IND'][j]
+            ind = ar.preds['IND'][j]
             _ind = np.where(args[0].gt_ind == ind)
             img = axes[j].imshow(ar.resized[select_ind[j]], vmin=0, vmax=1)
             axes[j].axis('off')

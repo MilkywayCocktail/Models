@@ -1,11 +1,11 @@
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib as mpl
 from matplotlib.patches import Rectangle
 from matplotlib import cm
 from sklearn.manifold import TSNE
 import os
+from misc import plot_settings
 
 """
 These definitions are not for loss functions.\n
@@ -29,23 +29,7 @@ class MyLoss:
         self.select_inds = None
         self.select_num = 8
         self.ind_range = 0
-
-    @staticmethod
-    def __plot_settings__():
-        """
-        Prepares plot configurations.
-        :return: plt args
-        """
-        _ = plt.figure()
-        mpl.rcParams['figure.figsize'] = (20, 10)
-        mpl.rcParams["figure.titlesize"] = 35
-        mpl.rcParams['lines.markersize'] = 10
-        mpl.rcParams['axes.titlesize'] = 30
-        mpl.rcParams['axes.labelsize'] = 30
-        mpl.rcParams['xtick.labelsize'] = 20
-        mpl.rcParams['ytick.labelsize'] = 20
-        fig = plt.figure(constrained_layout=True)
-        return fig
+        self.__plot_settings__ = plot_settings
 
     @staticmethod
     def colors(arrays):
