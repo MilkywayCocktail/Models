@@ -65,7 +65,7 @@ class PropResultCalculator(ResultCalculator):
     def reconstruct(self):
         print("Reconstructing...", end='')
         for i in range(len(self.inds)):
-            img = np.squeeze(np.where(self.preds['S_PRED'][i] > 0, 1., 0.)).astype('float32') * np.squeeze(self.depth[i])
+            img = np.squeeze(self.preds['S_PRED'][i]) * np.squeeze(self.depth[i])
             (T, timg) = cv2.threshold((img * 255).astype(np.uint8), 1, 255, cv2.THRESH_BINARY)
             contours, hierarchy = cv2.findContours(timg, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -123,7 +123,8 @@ class PropResultCalculator(ResultCalculator):
             axes = subfigs[i].subplots(nrows=1, ncols=8)
             for j in range(len(axes)):
                 _ind = np.where(self.gt_ind == samples[j])
-                img = axes[j].imshow(np.squeeze(value[_ind]) if key == 'Raw Ground Truth' else np.squeeze(value[inds[j]]), vmin=0, vmax=1)
+                img = axes[j].imshow(np.squeeze(value[_ind]) if key == 'Raw Ground Truth'
+                                     else np.squeeze(value[inds[j]]), vmin=0, vmax=1)
                 if key == 'Raw Ground Truth':
                     x, y, w, h = self.preds['GT_BBX'][inds[j]]
                     x = int(x * 226)
