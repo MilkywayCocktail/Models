@@ -12,6 +12,9 @@ class ResultCalculator:
         self.name = name
 
         self.preds: dict = np.load(pred_path, allow_pickle=True).item() if pred_path else None
+        self.pred_img = np.squeeze(self.preds['S_PRED'] if 'S_PRED' in self.preds.keys() else self.preds['PRED'])
+        self.inds = self.preds['IND']
+
         self.gt = gt
         self.gt_ind = gt_ind
         self.image_size = (128, 226)  # in rows * columns
@@ -24,10 +27,7 @@ class ResultCalculator:
     def resize(self):
         print(f"{self.name} resizing...", end='')
         for i in range(len(self.preds['IND'])):
-            if 'PRED' in self.preds.keys():
-                self.resized[i] = cv2.resize(self.preds['PRED'][i], (self.image_size[1], self.image_size[0]))
-            elif 'S_PRED' in self.preds.keys():
-                self.resized[i] = cv2.resize(self.preds['S_PRED'][i], (self.image_size[1], self.image_size[0]))
+            self.resized[i] = cv2.resize(self.pred_img[i], (self.image_size[1], self.image_size[0]))
         print("Done!")
 
     def calculate_loss(self):
@@ -53,8 +53,6 @@ class PropResultCalculator(ResultCalculator):
 
         self.bbx = np.array(self.preds['S_BBX'])
         self.depth = np.array(self.preds['S_DPT'])
-        self.mask = np.array(self.preds['S_PRED'])
-        self.inds = self.preds['IND']
 
         print(f"Loaded bbx of {self.bbx.shape}, depth of {self.depth.shape}, mask of {self.mask.shape}")
 
@@ -65,7 +63,7 @@ class PropResultCalculator(ResultCalculator):
     def reconstruct(self):
         print("Reconstructing...", end='')
         for i in range(len(self.inds)):
-            img = np.squeeze(self.mask[i]).astype('float32')
+            img = np.squeeze(self.pred_img[i]).astype('float32')
             (T, timg) = cv2.threshold((img * 255).astype(np.uint8), 1, 255, cv2.THRESH_BINARY)
             contours, hierarchy = cv2.findContours(timg, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -108,8 +106,8 @@ class PropResultCalculator(ResultCalculator):
 
         subfigs = fig.subfigures(nrows=4, ncols=1)
 
-        plot_terms = {'Cropped Ground Truth': self.preds['GT'],
-                      'Cropped Estimates': self.preds['S_PRED'],
+        plot_terms = {'Cropped Ground Truth': np.squeeze(self.preds['GT']),
+                      'Cropped Estimates': self.pred_img,
                       'Raw Ground Truth': self.gt,
                       'Raw Estimates': self.resized}
 
