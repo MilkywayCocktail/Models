@@ -15,7 +15,7 @@ class ResultCalculator:
         self.inds = self.preds['IND']
         print("{name} loaded Estimates of {pred_img.shape} as {pred_img.dtype}".format(
             name=self.name,
-            pred_img=self.preds['S_PRED'] if 'S_PRED' in self.preds.keys() else self.preds['PRED'])
+            pred_img=np.array(self.preds['S_PRED'] if 'S_PRED' in self.preds.keys() else self.preds['PRED']))
         )
         self.gt = gt
         self.gt_ind = gt_ind
