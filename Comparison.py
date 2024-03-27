@@ -8,12 +8,12 @@ from misc import plot_settings
 
 
 class ResultCalculator:
-    def __init__(self, name, pred_path, gt, gt_ind):
+    def __init__(self, name, pred_path, gt=None, gt_ind=None):
         self.name = name
 
         self.preds: dict = np.load(pred_path, allow_pickle=True).item() if pred_path else None
-        self.gt = gt if gt else None
-        self.gt_ind = gt_ind if gt_ind else None
+        self.gt = gt
+        self.gt_ind = gt_ind
         self.image_size = (128, 226)  # in rows * columns
         self.resized = np.zeros((len(self.gt), *self.image_size))
         self.loss = F.mse_loss
