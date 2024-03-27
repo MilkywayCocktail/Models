@@ -304,7 +304,7 @@ class CompTrainer(BasicTrainer):
 
         self.mode = mode
         self.mask = mask
-        self.beta = kwargs['beta'] if 'beta' in kwargs.keys() else 1
+        self.beta = kwargs['beta'] if 'beta' in kwargs.keys() else 0.5
         self.modality = {'csi', 'img'}
         self.recon_lossfunc = nn.BCELoss() if self.mask else nn.MSELoss()
 
@@ -395,7 +395,7 @@ class CompTrainerAEStudent(BasicTrainer):
         self.modality = {'csi', 'img'}
 
         self.alpha = alpha
-        self.recon_lossfunc = nn.BCELoss(reduction='sum') if self.mask else nn.MSELoss(reduction='sum')
+        self.recon_lossfunc = nn.BCELoss() if self.mask else nn.MSELoss()
         self.kd_loss = nn.MSELoss()
         self.loss_terms = ('LOSS', 'IMG')
         self.pred_terms = ('GT', 'T_PRED', 'S_PRED', 'T_LATENT', 'S_LATENT', 'IND')
@@ -431,7 +431,7 @@ class CompTrainerAEStudent(BasicTrainer):
         self.loss.generate_indices(select_ind, select_num)
 
         figs.append(self.loss.plot_predict(plot_terms=('GT', 'T_PRED', 'S_PRED')))
-        figs.append(self.loss.plot_latent(plot_terms=('T_LATENT', 'S_LATENT')))
+        figs.append(self.loss.plot_latent(plot_terms=('T_LATENT', 'S_LATENT'), ylim=None))
         figs.append(self.loss.plot_test(plot_terms='all'))
         figs.append(self.loss.plot_test_cdf(plot_terms='all'))
         # figs.append(self.loss.plot_tsne(plot_terms=('GT', 'T_LATENT', 'S_LATENT')))

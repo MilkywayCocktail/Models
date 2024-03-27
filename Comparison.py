@@ -10,9 +10,10 @@ import cv2
 class ResultCalculator:
     def __init__(self, name, pred_path, gt_path, gt_ind_path):
         self.name = name
-        self.pred: dict = np.load(pred_path, allow_pickle=True).item()
-        self.gt = np.load(gt_path)
-        self.gt_ind = np.load(gt_ind_path)
+
+        self.pred: dict = np.load(pred_path, allow_pickle=True).item() if pred_path else None
+        self.gt = np.load(gt_path) if gt_path else None
+        self.gt_ind = np.load(gt_ind_path) if gt_ind_path else None
         self.image_size = (128, 226)  # in rows * columns
         self.resized = np.zeros((len(self.gt), *self.image_size))
         self.loss = F.mse_loss
@@ -110,4 +111,3 @@ def visualization(*args: ResultCalculator, select_ind=None):
             axes[j].set_title(f"#{_ind}")
     plt.show()
 
-    
