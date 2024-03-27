@@ -102,7 +102,7 @@ class PropResultCalculator(ResultCalculator):
         print("Done")
         print(f"Reconstruction finished. Failure count = {self.fail_count}")
 
-    def plot_example(self):
+    def plot_example(self, inds=None):
         fig = plot_settings()
         fig.suptitle('Reconstruction Examples')
 
@@ -113,8 +113,9 @@ class PropResultCalculator(ResultCalculator):
                       'Raw Ground Truth': self.gt,
                       'Raw Estimates': self.resized}
 
-        inds = np.random.choice(np.arange(len(self.preds['IND'])), 8, replace=False).astype(int)
-        inds = np.sort(inds)
+        if not inds:
+            inds = np.random.choice(np.arange(len(self.preds['IND'])), 8, replace=False).astype(int)
+            inds = np.sort(inds)
 
         for i, (key, value) in enumerate(plot_terms.items()):
             subfigs[i].suptitle(key, fontweight="bold")
@@ -165,19 +166,20 @@ def gather_plot(*args: ResultCalculator):
     return fig, filename
 
 
-def visualization(*args: ResultCalculator, select_ind=None):
+def visualization(*args: ResultCalculator, inds=None):
     fig = plot_settings()
     fig.suptitle('Comparison Visualization')
 
-    if not select_ind:
-        select_ind = np.random.choice(args[0].gt_ind, 8, replace=False).astype(int)
+    if not inds:
+        inds = np.random.choice(np.arange(len(args[0].preds['IND'])), 8, replace=False).astype(int)
+        inds = np.sort(inds)
 
     subfigs = fig.subfigures(nrows=len(args) + 1, ncols=1)
 
     subfigs[0].suptitle("Ground Truth", fontweight="bold")
     axes = subfigs[0].subplots(nrows=1, ncols=8)
     for j in range(len(axes)):
-        ind = args[0].preds['IND'][j]
+        ind = args[0].preds['IND'][inds[j]]
         _ind = np.where(args[0].gt_ind == ind)
         img = axes[j].imshow(args[0].gt[_ind], vmin=0, vmax=1)
         axes[j].axis('off')
@@ -187,9 +189,9 @@ def visualization(*args: ResultCalculator, select_ind=None):
         subfigs[i+1].suptitle(ar.name, fontweight="bold")
         axes = subfigs[i+1].subplots(nrows=1, ncols=8)
         for j in range(len(axes)):
-            ind = ar.preds['IND'][j]
+            ind = ar.preds['IND'][inds[j]]
             _ind = np.where(args[0].gt_ind == ind)
-            img = axes[j].imshow(ar.resized[select_ind[j]], vmin=0, vmax=1)
+            img = axes[j].imshow(ar.resized[inds[j]], vmin=0, vmax=1)
             axes[j].axis('off')
             axes[j].set_title(f"#{_ind}")
     plt.show()
