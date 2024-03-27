@@ -15,6 +15,7 @@ class ResultCalculator:
         self.pred_img = np.squeeze(self.preds['S_PRED'] if 'S_PRED' in self.preds.keys() else self.preds['PRED'])
         self.inds = self.preds['IND']
 
+        print(f"{self.name} loaded Estimates of {self.pred_img.shape} as {self.pred_img.dtype}")
         self.gt = gt
         self.gt_ind = gt_ind
         self.image_size = (128, 226)  # in rows * columns
@@ -53,8 +54,6 @@ class PropResultCalculator(ResultCalculator):
 
         self.bbx = np.array(self.preds['S_BBX'])
         self.depth = np.array(self.preds['S_DPT'])
-
-        print(f"Loaded bbx of {self.bbx.shape}, depth of {self.depth.shape}, mask of {self.mask.shape}")
 
         self.imgs = np.zeros((len(self.bbx), *self.image_size))
         self.min_area = 0
