@@ -122,7 +122,7 @@ class PropResultCalculator(ResultCalculator):
             subfigs[i].suptitle(key, fontweight="bold")
             axes = subfigs[i].subplots(nrows=1, ncols=8)
             for j in range(len(axes)):
-                _ind = np.where(self.gt_ind == samples[inds[j]]).astype(int)
+                _ind = np.where(self.gt_ind == samples[j]).astype(int)
                 img = axes[j].imshow(np.squeeze(value[_ind]) if key == 'Raw Ground Truth' else np.squeeze(value[inds[j]]), vmin=0, vmax=1)
                 if key == 'Raw Ground Truth':
                     x, y, w, h = self.preds['GT_BBX'][inds[j]]
@@ -180,7 +180,7 @@ def visualization(*args: ResultCalculator, inds=None):
     subfigs[0].suptitle("Ground Truth", fontweight="bold")
     axes = subfigs[0].subplots(nrows=1, ncols=8)
     for j in range(len(axes)):
-        _ind = np.where(args[0].gt_ind == samples[inds[j]]).astype(int)
+        _ind = np.where(args[0].gt_ind == samples[j]).astype(int)
         img = axes[j].imshow(args[0].gt[_ind], vmin=0, vmax=1)
         axes[j].axis('off')
         axes[j].set_title(f"#{_ind}")
@@ -189,7 +189,7 @@ def visualization(*args: ResultCalculator, inds=None):
         subfigs[i+1].suptitle(ar.name, fontweight="bold")
         axes = subfigs[i+1].subplots(nrows=1, ncols=8)
         for j in range(len(axes)):
-            _ind = np.where(args[0].gt_ind == samples[inds[j]]).astype(int)
+            _ind = np.where(args[0].gt_ind == samples[j]).astype(int)
             img = axes[j].imshow(ar.resized[inds[j]], vmin=0, vmax=1)
             axes[j].axis('off')
             axes[j].set_title(f"#{_ind}")
