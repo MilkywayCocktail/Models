@@ -20,9 +20,9 @@ class ResultCalculator:
         self.gt = gt
         self.gt_ind = gt_ind
         self.image_size = (128, 226)  # in rows * columns
-        self.resized = np.zeros((len(self.gt), *self.image_size))
+        self.resized = np.zeros((len(self.preds['IND']), *self.image_size))
         self.loss = F.mse_loss
-        self.result = np.zeros_like(self.gt_ind)
+        self.result = np.zeros(len(self.preds['IND']))
         self.bin_edges = None
         self.hist = None
 
@@ -58,7 +58,6 @@ class PropResultCalculator(ResultCalculator):
         self.bbx = np.array(self.preds['S_BBX'])
         self.depth = np.array(self.preds['S_DPT'])
 
-        self.imgs = np.zeros((len(self.bbx), *self.image_size))
         self.min_area = 0
         self.fail_count = 0
 
@@ -93,7 +92,7 @@ class PropResultCalculator(ResultCalculator):
                         subject1 = cv2.resize(subject, (w0, h0))
                         for x in range(w0):
                             for y in range(h0):
-                                self.imgs[i, y0 + y, x0 + x] = subject1[y, x]
+                                self.resized[i, y0 + y, x0 + x] = subject1[y, x]
                     except Exception as e:
                         print(e)
                         print(x0, y0, x0_, y0_, w0, h0)
