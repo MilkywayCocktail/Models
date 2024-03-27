@@ -65,7 +65,7 @@ class PropResultCalculator(ResultCalculator):
     def reconstruct(self):
         print("Reconstructing...", end='')
         for i in range(len(self.inds)):
-            img = np.squeeze(self.preds['S_PRED'][i]).astype('float32')
+            img = np.squeeze(np.where(self.preds['S_PRED'][i] > 0, 1., 0.)).astype('float32') * np.squeeze(self.depth[i])
             (T, timg) = cv2.threshold((img * 255).astype(np.uint8), 1, 255, cv2.THRESH_BINARY)
             contours, hierarchy = cv2.findContours(timg, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -79,24 +79,24 @@ class PropResultCalculator(ResultCalculator):
 
                 else:
                     x, y, w, h = cv2.boundingRect(contour)
-                    subject = img[y:y + h, x:x + w] * np.squeeze(self.depth[i])
+                    subject = img[y:y + h, x:x + w]
 
-                    x1, y1, x2, y2 = self.bbx[i]
-                    x1 = int(x1 * 226)
-                    y1 = int(y1 * 128)
-                    x2 = int(x2 * 226)
-                    y2 = int(y2 * 128)
-                    w1 = x2 - x1
-                    h1 = y2 - y1
+                    x0, y0, x0_, y0_ = self.bbx[i]
+                    x0 = int(x0 * 226)
+                    y0 = int(y0 * 128)
+                    x0_ = int(x0_ * 226)
+                    y0_ = int(y0_ * 128)
+                    w0 = x0_ - x0
+                    h0 = y0_ - y0
 
                     try:
-                        subject1 = cv2.resize(subject, (w1, h1))
-                        for x in range(w1):
-                            for y in range(h1):
-                                self.imgs[i, y1 + y, x1 + x] = subject1[y, x]
+                        subject1 = cv2.resize(subject, (w0, h0))
+                        for x in range(w0):
+                            for y in range(h0):
+                                self.imgs[i, y0 + y, x0 + x] = subject1[y, x]
                     except Exception as e:
                         print(e)
-                        print(x1, y1, x2, y2, w1, h1)
+                        print(x0, y0, x0_, y0_, w0, h0)
                         print(subject1.shape)
                         self.fail_count += 1
         print("Done")
@@ -139,7 +139,7 @@ class PropResultCalculator(ResultCalculator):
                     h = int(h * 128)
                     axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='orange', fill=False, lw=3))
                 axes[j].axis('off')
-                axes[j].set_title(f"#{_ind}")
+                axes[j].set_title(f"#{samples[j]}")
         plt.show()
         filename = f"{self.name}_Reconstruct.jpg"
         return fig, filename
@@ -183,7 +183,7 @@ def visualization(*args: ResultCalculator, inds=None):
         _ind = np.where(args[0].gt_ind == samples[j])
         img = axes[j].imshow(args[0].gt[_ind], vmin=0, vmax=1)
         axes[j].axis('off')
-        axes[j].set_title(f"#{_ind}")
+        axes[j].set_title(f"#{samples[j]}")
 
     for i, ar in enumerate(args):
         subfigs[i+1].suptitle(ar.name, fontweight="bold")
@@ -192,7 +192,7 @@ def visualization(*args: ResultCalculator, inds=None):
             _ind = np.where(args[0].gt_ind == samples[j])
             img = axes[j].imshow(ar.resized[inds[j]], vmin=0, vmax=1)
             axes[j].axis('off')
-            axes[j].set_title(f"#{_ind}")
+            axes[j].set_title(f"#{samples[j]}")
     plt.show()
     filename = f"comparison_visual.jpg"
     return fig, filename
