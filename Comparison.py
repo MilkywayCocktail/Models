@@ -23,7 +23,7 @@ class ResultCalculator:
 
     def resize(self):
         print(f"{self.name} resizing...", end='')
-        for i in range(len(self.gt)):
+        for i in range(len(self.preds['IND'])):
             if 'PRED' in self.preds.keys():
                 self.resized[i] = cv2.resize(self.preds['PRED'][i], (self.image_size[1], self.image_size[0]))
             elif 'S_PRED' in self.preds.keys():
@@ -32,7 +32,7 @@ class ResultCalculator:
 
     def calculate_loss(self):
         print(f"{self.name} calculating loss...", end='')
-        for i in range(len(self.gt)):
+        for i in range(len(self.preds['IND'])):
             ind = self.preds['IND'][i]
             _ind = np.where(self.gt_ind == ind)
             pred = torch.from_numpy(self.resized[i])
@@ -64,7 +64,7 @@ class PropResultCalculator(ResultCalculator):
 
     def reconstruct(self):
         print("Reconstructing...", end='')
-        for i in range(len(self.bbx)):
+        for i in range(len(self.inds)):
             img = np.squeeze(self.mask[i]).astype('float32')
             (T, timg) = cv2.threshold((img * 255).astype(np.uint8), 1, 255, cv2.THRESH_BINARY)
             contours, hierarchy = cv2.findContours(timg, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
