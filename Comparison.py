@@ -163,17 +163,18 @@ class PropResultCalculator(ResultCalculator):
 def gather_plot(*args: ResultCalculator):
     fig = plot_settings()
     fig.suptitle('Comparison Results')
-    bins = np.linspace(np.min([np.min(ar.result) for ar in args]), np.max([np.max(ar.result) for ar in args]), 30)
-    results = np.hstack(args)
-    plt.hist(results, 30, density=True, histtype='bar', stacked=True)
+
+    bins = np.linspace(np.min([np.min(ar.result) for ar in args]), np.max([np.max(ar.result) for ar in args]), 50)
 
     for ar in args:
-        width = (ar.bin_edges[1] - ar.bin_edges[0]) * 0.8
-        cdf = np.cumsum(ar.hist / sum(ar.hist))
-        plt.bar(ar.bin_edges[1:], ar.hist / max(ar.hist), width=width, alpha=0.5, label=ar.name)
-        plt.plot(ar.bin_edges[1:], cdf, '-*', label=ar.name)
+        hist_, bin_edges = np.histogram(ar.result, bins)
+        width = (bin_edges[1] - bin_edges[0]) * 0.8
+        cdf = np.cumsum(hist_ / sum(hist_))
+        plt.bar(bin_edges[1:], hist_ / max(hist_), width=width, label=ar.name)
+        plt.plot(bin_edges[1:], cdf, '-*', label=ar.name)
 
-    plt.ylim([0, 1])
+    ax = plt.gca()
+    ax.fill_between(np.arange(0, 0.2, 0.01), 1.02, color='white', alpha=0.5, zorder=1)
     plt.title('Test PDF-CDF', fontweight="bold")
     plt.xlabel('Per-sample Loss')
     plt.ylabel('Frequency')
@@ -181,6 +182,7 @@ def gather_plot(*args: ResultCalculator):
     plt.legend()
     plt.show()
     filename = f"comparison_CDF.jpg"
+
     return fig, filename
 
 
