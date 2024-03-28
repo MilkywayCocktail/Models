@@ -207,8 +207,8 @@ def visualization(*args: ResultCalculator, inds=None, figsize=(20, 10)):
         subfigs[i+1].suptitle(ar.name, fontweight="bold")
         axes = subfigs[i+1].subplots(nrows=1, ncols=8)
         for j in range(len(axes)):
-            _ind = np.where(args[0].gt_ind == samples[j])
-            img = axes[j].imshow(np.squeeze(ar.resized[inds[j]]), vmin=0, vmax=1)
+            _ind = np.where(ar.preds['IND'] == samples[j])
+            img = axes[j].imshow(np.squeeze(ar.resized[_ind]), vmin=0, vmax=1)
             axes[j].axis('off')
             axes[j].set_title(f"#{samples[j]}")
     plt.show()
