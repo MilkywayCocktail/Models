@@ -116,9 +116,9 @@ class PropResultCalculator(ResultCalculator):
         print("Done")
         print(f"Reconstruction finished. Failure count = {self.fail_count}")
 
-    def plot_example(self, inds=None):
+    def plot_example(self, inds=None, title=None):
         fig = plot_settings()
-        fig.suptitle('Reconstruction Examples')
+        fig.suptitle('Reconstruction Examples' if not title else title)
 
         subfigs = fig.subfigures(nrows=4, ncols=1)
 
@@ -160,9 +160,9 @@ class PropResultCalculator(ResultCalculator):
         return fig, filename
 
 
-def gather_plot(*args: ResultCalculator):
+def gather_plot(*args: ResultCalculator, title=None):
     fig = plot_settings()
-    fig.suptitle('Comparison Results')
+    fig.suptitle('Comparison Results' if not title else title)
 
     bins = np.linspace(np.min([np.min(ar.result) for ar in args]), np.max([np.max(ar.result) for ar in args]), 50)
 
@@ -186,9 +186,9 @@ def gather_plot(*args: ResultCalculator):
     return fig, filename
 
 
-def visualization(*args: ResultCalculator, inds=None, figsize=(20, 10)):
+def visualization(*args: ResultCalculator, inds=None, figsize=(20, 10), title=None):
     fig = plot_settings(figsize)
-    fig.suptitle('Comparison Visualization')
+    fig.suptitle('Comparison Visualization' if not title else title)
 
     if not inds:
         inds = np.random.choice(np.arange(len(args[0].preds['IND'])), 8, replace=False).astype(int)
