@@ -17,7 +17,7 @@ def timer(func):
     return wrapper
 
 
-def plot_settings():
+def plot_settings(figsize=(20, 10)):
     """
     Prepares plot configurations.
     :return: plt args
@@ -25,7 +25,7 @@ def plot_settings():
     # Seems that the first figure has to be discarded
     _ = plt.figure()
 
-    mpl.rcParams['figure.figsize'] = (20, 10)
+    mpl.rcParams['figure.figsize'] = figsize
     mpl.rcParams["figure.titlesize"] = 35
     mpl.rcParams['lines.markersize'] = 10
     mpl.rcParams['axes.titlesize'] = 30

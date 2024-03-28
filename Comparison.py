@@ -184,8 +184,8 @@ def gather_plot(*args: ResultCalculator):
     return fig, filename
 
 
-def visualization(*args: ResultCalculator, inds=None):
-    fig = plot_settings()
+def visualization(*args: ResultCalculator, inds=None, figsize=(20, 10)):
+    fig = plot_settings(figsize)
     fig.suptitle('Comparison Visualization')
 
     if not inds:
