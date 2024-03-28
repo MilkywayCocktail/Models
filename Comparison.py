@@ -145,7 +145,7 @@ class PropResultCalculator(ResultCalculator):
                     y = int(y * 128)
                     w = int(w * 226)
                     h = int(h * 128)
-                    axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='blue', fill=False, lw=3))
+                    axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='pink', fill=False, lw=3))
                 elif key == 'Raw Estimates':
                     x, y, w, h = self.preds['S_BBX'][inds[j]]
                     x = int(x * 226)
