@@ -138,18 +138,18 @@ class PropResultCalculator(ResultCalculator):
                 img = axes[j].imshow(np.squeeze(value[_ind]) if key == 'Raw Ground Truth'
                                      else np.squeeze(value[inds[j]]), vmin=0, vmax=1)
                 if key == 'Raw Ground Truth':
-                    x, y, w, h = self.preds['GT_BBX'][inds[j]]
-                    x = int(x * 226)
-                    y = int(y * 128)
-                    w = int(w * 226)
-                    h = int(h * 128)
+                    x1, y1, x2, y2 = self.preds['GT_BBX'][inds[j]]
+                    x = int(x1 * 226)
+                    y = int(y1 * 128)
+                    w = int((x2 - x1) * 226)
+                    h = int((y2 - y1) * 128)
                     axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='pink', fill=False, lw=3))
                 elif key == 'Raw Estimates':
-                    x, y, w, h = self.preds['S_BBX'][inds[j]]
-                    x = int(x * 226)
-                    y = int(y * 128)
-                    w = int(w * 226)
-                    h = int(h * 128)
+                    x1, y1, x2, y2 = self.preds['S_BBX'][inds[j]]
+                    x = int(x1 * 226)
+                    y = int(y1 * 128)
+                    w = int((x2 - x1) * 226)
+                    h = int((y2 - y1) * 128)
                     axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='orange', fill=False, lw=3))
                 axes[j].axis('off')
                 axes[j].set_title(f"#{samples[j]}")
