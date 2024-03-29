@@ -95,13 +95,11 @@ class PropResultCalculator(ResultCalculator):
                     x, y, w, h = cv2.boundingRect(contour)
                     subject = img[y:y + h, x:x + w]
 
-                    x0, y0, x0_, y0_ = self.bbx[i]
+                    x0, y0, w0, h0 = self.bbx[i]
                     x0 = int(x0 * 226)
                     y0 = int(y0 * 128)
-                    x0_ = int(x0_ * 226)
-                    y0_ = int(y0_ * 128)
-                    w0 = x0_ - x0
-                    h0 = y0_ - y0
+                    w0 = int(w0 * 226)
+                    h0 = int(h0 * 128)
 
                     try:
                         subject1 = cv2.resize(subject, (w0, h0))
@@ -110,7 +108,7 @@ class PropResultCalculator(ResultCalculator):
                                 self.resized[i, y0 + y, x0 + x] = subject1[y, x]
                     except Exception as e:
                         print(e)
-                        print(x0, y0, x0_, y0_, w0, h0)
+                        print(x0, y0, w0, h0)
                         print(subject1.shape)
                         self.fail_count += 1
         print("Done")
