@@ -313,21 +313,21 @@ class MyLossBBX(MyLoss):
             axes[j].set_xlim([0, 226])
             axes[j].set_ylim([0, 128])
             axes[j].set_title(f"#{samples[j]}", fontweight="bold")
-            x, y, w, h = self.loss['pred']['GT_BBX'][self.select_inds[j]]
-            x = int(x * 226)
-            y = int(y * 128)
-            w = int(w * 226)
-            h = int(h * 128)
+            x1, y1, x2, y2 = self.loss['pred']['GT_BBX'][self.select_inds[j]]
+            x = int(x1 * 226)
+            y = int(y1 * 128)
+            w = int((x2 - x1) * 226)
+            h = int((y2 - y1) * 128)
             axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='blue', fill=False, lw=4, label='GroundTruth'))
             if self.depth:
                 axes[j].annotate(f"GT={self.loss['pred']['GT_DPT'][self.select_inds[j]]:.2f}",
                                  (48, 20),
                                  fontsize=20, color='blue')
-            x, y, w, h = self.loss['pred']['S_BBX'][self.select_inds[j]]
-            x = int(x * 226)
-            y = int(y * 128)
-            w = int(w * 226)
-            h = int(h * 128)
+            x1, y1, x2, y2 = self.loss['pred']['S_BBX'][self.select_inds[j]]
+            x = int(x1 * 226)
+            y = int(y1 * 128)
+            w = int((x2 - x1) * 226)
+            h = int((y2 - y1) * 128)
             axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='orange', fill=False, lw=4, label='Student'))
             if self.depth:
                 axes[j].annotate(f"Pred={self.loss['pred']['S_DPT'][self.select_inds[j]]:.2f}",
