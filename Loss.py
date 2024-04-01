@@ -338,7 +338,7 @@ class MyLossBBX(MyLoss):
                 axes[j].scatter(48, 10,
                                 c='orange', marker=(5, 1), linewidths=4)
             axes[j].axis('off')
-            axes[j].add_patch(plt.Rectangle((0, 0), 226, 128, facecolor="#eafff5",
+            axes[j].add_patch(Rectangle((0, 0), 226, 128, facecolor="#eafff5",
                                             transform=axes[j].transAxes, zorder=-1))
 
         axes[0].legend()
