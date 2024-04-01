@@ -180,7 +180,7 @@ def gather_plot(*args: ResultCalculator, title=None):
         plt.plot(bin_edges[1:], cdf, '-*', label=ar.name)
 
     ax = plt.gca()
-    ax.fill_between(np.arange(0, 0.2, 0.01), 1.02, color='white', alpha=0.5, zorder=1)
+    ax.fill_between(np.arange(0, 0.35, 0.01), 1.02, color='white', alpha=0.5, zorder=1)
     plt.title('Test PDF-CDF', fontweight="bold")
     plt.xlabel('Per-sample Loss')
     plt.ylabel('Frequency')
