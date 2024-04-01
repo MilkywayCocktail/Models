@@ -104,9 +104,9 @@ class PropResultCalculator(ResultCalculator):
 
                     try:
                         subject1 = cv2.resize(subject, (w0, h0))
-                        for x in range(w0):
-                            for y in range(h0):
-                                self.resized[i, y0 + y, x0 + x] = subject1[y, x]
+                        for x_ in range(w0):
+                            for y_ in range(h0):
+                                self.resized[i, y0 + y_, x0 + x_] = subject1[y_, x_]
                     except Exception as e:
                         print(e)
                         print(x0, y0,  w0, h0)
