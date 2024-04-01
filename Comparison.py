@@ -104,8 +104,10 @@ class PropResultCalculator(ResultCalculator):
 
                     # In case of reversing (x1, y1) and (x2, y2)
                     if w0 < 0 and h0 < 0:
-                        w0 = -w0
-                        h0 = -h0
+                        x0 = int(x2 * 226)
+                        y0 = int(y2 * 128)
+                        w0 = int((x1 - x2) * 226)
+                        h0 = int((y1 - y2) * 128)
 
                     try:
                         subject1 = cv2.resize(subject, (w0, h0))
