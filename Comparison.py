@@ -75,6 +75,7 @@ class PropResultCalculator(ResultCalculator):
 
         self.min_area = 0
         self.fail_count = 0
+        self.fail_ind = []
 
     def resize(self):
         print("Reconstructing...", end='')
@@ -109,8 +110,8 @@ class PropResultCalculator(ResultCalculator):
                     except Exception as e:
                         print(e)
                         print(x0, y0,  w0, h0)
-                        print(subject1.shape)
                         self.fail_count += 1
+                        self.fail_ind.append(i)
         print("Done")
         print(f"Reconstruction finished. Failure count = {self.fail_count}")
 
