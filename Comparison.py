@@ -10,7 +10,7 @@ from misc import plot_settings
 class ResultCalculator:
     def __init__(self, name, pred_path, gt=None, gt_ind=None):
         self.name = name
-
+        print(f"{self.name} loading...")
         self.preds: dict = np.load(pred_path, allow_pickle=True).item() if pred_path else None
         self.inds = self.preds['IND']
         print("{name} loaded Estimates of {pred_img.shape} as {pred_img.dtype}".format(
