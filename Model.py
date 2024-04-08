@@ -118,11 +118,11 @@ class ResidualBlock(nn.Module):
 class BasicCSIEncoder(nn.Module):
     name = 'csien'
 
-    def __init__(self,  batchnorm=None, latent_dim=16, feature_length=512):
+    def __init__(self,  batchnorm=None, latent_dim=16, lstm_feature_length=512):
         super(BasicCSIEncoder, self).__init__()
         self.batchnorm = batchnorm
         self.latent_dim = latent_dim
-        self.feature_length = feature_length
+        self.lstm_feature_length = lstm_feature_length
 
         self.cnn = None
         self.lstm = None
