@@ -168,37 +168,19 @@ class CSIEncoder(BasicCSIEncoder):
         self.lstm = nn.LSTM(self.lstm_feature_length, 128, 2, batch_first=True, dropout=0.1)
 
         self.fc_mu = nn.Sequential(
-            nn.Linear(feature_length, 1024),
-            nn.ReLU(),
-            nn.Linear(1024, self.latent_dim)
+            nn.Linear(128, self.latent_dim)
             # nn.ReLU()
         )
 
         self.fc_logvar = nn.Sequential(
-            nn.Linear(feature_length, 1024),
-            nn.ReLU(),
-            nn.Linear(1024, self.latent_dim)
+            nn.Linear(128, self.latent_dim)
             # nn.ReLU()
         )
-
-        # self.fc_mu = nn.Sequential(
-        #     nn.Linear(514, 128),
-        #     nn.ReLU(),
-        #     nn.Linear(128, self.latent_dim),
-        #     # self.active_func
-        # )
-
-        # self.fc_logvar = nn.Sequential(
-        #     nn.Linear(514, 128),
-        #     nn.ReLU(),
-        #     nn.Linear(128, self.latent_dim),
-        #     # self.active_func  
-        # )
 
     def __str__(self):
         return f"CSIEN{version}"
 
-    def forward(self, csi, pd):
+    def forward(self, csi):
         features = self.cnn(csi)
         out, (final_hidden_state, final_cell_state) = self.lstm.forward(
             features.view(-1, self.feature_length, 128).transpose(1, 2))
@@ -276,7 +258,7 @@ class StudentTrainer(BasicTrainer):
                  *args, **kwargs):
         super(StudentTrainer, self).__init__(*args, **kwargs)
 
-        self.modality = {'img', 'csi', 'bbx', 'pd', 'dpt'}
+        self.modality = {'img', 'csi', 'bbx', 'dpt'}
 
         self.alpha = alpha
         self.recon_lossfunc = recon_lossfunc
@@ -314,7 +296,7 @@ class StudentTrainer(BasicTrainer):
 
     def calculate_loss(self, data):
         img = torch.where(data['img'] > 0, 1., 0.) if self.mask else data['img']
-        features, s_z, s_mu, s_logvar = self.models['csien'](csi=data['csi'], pd=data['pd'])
+        features, s_z, s_mu, s_logvar = self.models['csien'](csi=data['csi'])
         s_image = self.models['imgde'](s_z)
         s_bbx, s_depth = self.models['bbxde'](features)
 
