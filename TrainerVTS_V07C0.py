@@ -165,7 +165,7 @@ class CSIEncoder(BasicCSIEncoder):
             nn.LeakyReLU(inplace=True),
         )
 
-        self.lstm = nn.LSTM(self.lstm_feature_length, self.lstm_steps, 2, batch_first=True, dropout=0.1)
+        self.lstm = nn.LSTM(self.lstm_feature_length, 128, 2, batch_first=True, dropout=0.1)
 
         self.fc_mu = nn.Sequential(
             nn.Linear(feature_length, 1024),
@@ -192,7 +192,7 @@ class CSIEncoder(BasicCSIEncoder):
         #     nn.Linear(514, 128),
         #     nn.ReLU(),
         #     nn.Linear(128, self.latent_dim),
-        #     # self.active_func
+        #     # self.active_func  
         # )
 
     def __str__(self):
@@ -201,7 +201,7 @@ class CSIEncoder(BasicCSIEncoder):
     def forward(self, csi, pd):
         features = self.cnn(csi)
         out, (final_hidden_state, final_cell_state) = self.lstm.forward(
-            features.view(-1, self.feature_length, self.lstm_steps).transpose(1, 2))
+            features.view(-1, self.feature_length, 128).transpose(1, 2))
         mu = self.fc_mu(out)
         logvar = self.fc_logvar(out)
         z = reparameterize(mu, logvar)
