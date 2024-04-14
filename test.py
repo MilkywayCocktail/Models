@@ -5,6 +5,8 @@ from torchvision.ops import generalized_box_iou_loss
 from matplotlib.patches import Rectangle
 import torch
 from datetime import datetime
+import os
+import copy
 
 #print(z * torch.transpose(z, -1, -2) - eye)
 #print(torch.matmul(x, torch.transpose(x, -1, -2)))
@@ -19,4 +21,11 @@ s = samples[inds]
 #print(s)
 #print(a1[inds[np.argsort(s)]])
 
-print(2 ** -18)
+
+arrr = np.arange(10)
+print(arrr.shape)
+
+for si in arrr:
+    si = si * 5
+
+print(arrr)
