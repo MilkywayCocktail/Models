@@ -184,8 +184,8 @@ class CSIEncoder(BasicCSIEncoder):
         features = self.cnn(csi)
         out, (final_hidden_state, final_cell_state) = self.lstm.forward(
             features.view(-1, self.lstm_feature_length, 25).transpose(1, 2))
-        mu = self.fc_mu(out)
-        logvar = self.fc_logvar(out)
+        mu = self.fc_mu(out[:, -1, :])
+        logvar = self.fc_logvar(out[:, -1, :])
         z = reparameterize(mu, logvar)
         return features.view(-1, feature_length), z, mu, logvar
 
@@ -352,6 +352,5 @@ class StudentTrainer(BasicTrainer):
 
 if __name__ == '__main__':
     cc = CSIEncoder()
-    print(cc.batchnorm)
     summary(cc, input_size=(6, 30, 100))
 
