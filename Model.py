@@ -24,16 +24,17 @@ RIMG = (1, 1, 128, 226)
 PD = (1, 2)
 
 
-def batchnorm_layer(channels, batchnorm=None):
+def batchnorm_layer(channels, batchnorm='identity'):
     """
     Definition of optional batchnorm layer.
     :param channels: input channels
     :param batchnorm: False or 'batch' or 'instance'
     :return: batchnorm layer or Identity layer (no batchnorm)
     """
-    # assert batchnorm in (None, 'batch', 'instance')
 
-    if not batchnorm:
+    assert batchnorm in {'identity', 'batch', 'instance'}
+
+    if batchnorm == 'identity':
         return nn.Identity(channels)
     elif batchnorm == 'batch':
         return nn.BatchNorm2d(channels)
@@ -118,7 +119,7 @@ class ResidualBlock(nn.Module):
 class BasicCSIEncoder(nn.Module):
     name = 'csien'
 
-    def __init__(self,  batchnorm=None, latent_dim=16, lstm_feature_length=512):
+    def __init__(self,  batchnorm='identity', latent_dim=16, lstm_feature_length=512):
         super(BasicCSIEncoder, self).__init__()
         self.batchnorm = batchnorm
         self.latent_dim = latent_dim
@@ -137,7 +138,7 @@ class BasicCSIEncoder(nn.Module):
 class BasicImageEncoder(nn.Module):
     name = 'imgen'
 
-    def __init__(self, batchnorm=None, latent_dim=16):
+    def __init__(self, batchnorm='identity', latent_dim=16):
         super(BasicImageEncoder, self).__init__()
         self.batchnorm = batchnorm
         self.latent_dim = latent_dim
@@ -155,7 +156,7 @@ class BasicImageEncoder(nn.Module):
 class BasicImageDecoder(nn.Module):
     name = 'imgde'
 
-    def __init__(self, batchnorm=None, latent_dim=16, active_func=nn.Sigmoid()):
+    def __init__(self, batchnorm='identity', latent_dim=16, active_func=nn.Sigmoid()):
         super(BasicImageDecoder, self).__init__()
         self.batchnorm = batchnorm
         self.latent_dim = latent_dim

@@ -28,7 +28,7 @@ version = 'V07C0'
 ##############################################################################
 
 feature_length = 512 * 7
-steps = 22
+steps = 25
 
 
 class ImageEncoder(BasicImageEncoder):
@@ -144,14 +144,14 @@ class BBXDecoder(nn.Module):
 
 class CSIEncoder(BasicCSIEncoder):
     def __init__(self, lstm_steps=steps, lstm_feature_length=feature_length, *args, **kwargs):
-        super(CSIEncoder, self).__init__(lstm_feature_length, *args, **kwargs)
+        super(CSIEncoder, self).__init__(lstm_feature_length=lstm_feature_length, *args, **kwargs)
 
         self.lstm_steps = steps
 
-        # 6 * 30 * 90
-        # 128 * 28 * 88
-        # 256 * 14 * 44
-        # 512 * 7 * 22
+        # 6 * 30 * 100
+        # 128 * 28 * 98
+        # 256 * 14 * 49
+        # 512 * 7 * 25
 
         self.cnn = nn.Sequential(
             nn.Conv2d(6, 128, 5, 1, 1),
@@ -162,7 +162,7 @@ class CSIEncoder(BasicCSIEncoder):
             nn.LeakyReLU(inplace=True),
             nn.Conv2d(256, 512, 3, 2, 1),
             batchnorm_layer(512, self.batchnorm),
-            nn.LeakyReLU(inplace=True),
+            nn.LeakyReLU(inplace=True)
         )
 
         self.lstm = nn.LSTM(self.lstm_feature_length, 128, 2, batch_first=True, dropout=0.1)
@@ -183,7 +183,7 @@ class CSIEncoder(BasicCSIEncoder):
     def forward(self, csi):
         features = self.cnn(csi)
         out, (final_hidden_state, final_cell_state) = self.lstm.forward(
-            features.view(-1, self.feature_length, 128).transpose(1, 2))
+            features.view(-1, self.lstm_feature_length, 25).transpose(1, 2))
         mu = self.fc_mu(out)
         logvar = self.fc_logvar(out)
         z = reparameterize(mu, logvar)
@@ -352,4 +352,6 @@ class StudentTrainer(BasicTrainer):
 
 if __name__ == '__main__':
     cc = CSIEncoder()
-    summary(cc, input_size=(CSI2, PD))
+    print(cc.batchnorm)
+    summary(cc, input_size=(6, 30, 100))
+
