@@ -120,12 +120,9 @@ class BBXDecoder(nn.Module):
         super(BBXDecoder, self).__init__()
 
         self.fc = nn.Sequential(
-            nn.Linear(feature_length, 1024),
-            # nn.BatchNorm1d(1024),
+            nn.Linear(128, 32),
             nn.ReLU(),
-            nn.Linear(1024, 128),
-            nn.ReLU(),
-            nn.Linear(128, 5),
+            nn.Linear(32, 5),
             nn.Sigmoid()
         )
 
@@ -181,13 +178,14 @@ class CSIEncoder(BasicCSIEncoder):
         return f"CSIEN{version}"
 
     def forward(self, csi):
-        features = self.cnn(csi)
-        out, (final_hidden_state, final_cell_state) = self.lstm.forward(
-            features.view(-1, self.lstm_feature_length, 25).transpose(1, 2))
-        mu = self.fc_mu(out[:, -1, :])
-        logvar = self.fc_logvar(out[:, -1, :])
+        fea = self.cnn(csi)
+        features, (final_hidden_state, final_cell_state) = self.lstm.forward(
+            fea.view(-1, self.lstm_feature_length, 25).transpose(1, 2))
+        features = features[:, -1, :]
+        mu = self.fc_mu(features)
+        logvar = self.fc_logvar(features)
         z = reparameterize(mu, logvar)
-        return features.view(-1, feature_length), z, mu, logvar
+        return features, z, mu, logvar
 
 
 class TeacherTrainer(BasicTrainer):
