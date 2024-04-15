@@ -186,12 +186,14 @@ class BasicTrainer:
 
         for idx, data in enumerate(self.dataloader[loader], 0):
             data_ = {}
+            length = 0
             for key, value in data.items():
                 if key in self.modality:
                     data_[key] = value.to(torch.float32).to(self.device)
+                    length = len(value)
 
             with torch.no_grad():
-                for sample in range(len(self.dataloader[loader])):
+                for sample in range(length):
                     data_i = {key: data_[key][sample][np.newaxis, ...] for key in data_.keys()}
                     PREDS = self.calculate_loss(data_i)
 
@@ -200,7 +202,7 @@ class BasicTrainer:
 
                     self.loss.update('pred', PREDS)
 
-            if idx % (len(self.dataloader[loader])//5) == 0:
+            if idx % 5 == 0:
                 print(f"\r{self.name} test: sample={idx}/{len(self.dataloader[loader])}, "
                       f"loss={self.temp_loss['LOSS'].item():.4f}    ",
                       end='', flush=True)

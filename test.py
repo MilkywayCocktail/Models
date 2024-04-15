@@ -22,10 +22,10 @@ s = samples[inds]
 #print(a1[inds[np.argsort(s)]])
 
 
-arrr = np.arange(10)
-print(arrr.shape)
+class X:
+    def __init__(self):
+        self.x = 1
+        self.y = 2
+        self.z = 3
 
-for si in arrr:
-    si = si * 5
-
-print(arrr)
+xxx = X()
