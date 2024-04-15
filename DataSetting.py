@@ -195,7 +195,7 @@ class DataSplitter:
         if not shuffle:
             shuffle = self.shuffle
         print("Exporting...")
-        loader = Data.DataLoader(self.data, batch_size=batch_size, shuffle=shuffle, drop_last=True)
+        loader = Data.DataLoader(self.data, batch_size=batch_size, shuffle=shuffle, drop_last=False)
         print(f"Exported loader of len {len(self.data)}")
         return loader
 
