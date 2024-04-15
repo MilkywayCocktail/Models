@@ -290,7 +290,7 @@ class StudentTrainer(BasicTrainer):
     def bbx_loss(bbx1, bbx2):
         # --- x, y, w, h to x1, y1, x2, y2 ---
         # Done in datasetting
-        return complete_box_iou_loss(bbx1, bbx2)
+        return complete_box_iou_loss(bbx1, bbx2, reduction='sum')
 
     def calculate_loss(self, data):
         img = torch.where(data['img'] > 0, 1., 0.) if self.mask else data['img']
