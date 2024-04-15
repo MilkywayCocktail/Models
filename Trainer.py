@@ -144,7 +144,7 @@ class BasicTrainer:
                 if 0 < val_loss < self.best_val_loss:
                     self.best_val_loss = val_loss
 
-                if idx % (len(self.dataloader['valid']) // 5) == 0:
+                if idx % 5 == 0:
                     print(f"\r{self.name} valid: epoch={epoch}/{self.epochs}, "
                           f"batch={idx}/{len(self.dataloader['valid'])}, "
                           f"current best valid loss={self.best_val_loss:.4f}        ", end='', flush=True)
