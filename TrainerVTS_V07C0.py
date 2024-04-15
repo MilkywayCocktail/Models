@@ -146,7 +146,7 @@ class CSIEncoder(BasicCSIEncoder):
     def __init__(self, lstm_steps=steps, lstm_feature_length=feature_length, *args, **kwargs):
         super(CSIEncoder, self).__init__(lstm_feature_length=lstm_feature_length, *args, **kwargs)
 
-        self.lstm_steps = steps
+        self.lstm_steps = lstm_steps
 
         # 6 * 30 * 100
         # 128 * 28 * 98
@@ -183,7 +183,7 @@ class CSIEncoder(BasicCSIEncoder):
     def forward(self, csi):
         features = self.cnn(csi)
         out, (final_hidden_state, final_cell_state) = self.lstm.forward(
-            features.view(-1, self.lstm_feature_length, 25).transpose(1, 2))
+            features.view(-1, self.lstm_feature_length, self.lstm_steps).transpose(1, 2))
         mu = self.fc_mu(out)
         logvar = self.fc_logvar(out)
         z = reparameterize(mu, logvar)
