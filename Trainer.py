@@ -110,7 +110,7 @@ class BasicTrainer:
                 for key in EPOCH_LOSS.keys():
                     EPOCH_LOSS[key].append(self.temp_loss[key].item())
 
-                if idx % (len(self.dataloader['train']) // 5) == 0:
+                if idx % 5 == 0:
                     print(f"\r{self.name} train: epoch={epoch}/{self.epochs}, "
                           f"batch={idx}/{len(self.dataloader['train'])}, "
                           f"loss={self.temp_loss['LOSS'].item():.4f}, "
