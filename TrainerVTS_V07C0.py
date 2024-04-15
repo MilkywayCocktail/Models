@@ -120,9 +120,9 @@ class BBXDecoder(nn.Module):
         super(BBXDecoder, self).__init__()
 
         self.fc = nn.Sequential(
-            nn.Linear(1024, 128),
+            nn.Linear(128, 32),
             nn.ReLU(),
-            nn.Linear(128, 5),
+            nn.Linear(32, 5),
             nn.Sigmoid()
         )
 
