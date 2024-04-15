@@ -191,7 +191,7 @@ class BasicTrainer:
                     data_[key] = value.to(torch.float32).to(self.device)
 
             with torch.no_grad():
-                for sample in range(self.dataloader[loader].batch_size):
+                for sample in range(len(self.dataloader[loader])):
                     data_i = {key: data_[key][sample][np.newaxis, ...] for key in data_.keys()}
                     PREDS = self.calculate_loss(data_i)
 
