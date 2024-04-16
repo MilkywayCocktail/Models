@@ -195,11 +195,11 @@ def gather_plot(*args: ResultCalculator, title=None):
         hist_, bin_edges = np.histogram(ar.result, bins)
         width = (bin_edges[1] - bin_edges[0]) * 0.8
         cdf = np.cumsum(hist_ / sum(hist_))
-        plt.bar(bin_edges[1:], hist_ / max(hist_), width=width, label=ar.name)
         if not ar.zero:
-            plt.plot(bin_edges[1:], cdf, '-*', label=ar.name)
+            plt.bar(bin_edges[1:], hist_ / max(hist_), width=width, label=ar.name)
         else:
-            plt.plot(bin_edges[1:], cdf, '-*', label=ar.name, alpha=0.6)
+            plt.bar(bin_edges[1:], hist_ / max(hist_), width=width * 0.6, label=ar.name, zorder=0.5)
+        plt.plot(bin_edges[1:], cdf, '-*', label=ar.name, zorder=2)
 
     ax = plt.gca()
     ax.fill_between(np.arange(0, np.max([np.max(ar.result) for ar in args]), 0.01), 1.02, color='white', alpha=0.5, zorder=1)
