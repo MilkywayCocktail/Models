@@ -24,13 +24,13 @@ class ResultCalculator:
         self.gt = gt
         self.gt_ind = gt_ind
         self.image_size = (128, 226)  # in rows * columns
-        self.resized = np.zeros((len(self.preds['IND']), *self.image_size)) if pred_path else None
+        self.resized = np.zeros((len(self.inds), *self.image_size)) if pred_path else None
+        self.result = np.zeros_like(self.inds) if pred_path else None
         self.loss = F.mse_loss
-        self.result = np.zeros(len(self.preds['IND'])) if pred_path else None
 
     def resize(self):
         print(f"{self.name} resizing...", end='')
-        for i in range(len(self.preds['IND'])):
+        for i in range(len(self.inds)):
             self.resized[i] = cv2.resize(
                 np.squeeze(self.preds['S_PRED'][i] if 'S_PRED' in self.preds.keys() else self.preds['PRED'][i]),
                 (self.image_size[1], self.image_size[0]))
@@ -175,9 +175,11 @@ class ZeroEstimates(ResultCalculator):
     def __init__(self, *args, **kwargs):
         super(ZeroEstimates, self).__init__(*args, **kwargs)
 
-        self.preds = np.zeros_like(self.gt)
         self.inds = self.gt_ind
         print(f"{self.name} loaded Zero Estimates")
+
+        self.resized = np.zeros((len(self.inds), *self.image_size))
+        self.result = np.zeros_like(self.inds)
 
     def resize(self):
         print(f"{self.name} resized")
