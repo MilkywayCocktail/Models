@@ -179,7 +179,7 @@ class ZeroEstimates(ResultCalculator):
         print(f"{self.name} loaded Zero Estimates")
 
         self.resized = np.zeros((len(self.inds), *self.image_size))
-        self.result = np.zeros_like(self.inds)
+        self.result = np.zeros_like(self.inds, dtype=float)
 
     def resize(self):
         print(f"{self.name} resized")
