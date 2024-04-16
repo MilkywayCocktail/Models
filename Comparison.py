@@ -198,7 +198,7 @@ def gather_plot(*args: ResultCalculator, title=None):
         if not ar.zero:
             plt.bar(bin_edges[1:], hist_ / max(hist_), width=width, label=ar.name)
         else:
-            plt.bar(bin_edges[1:], hist_ / max(hist_), width=width * 0.6, label=ar.name, zorder=1)
+            plt.bar(bin_edges[1:], hist_ / max(hist_), width=width * 0.6, label=ar.name, zorder=len(args))
         plt.plot(bin_edges[1:], cdf, '-*', label=ar.name, zorder=2)
 
     ax = plt.gca()
