@@ -124,7 +124,7 @@ class PropResultCalculator(ResultCalculator):
 
     def plot_example(self, inds=None, title=None):
         fig = plot_settings()
-        fig.suptitle('Reconstruction Examples' if not title else title)
+        fig.suptitle(f"{self.name} Reconstruction Examples" if not title else title)
 
         subfigs = fig.subfigures(nrows=4, ncols=1)
 
