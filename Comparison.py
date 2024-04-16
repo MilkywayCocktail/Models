@@ -8,21 +8,25 @@ from misc import plot_settings
 
 
 class ResultCalculator:
+    zero = False
+
     def __init__(self, name, pred_path, gt=None, gt_ind=None):
         self.name = name
         print(f"{self.name} loading...")
         self.preds: dict = np.load(pred_path, allow_pickle=True).item() if pred_path else None
-        self.inds = self.preds['IND']
-        print("{name} loaded Estimates of {pred_img.shape} as {pred_img.dtype}".format(
-            name=self.name,
-            pred_img=np.array(self.preds['S_PRED'] if 'S_PRED' in self.preds.keys() else self.preds['PRED']))
-        )
+        self.inds = self.preds['IND'] if pred_path else None
+        if self.preds:
+            print("{name} loaded Estimates of {pred_img.shape} as {pred_img.dtype}".format(
+                name=self.name,
+                pred_img=np.array(self.preds['S_PRED'] if 'S_PRED' in self.preds.keys() else self.preds['PRED']))
+            )
+
         self.gt = gt
         self.gt_ind = gt_ind
         self.image_size = (128, 226)  # in rows * columns
-        self.resized = np.zeros((len(self.preds['IND']), *self.image_size))
+        self.resized = np.zeros((len(self.preds['IND']), *self.image_size)) if pred_path else None
         self.loss = F.mse_loss
-        self.result = np.zeros(len(self.preds['IND']))
+        self.result = np.zeros(len(self.preds['IND'])) if pred_path else None
 
     def resize(self):
         print(f"{self.name} resizing...", end='')
@@ -34,8 +38,7 @@ class ResultCalculator:
 
     def calculate_loss(self):
         print(f"{self.name} calculating loss...", end='')
-        for i in range(len(self.preds['IND'])):
-            ind = self.preds['IND'][i]
+        for i, ind in enumerate(self.inds):
             _ind = np.where(self.gt_ind == ind)
             pred = torch.from_numpy(self.resized[i])
             self.result[i] = F.mse_loss(pred, torch.from_numpy(self.gt[_ind]))
@@ -166,6 +169,20 @@ class PropResultCalculator(ResultCalculator):
         return fig, filename
 
 
+class ZeroEstimates(ResultCalculator):
+    zero = True
+
+    def __init__(self, *args, **kwargs):
+        super(ZeroEstimates, self).__init__(*args, **kwargs)
+
+        self.preds = np.zeros_like(self.gt)
+        self.inds = self.gt_ind
+        print(f"{self.name} loaded Zero Estimates")
+
+    def resize(self):
+        print(f"{self.name} resized")
+
+
 def gather_plot(*args: ResultCalculator, title=None):
     fig = plot_settings()
     fig.suptitle('Comparison Results' if not title else title)
@@ -177,7 +194,10 @@ def gather_plot(*args: ResultCalculator, title=None):
         width = (bin_edges[1] - bin_edges[0]) * 0.8
         cdf = np.cumsum(hist_ / sum(hist_))
         plt.bar(bin_edges[1:], hist_ / max(hist_), width=width, label=ar.name)
-        plt.plot(bin_edges[1:], cdf, '-*', label=ar.name)
+        if not ar.zero:
+            plt.plot(bin_edges[1:], cdf, '-*', label=ar.name)
+        else:
+            plt.plot(bin_edges[1:], cdf, '-*', label=ar.name, alpha=0.6)
 
     ax = plt.gca()
     ax.fill_between(np.arange(0, np.max([np.max(ar.result) for ar in args]), 0.01), 1.02, color='white', alpha=0.5, zorder=1)
@@ -212,13 +232,14 @@ def visualization(*args: ResultCalculator, inds=None, figsize=(20, 10), title=No
         axes[j].set_title(f"#{samples[j]}")
 
     for i, ar in enumerate(args):
-        subfigs[i+1].suptitle(ar.name, fontweight="bold")
-        axes = subfigs[i+1].subplots(nrows=1, ncols=8)
-        for j in range(len(axes)):
-            _ind = np.where(ar.preds['IND'] == samples[j])
-            img = axes[j].imshow(np.squeeze(ar.resized[_ind]), vmin=0, vmax=1)
-            axes[j].axis('off')
-            axes[j].set_title(f"#{samples[j]}")
+        if not ar.zero:
+            subfigs[i+1].suptitle(ar.name, fontweight="bold")
+            axes = subfigs[i+1].subplots(nrows=1, ncols=8)
+            for j in range(len(axes)):
+                _ind = np.where(ar.preds['IND'] == samples[j])
+                img = axes[j].imshow(np.squeeze(ar.resized[_ind]), vmin=0, vmax=1)
+                axes[j].axis('off')
+                axes[j].set_title(f"#{samples[j]}")
     plt.show()
     filename = f"comparison_visual.jpg"
     return fig, filename
