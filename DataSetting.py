@@ -1,5 +1,6 @@
 import torch
 import torch.utils.data as Data
+from torchvision import transforms
 import numpy as np
 from PIL import Image
 
@@ -445,3 +446,16 @@ class MyDatasetV2(MyDataset):
 
         self.data = result
         return result
+
+
+class ExperimentInfo:
+    def __init__(self):
+        self.date = None
+        self.run = None
+        self.gpu = None
+        self.data_path = None
+        self.loaders = None
+        self.autosave = None
+        self.transform = None
+
+    def generate_loader(self, transform=False, ):
