@@ -200,14 +200,12 @@ def gather_plot(*args: ResultCalculator, title=None):
             plt.bar(bin_edges[1:], hist_ / max(hist_), width=width, label=ar.name, zorder=i)
             plt.plot(bin_edges[1:], cdf, '-*', label=ar.name, zorder=1+i+len(args))
         else:
-            plt.bar(bin_edges[1:], hist_ / max(hist_), width=width * 0.5, label=ar.name, hatch='-', zorder=len(args))
-            plt.plot(bin_edges[1:], cdf, '-*', label=ar.name, zorder=2*len(args))
+            plt.bar(bin_edges[1:], hist_ / max(hist_), width=width * 0.4, label=ar.name, hatch='-', zorder=len(args))
+            plt.plot(bin_edges[1:], cdf, '-.', label=ar.name, zorder=2*len(args))
 
     ax = plt.gca()
     ax.fill_between(np.arange(0, np.max([np.max(ar.result) for ar in args]), 0.01), 1.02,
                     color='white', alpha=0.5, zorder=len(args)+0.5)
-    ax.fill_between(np.arange(0, np.max([np.max(ar.result) for ar in args]), 0.01), 1.02,
-                    color='white', alpha=0.5, zorder=2*len(args)-0.5)
     plt.title('Test PDF-CDF', fontweight="bold")
     plt.xlabel('Per-sample Loss')
     plt.ylabel('Frequency')
