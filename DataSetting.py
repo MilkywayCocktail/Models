@@ -2,6 +2,7 @@ import torch
 import torch.utils.data as Data
 from torchvision import transforms
 import numpy as np
+import os
 from PIL import Image
 
 
@@ -277,114 +278,10 @@ class MyDatasetBBX(MyDataset):
         return self.data['csi'].shape[0]
 
 # -------------------------------------------------------------------------- #
-# MyDatasetBBX2
+# MyDatasetV2
 # Load csi, img (=c_img), bbx
 # If the loss is "giou", you have to change bbx from xywh to xyxy.
 # -------------------------------------------------------------------------- #
-
-
-class MyDatasetBBX2(MyDataset):
-    def __init__(self,
-                 bbx_path,
-                 bbx_ver='xywh',
-                 *args,
-                 **kwargs):
-
-        super(MyDatasetBBX2, self).__init__(**kwargs)
-        self.paths['bbx'] = bbx_path
-        self.bbx_ver = bbx_ver
-
-    def adjust_bbx(self):
-        if self.bbx_ver == 'xyxy':
-            _bbx = np.zeros_like(self.data['bbx'])
-            _bbx[..., 0:2] = self.data['bbx'][..., 0:2]
-            _bbx[..., -1] = self.data['bbx'][..., -1] + self.data['bbx'][..., -3]
-            _bbx[..., -2] = self.data['bbx'][..., -2] + self.data['bbx'][..., -4]
-            self.data['bbx'] = _bbx
-
-    def __getitem__(self, index):
-
-        return {'csi': self.data['csi'][index],
-                'img': self.__transform__(self.data['img'][index]),
-                'bbx': self.data['bbx'][index],
-                'ind': index}
-
-    def __len__(self):
-        return self.data['csi'].shape[0]
-
-# -------------------------------------------------------------------------- #
-# MyDatasetPDBBX2
-# Load img (=c_img), pd, bbx
-# -------------------------------------------------------------------------- #
-
-
-class MyDatasetPDBBX2(MyDataset):
-    def __init__(self,
-                 pd_path, bbx_path,
-                 bbx_ver='xywh',
-                 *args,
-                 **kwargs):
-
-        super(MyDatasetPDBBX2, self).__init__(**kwargs)
-        self.paths['bbx'] = bbx_path
-        self.paths['pd'] = pd_path
-        self.bbx_ver = bbx_ver
-
-    def adjust_bbx(self):
-        if self.bbx_ver == 'xyxy':
-            _bbx = np.zeros_like(self.data['bbx'])
-            _bbx[..., 0:2] = self.data['bbx'][..., 0:2]
-            _bbx[..., -1] = self.data['bbx'][..., -1] + self.data['bbx'][..., -3]
-            _bbx[..., -2] = self.data['bbx'][..., -2] + self.data['bbx'][..., -4]
-            self.data['bbx'] = _bbx
-
-    def __getitem__(self, index):
-
-        return {'pd': self.data['pd'][index],
-                'img': self.__transform__(self.data['img'][index]),
-                'bbx': self.data['bbx'][index],
-                'ind': index}
-
-    def __len__(self):
-        return self.data['pd'].shape[0]
-
-# -------------------------------------------------------------------------- #
-# MyDatasetPDBBX3
-# Load csi, img (=c_img), bbx
-# -------------------------------------------------------------------------- #
-
-
-class MyDatasetPDBBX3(MyDataset):
-    def __init__(self,
-                 pd_path,
-                 bbx_path,
-                 bbx_ver='xywh',
-                 *args,
-                 **kwargs):
-
-        super(MyDatasetPDBBX3, self).__init__(**kwargs)
-        self.paths['bbx'] = bbx_path
-        self.paths['pd'] = pd_path
-        self.bbx_ver = bbx_ver
-
-    def adjust_bbx(self):
-        if self.bbx_ver == 'xyxy':
-            _bbx = np.zeros_like(self.data['bbx'])
-            _bbx[..., 0:2] = self.data['bbx'][..., 0:2]
-            _bbx[..., -1] = self.data['bbx'][..., -1] + self.data['bbx'][..., -3]
-            _bbx[..., -2] = self.data['bbx'][..., -2] + self.data['bbx'][..., -4]
-            self.data['bbx'] = _bbx
-
-    def __getitem__(self, index):
-
-        return {'csi': self.data['csi'][index],
-                'img': self.__transform__(self.data['img'][index]),
-                'pd': self.data['pd'][index],
-                'bbx': self.data['bbx'][index],
-                'ind': index}
-
-    def __len__(self):
-        return self.data['csi'].shape[0]
 
 
 class MyDatasetV2(MyDataset):
@@ -393,7 +290,7 @@ class MyDatasetV2(MyDataset):
                  bbx_ver='xywh',
                  *args,
                  **kwargs):
-        super(MyDatasetV2, self).__init__(**kwargs)
+        super(MyDatasetV2, self).__init__(*args, **kwargs)
 
         self.bbx_ver = bbx_ver
         self.paths = paths
@@ -449,13 +346,20 @@ class MyDatasetV2(MyDataset):
 
 
 class ExperimentInfo:
-    def __init__(self):
-        self.date = None
-        self.run = None
-        self.gpu = None
-        self.data_path = None
-        self.loaders = None
-        self.autosave = None
-        self.transform = None
+    def __init__(self, date, run, gpu, data_path):
+        self.date = date
+        self.run = run
+        self.gpu = gpu
+        self.data_path = data_path
 
-    def generate_loader(self, transform=False, ):
+    def log(self):
+        save_path = f'../saved/{self.date}_{self.run}/'
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
+
+        with open(f"{save_path}ExpInfo.txt", 'w') as logfile:
+            logfile.write(f"Experiment Info of {self.date}_{self.run}\n"
+                          f"Data_path={self.data_path}\n"
+                          f"gpu={self.gpu}\n"
+                          )
+        logfile.close()
