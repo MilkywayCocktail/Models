@@ -22,20 +22,6 @@ s = samples[inds]
 #print(a1[inds[np.argsort(s)]])
 
 
-class X:
-    zero = False
-
-    def __init__(self):
-        self.x = 1
-        self.y = 2
-        self.z = 3
-
-class Y(X):
-    zero = True
-
-    def __init__(self):
-        super(Y, self).__init__()
-
-xxx = X()
-yyy = Y()
-print(xxx.zero, yyy.zero)
+tarr = np.arange(100)
+iarr = np.arange(3,33,6)
+print(tarr[iarr])

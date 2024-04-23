@@ -7,25 +7,25 @@ import matplotlib.pyplot as plt
 import os
 from Trainer import BasicTrainer
 from Model import *
-from Loss import MyLoss, MyLossBBX
+from Loss import MyLoss, MyLossCTR
 
-version = 'V07C0'
+version = 'V07C1'
 
 ##############################################################################
 # -------------------------------------------------------------------------- #
-# Version V07C0
+# Version V07C1
 # Teacher learns and estimates binary masks and the depth value of the center
 # pixel of the cropped depth image
-# Student learns (6, 30,  m) CSIs
+# Student learns (6, 30, m) CSIs and (2, 30, m) PhaseDiffs
 
 # ImageEncoder: in = 128 * 128,
 #               out = [z:latent_dim, mu:latent_dim, logvar:latent_dim]
 # ImageDecoder: in = 1 * latent_dim,
 #               out = 128 * 128
-# CSIEncoder: in = [6 * 30 * * m],
+# CSIEncoder: in = [6 * 30 * m], [2 * 30 * m]
 #               out = [z:latent_dim, mu:latent_dim, logvar:latent_dim]
-# BBXDecoder: in = 512 * 7,
-#               out = [bbx:4, depth:1]
+# DepthDecoder: in = 128,
+#               out = [center:2, depth:1]
 # -------------------------------------------------------------------------- #
 ##############################################################################
 
@@ -115,30 +115,29 @@ class ImageDecoder(BasicImageDecoder):
         return out.view(-1, 1, 128, 128)
 
 
-class BBXDecoder(nn.Module):
-    name = 'bbxde'
+class CenterDecoder(nn.Module):
+    name = 'ctrde'
 
     def __init__(self):
-        super(BBXDecoder, self).__init__()
+        super(CenterDecoder, self).__init__()
 
         self.fc = nn.Sequential(
             nn.Linear(128, 32),
             nn.ReLU(),
-            nn.Linear(32, 5),
+            nn.Linear(32, 3),
             nn.Sigmoid()
         )
 
-        # init.kaiming_uniform_(self.fc_bbx[0].weight, mode='fan_in', nonlinearity='relu')
         init.xavier_normal_(self.fc[-2].weight)
 
     def __str__(self):
-        return f"BBXDE{version}"
+        return f"CTRDE{version}"
 
     def forward(self, x):
         out = self.fc(x.view(-1, 128))
-        bbx = out[..., :4]
+        center = out[..., :2]
         depth = out[..., -1]
-        return bbx, depth
+        return center, depth
 
 
 class CSIEncoder(BasicCSIEncoder):
@@ -153,6 +152,30 @@ class CSIEncoder(BasicCSIEncoder):
         # 512 * 7 * 25
 
         self.cnn = nn.Sequential(
+            nn.Conv2d(6, 128, 5, 1, 1),
+            batchnorm_layer(128, self.batchnorm),
+            nn.LeakyReLU(inplace=True),
+            nn.Conv2d(128, 256, 3, 2, 1),
+            batchnorm_layer(256, self.batchnorm),
+            nn.LeakyReLU(inplace=True),
+            nn.Conv2d(256, 512, 3, 2, 1),
+            batchnorm_layer(512, self.batchnorm),
+            nn.LeakyReLU(inplace=True)
+        )
+
+        self.cnn_aoa = nn.Sequential(
+            nn.Conv1d(6, 128, 5, 1, 1),
+            batchnorm_layer(128, self.batchnorm),
+            nn.LeakyReLU(inplace=True),
+            nn.Conv1d(128, 256, 3, 2, 1),
+            batchnorm_layer(256, self.batchnorm),
+            nn.LeakyReLU(inplace=True),
+            nn.Conv1d(256, 512, 3, 2, 1),
+            batchnorm_layer(512, self.batchnorm),
+            nn.LeakyReLU(inplace=True)
+        )
+
+        self.cnn_tof = nn.Sequential(
             nn.Conv2d(6, 128, 5, 1, 1),
             batchnorm_layer(128, self.batchnorm),
             nn.LeakyReLU(inplace=True),
@@ -179,10 +202,19 @@ class CSIEncoder(BasicCSIEncoder):
     def __str__(self):
         return f"CSIEN{version}"
 
-    def forward(self, csi):
-        fea = self.cnn(csi)
+    def forward(self, csi, pd):
+        fea_csi = self.cnn(csi)
+        aoa = pd[..., 0, :]
+        tof = pd[..., 1:, :]
+        fea_aoa = self.cnn_aoa(aoa)
+        fea_tof = self.cnn_tof(tof)
+
+        features = torch.cat((fea_csi.view(-1, 512 * 7, self.lstm_steps),
+                              fea_aoa.view(-1, 512 * 1, self.lstm_steps),
+                              fea_tof.view(-1, 512 * 7, self.lstm_steps)), -2)
         features, (final_hidden_state, final_cell_state) = self.lstm.forward(
-            fea.view(-1, self.lstm_feature_length, self.lstm_steps).transpose(1, 2))
+            features.transpose(1, 2))
+        # 128-dim output
         out = features[:, -1, :]
         mu = self.fc_mu(out)
         logvar = self.fc_logvar(out)
@@ -192,7 +224,7 @@ class CSIEncoder(BasicCSIEncoder):
 
 class TeacherTrainer(BasicTrainer):
     def __init__(self,
-                 beta=1.2,
+                 beta=0.5,
                  mask=False,
                  recon_lossfunc=nn.BCELoss(reduction='sum'),
                  *args, **kwargs):
@@ -249,7 +281,7 @@ class TeacherTrainer(BasicTrainer):
                 fig.savefig(f"{save_path}{notion}_{filename}")
 
 
-# Student is Mask + BBX + Depth
+# Student is Mask + Center + Depth
 class StudentTrainer(BasicTrainer):
     def __init__(self,
                  alpha=0.8,
@@ -258,28 +290,28 @@ class StudentTrainer(BasicTrainer):
                  *args, **kwargs):
         super(StudentTrainer, self).__init__(*args, **kwargs)
 
-        self.modality = {'img', 'csi', 'bbx', 'dpt'}
+        self.modality = {'img', 'csi', 'ctr', 'dpt', 'pd'}
 
         self.alpha = alpha
         self.recon_lossfunc = recon_lossfunc
         self.depth_loss = nn.MSELoss()
+        self.center_loss = nn.MSELoss()
         self.mask = mask
 
-        self.loss_terms = ('LOSS', 'MU', 'LOGVAR', 'BBX', 'DPT', 'IMG')
+        self.loss_terms = ('LOSS', 'MU', 'LOGVAR', 'CTR', 'DPT', 'IMG')
         self.pred_terms = ('GT', 'T_PRED', 'S_PRED',
                            'T_LATENT', 'S_LATENT',
-                           'GT_BBX', 'S_BBX',
+                           'GT_CTR', 'S_CTR',
                            'GT_DPT', 'S_DPT',
                            'IND')
-        self.loss = MyLossBBX(name=self.name,
+        self.loss = MyLossCTR(name=self.name,
                               loss_terms=self.loss_terms,
                               pred_terms=self.pred_terms,
                               depth=True)
 
-        # self.extra_params.add(img_weight=[0.5], bbx_weight=[0.5], depth_weight=[0.5])
         self.latent_weight = 0.046
         self.img_weight = 0
-        self.bbx_weight = 0.027
+        self.center_weight = 0.027
         self.depth_weight = 0.926
 
     def kd_loss(self, mu_s, logvar_s, mu_t, logvar_t):
@@ -288,29 +320,23 @@ class StudentTrainer(BasicTrainer):
         loss = self.alpha * mu_loss + (1 - self.alpha) * logvar_loss
         return loss, mu_loss, logvar_loss
 
-    @staticmethod
-    def bbx_loss(bbx1, bbx2):
-        # --- x, y, w, h to x1, y1, x2, y2 ---
-        # Done in datasetting
-        return complete_box_iou_loss(bbx1, bbx2, reduction='sum')
-
     def calculate_loss(self, data):
         img = torch.where(data['img'] > 0, 1., 0.) if self.mask else data['img']
-        features, s_z, s_mu, s_logvar = self.models['csien'](csi=data['csi'])
+        features, s_z, s_mu, s_logvar = self.models['csien'](csi=data['csi'], pd=data['pd'])
         s_image = self.models['imgde'](s_z)
-        s_bbx, s_depth = self.models['bbxde'](features)
+        s_ctr, s_depth = self.models['ctrde'](features)
 
         with torch.no_grad():
             t_z, t_mu, t_logvar = self.models['imgen'](img)
             t_image = self.models['imgde'](t_z)
             image_loss = self.recon_lossfunc(s_image, img)
 
-        bbx_loss = self.bbx_loss(s_bbx, torch.squeeze(data['bbx']))
+        center_loss = self.center_loss(s_ctr, torch.squeeze(data['ctr']))
         depth_loss = self.depth_loss(s_depth, torch.squeeze(data['dpt']))
         latent_loss, mu_loss, logvar_loss = self.kd_loss(s_mu, s_logvar, t_mu, t_logvar)
 
         loss = image_loss * self.img_weight + \
-               bbx_loss * self.bbx_weight + \
+               center_loss * self.center_weight + \
                depth_loss * self.depth_weight + \
                latent_loss * self.latent_weight
 
@@ -318,15 +344,15 @@ class StudentTrainer(BasicTrainer):
                           'MU': mu_loss,
                           'LOGVAR': logvar_loss,
                           'IMG': image_loss,
-                          'BBX': bbx_loss,
+                          'CTR': center_loss,
                           'DPT': depth_loss}
         return {'GT': img,
                 'T_LATENT': torch.cat((t_mu, t_logvar), -1),
                 'S_LATENT': torch.cat((s_mu, s_logvar), -1),
                 'T_PRED': t_image,
                 'S_PRED': s_image,
-                'GT_BBX': data['bbx'],
-                'S_BBX': s_bbx,
+                'GT_CTR': data['ctr'],
+                'S_CTR': s_ctr,
                 'GT_DPT': data['dpt'],
                 'S_DPT': s_depth,
                 'IND': data['ind']}
@@ -338,7 +364,7 @@ class StudentTrainer(BasicTrainer):
 
         figs.append(self.loss.plot_predict(plot_terms=('GT', 'T_PRED', 'S_PRED')))
         figs.append(self.loss.plot_latent(plot_terms=('T_LATENT', 'S_LATENT')))
-        figs.append(self.loss.plot_bbx())
+        figs.append(self.loss.plot_ctr())
         figs.append(self.loss.plot_test(plot_terms='all'))
         figs.append(self.loss.plot_test_cdf(plot_terms='all'))
         #figs.append(self.loss.plot_tsne(plot_terms=('GT', 'T_LATENT', 'S_LATENT')))

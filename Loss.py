@@ -346,3 +346,49 @@ class MyLossBBX(MyLoss):
         filename = f"{self.name}_BBX_{self.dataset}SET@ep{self.epochs[-1]}.jpg"
         return fig, filename
 
+
+class MyLossCTR(MyLoss):
+    def __init__(self, depth=False, *args, **kwargs):
+        super(MyLossCTR, self).__init__(*args, **kwargs)
+        self.depth = depth
+
+    def plot_center(self, title=None):
+        if title:
+            title = f"{title} @ep{self.epochs[-1]}"
+        else:
+            title = f"{self.name} Center Predicts on {self.dataset} @ep{self.epochs[-1]}"
+        samples = np.array(self.loss['pred']['IND']).astype(int)[self.select_inds]
+
+        fig = self.__plot_settings__()
+        fig.suptitle(title)
+        axes = fig.subplots(nrows=2, ncols=np.ceil(self.select_num / 2).astype(int))
+        axes = axes.flatten()
+        for j in range(self.select_num):
+            axes[j].set_xlim([0, 226])
+            axes[j].set_ylim([0, 128])
+            axes[j].set_title(f"#{samples[j]}", fontweight="bold")
+            x1, y1 = self.loss['pred']['GT_CTR'][self.select_inds[j]]
+            x1 = int(x1 * 226)
+            y1 = int(y1 * 128)
+            axes[j].scatter(x1, y1, c='blue', marker=(5, 1), alpha=0.5, linewidths=5, label='GT_CTR')
+            if self.depth:
+                axes[j].annotate(f"GT_DPT={self.loss['pred']['GT_DPT'][self.select_inds[j]]:.2f}",
+                                 (48, 20),
+                                 fontsize=20, color='blue')
+                axes[j].annotate(f"Pred_DPT={self.loss['pred']['S_DPT'][self.select_inds[j]]:.2f}",
+                                 (48, 10),
+                                 fontsize=20, color='orange')
+
+            x2, y2 = self.loss['pred']['S_CRT'][self.select_inds[j]]
+            x2 = int(x2 * 226)
+            y2 = int(y2 * 128)
+            axes[j].scatter(x2, y2, c='orange', marker=(5, 1), alpha=0.5, linewidths=5, label='PRED_CTR')
+
+            axes[j].axis('off')
+            axes[j].add_patch(Rectangle((0, 0), 226, 128, facecolor="#F0FFFF",
+                                        transform=axes[j].transAxes, zorder=-1))
+
+        axes[0].legend()
+        plt.show()
+        filename = f"{self.name}_CTR_{self.dataset}SET@ep{self.epochs[-1]}.jpg"
+        return fig, filename
