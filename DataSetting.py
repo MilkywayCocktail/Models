@@ -338,7 +338,6 @@ class MyDatasetV3(MyDataset):
         """
         print(f"{self.name} loading...")
         result = {}
-        count = 0
         for key, value in self.paths.items():
             if value:
                 self.modality.add(key)
@@ -347,39 +346,27 @@ class MyDatasetV3(MyDataset):
                     result[key] = item[self.id]
                 else:
                     result[key] = item
-                count = item.shape[0]
-                print(f"loaded {key} of {item.shape} as {item.dtype}")
+                count = result[key].shape[0]
+                print(f"loaded {key} of {result[key]} as {item.dtype}")
                 self.length = count
             else:
                 print(f"skipping {key}")
 
-        self.data['ind'] = self.id
-
-        if self.number != 0:
-            if self.random:
-                picked = np.random.choice(list(range(count)), size=self.number, replace=False)
-            else:
-                picked = np.arange(self.number)
-            self.seeds = picked
-            for key in self.paths.keys():
-                result[key] = result[key][picked]
-
         self.data = result
+        self.data['ind'] = self.id
         return result
 
 
 class DataSplitterV2:
-    def __init__(self, dataset:MyDatasetV3, batch_size=64, shuffle=True):
+    def __init__(self, dataset: MyDatasetV3, batch_size=64, shuffle=True):
         self.dataset = dataset
         self.batch_size = batch_size
         self.shuffle = shuffle
 
-    def gen_loader(self, batch_size=None, shuffle=None, num_workers=14, pin_memory=False):
+    def gen_loader(self, num_workers=14, pin_memory=False):
         print("Exporting loaders...")
-        if not batch_size:
-            batch_size = self.batch_size
 
-        loader = Data.DataLoader(self.dataset, batch_size=batch_size, shuffle=self.shuffle, num_workers=num_workers, drop_last=True, pin_memory=pin_memory)
+        loader = Data.DataLoader(self.dataset, batch_size=self.batch_size, shuffle=self.shuffle, num_workers=num_workers, drop_last=True, pin_memory=pin_memory)
         print(f"{self.dataset.name} len {len(self.dataset)} - exported loader of len {len(loader)}")
 
         return loader
