@@ -21,7 +21,5 @@ s = samples[inds]
 #print(s)
 #print(a1[inds[np.argsort(s)]])
 
-
-tarr = np.arange(100)
-iarr = np.arange(3,33,6)
-print(tarr[iarr])
+strr = ['group 0, segment [4] + [3]', 'group 1, segment [8] + [7]', 'group 2, segment [6] + [5]', 'group 3, segment [4] + [3]', 'group 4, segment [1] + [0]']
+print('; '.join(strr))

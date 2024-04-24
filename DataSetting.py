@@ -236,46 +236,9 @@ class DataSplitter:
                                        num_workers=num_workers, drop_last=True, pin_memory=pin_memory)
         test_loader = Data.DataLoader(test_dataset, batch_size=test_batch_size, num_workers=num_workers, shuffle=shuffle,
                                       pin_memory=pin_memory)
-        print(f"Exported loader len: train {len(train_dataset)}, valid {len(valid_dataset)}, test {len(test_dataset)}")
+        print(f"Exported loader len: train {len(train_loader)}, valid {len(valid_loader)}, test {len(test_loader)}")
 
         return train_loader, valid_loader, test_loader
-
-# -------------------------------------------------------------------------- #
-# MyDatasetBBX
-# Load csi, r_img, c_img, bbx
-# If the loss is "giou", you have to change bbx from xywh to xyxy.
-# -------------------------------------------------------------------------- #
-
-
-class MyDatasetBBX(MyDataset):
-    def __init__(self,
-                 raw_img_path, crop_img_path, bbx_path,
-                 bbx_ver='xywh',
-                 *args,
-                 **kwargs):
-        super(MyDatasetBBX, self).__init__(**kwargs)
-        self.paths['r_img'] = raw_img_path
-        self.paths['c_img'] = crop_img_path
-        self.paths['bbx'] = bbx_path
-
-        self.bbx_ver = bbx_ver
-        if self.bbx_ver == 'xyxy':
-            _bbx = np.zeros_like(self.data['bbx'])
-            _bbx[..., 0:2] = self.data['bbx'][..., 0:2]
-            _bbx[..., -1] = self.data['bbx'][..., -1] + self.data['bbx'][..., -3]
-            _bbx[..., -2] = self.data['bbx'][..., -2] + self.data['bbx'][..., -4]
-            self.data['bbx'] = _bbx
-
-    def __getitem__(self, index):
-
-        return {'csi': self.data['csi'][index],
-                'r_img': self.data['r_img'][index],
-                'c_img': self.__transform__(self.data['c_img'][index]),
-                'bbx': self.data['bbx'][index],
-                'ind': index}
-
-    def __len__(self):
-        return self.data['csi'].shape[0]
 
 # -------------------------------------------------------------------------- #
 # MyDatasetV2
@@ -343,6 +306,85 @@ class MyDatasetV2(MyDataset):
 
         self.data = result
         return result
+
+
+class MyDatasetV3(MyDataset):
+    def __init__(self,
+                 paths: dict,
+                 *args,
+                 **kwargs):
+        super(MyDatasetV3, self).__init__(*args, **kwargs)
+
+        self.paths = paths
+        self.modality = set()
+
+    def __getitem__(self, index):
+        ret = {key: self.__transform__(value[index]) if key == 'img' else value[index]
+               for key, value in self.data.items()
+               }
+
+        return ret
+
+    def __len__(self):
+        return self.data['csi'].shape[0]
+
+    def load_data(self):
+        """
+        Load data.\n
+        :return: loaded dataset
+        """
+        print(f"{self.name} loading...")
+        result = {}
+        count = 0
+        for key, value in self.paths.items():
+            if value:
+                self.modality.add(key)
+                item = np.load(value, mmap_mode=self.mmap_mode)
+                result[key] = item
+                count = item.shape[0]
+                print(f"loaded {key} of {item.shape} as {item.dtype}")
+            else:
+                print(f"skipping {key}")
+
+        if self.number != 0:
+            if self.random:
+                picked = np.random.choice(list(range(count)), size=self.number, replace=False)
+            else:
+                picked = np.arange(self.number)
+            self.seeds = picked
+            for key in self.paths.keys():
+                result[key] = result[key][picked]
+
+        self.data = result
+        return result
+
+
+class DataSplitterV2:
+    def __init__(self, train_data, test_data, train_id, valid_id, batch_size=64, shuffle=True):
+        self.train_data = train_data
+        self.test_data = test_data
+        self.train_id = train_id
+        self.valid_id = valid_id
+        self.batch_size = batch_size
+        self.shuffle = shuffle
+
+    def split_loader(self, test_batch_size=1, shuffle=None,
+                     num_workers=14, pin_memory=False):
+        print("Exporting loaders...")
+        train_loader = Data.DataLoader(self.train_data[self.train_id], batch_size=self.batch_size, shuffle=shuffle,
+                                       num_workers=num_workers, drop_last=True, pin_memory=pin_memory)
+        valid_loader = Data.DataLoader(self.train_data[self.valid_id], batch_size=self.batch_size, shuffle=shuffle,
+                                       num_workers=num_workers, drop_last=True, pin_memory=pin_memory)
+
+        test_loader = Data.DataLoader(self.test_data, batch_size=test_batch_size, shuffle=shuffle, drop_last=False)
+        print(f"Dataset len: train {len(self.train_data[self.train_id])}, "
+              f"valid {len(self.train_data[self.valid_id])}, "
+              f"test {len(self.test_data)}")
+        print(f"Exported loader len: train {len(train_loader)}, "
+              f"valid {len(valid_loader)}, "
+              f"test {len(test_loader)}")
+
+        return train_loader, valid_loader, test_loader
 
 
 class ExperimentInfo:
