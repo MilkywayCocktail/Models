@@ -353,7 +353,10 @@ class MyDatasetV3(MyDataset):
                 print(f"skipping {key}")
 
         self.data = result
-        self.data['ind'] = self.id
+        if self.id is not None:
+            self.data['ind'] = self.id
+        else:
+            self.data['ind'] = np.arange(self.length)
         return result
 
 
