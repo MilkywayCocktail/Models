@@ -337,7 +337,7 @@ class MyDatasetV3(MyDataset):
         :return: loaded dataset
         """
         print(f"{self.name} loading...")
-        result = {}
+        result = {'ind': None}
         for key, value in self.paths.items():
             if value:
                 self.modality.add(key)
@@ -352,11 +352,11 @@ class MyDatasetV3(MyDataset):
             else:
                 print(f"skipping {key}")
 
-        self.data = result
         if self.id is not None:
-            self.data['ind'] = self.id
+            result['ind'] = self.id
         else:
-            self.data['ind'] = np.arange(self.length)
+            result['ind'] = np.arange(self.length)
+        self.data = result
         return result
 
 
