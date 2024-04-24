@@ -347,7 +347,7 @@ class MyDatasetV3(MyDataset):
                 else:
                     result[key] = item
                 count = result[key].shape[0]
-                print(f"loaded {key} of {result[key]} as {item.dtype}")
+                print(f"loaded {key} of {result[key].shape} as {item.dtype}")
                 self.length = count
             else:
                 print(f"skipping {key}")
