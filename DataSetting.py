@@ -368,15 +368,14 @@ class DataSplitterV2:
         self.batch_size = batch_size
         self.shuffle = shuffle
 
-    def split_loader(self, test_batch_size=1, shuffle=None,
-                     num_workers=14, pin_memory=False):
+    def split_loader(self, test_batch_size=1, num_workers=14, pin_memory=False):
         print("Exporting loaders...")
-        train_loader = Data.DataLoader(self.train_data[self.train_id], batch_size=self.batch_size, shuffle=shuffle,
+        train_loader = Data.DataLoader(self.train_data[self.train_id], batch_size=self.batch_size, shuffle=self.shuffle,
                                        num_workers=num_workers, drop_last=True, pin_memory=pin_memory)
-        valid_loader = Data.DataLoader(self.train_data[self.valid_id], batch_size=self.batch_size, shuffle=shuffle,
+        valid_loader = Data.DataLoader(self.train_data[self.valid_id], batch_size=self.batch_size, shuffle=self.shuffle,
                                        num_workers=num_workers, drop_last=True, pin_memory=pin_memory)
 
-        test_loader = Data.DataLoader(self.test_data, batch_size=test_batch_size, shuffle=shuffle, drop_last=False)
+        test_loader = Data.DataLoader(self.test_data, batch_size=test_batch_size, shuffle=self.shuffle, drop_last=False)
         print(f"Dataset len: train {len(self.train_data[self.train_id])}, "
               f"valid {len(self.train_data[self.valid_id])}, "
               f"test {len(self.test_data)}")
