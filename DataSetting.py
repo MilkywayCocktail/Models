@@ -311,6 +311,7 @@ class MyDatasetV2(MyDataset):
 class MyDatasetV3(MyDataset):
     def __init__(self,
                  paths: dict,
+                 train_valid_id=None,
                  *args,
                  **kwargs):
         super(MyDatasetV3, self).__init__(*args, **kwargs)
@@ -318,6 +319,7 @@ class MyDatasetV3(MyDataset):
         self.paths = paths
         self.modality = set()
         self.length = 0
+        self.id = train_valid_id
 
     def __getitem__(self, index):
         ret = {key: self.__transform__(value[index]) if key == 'img' else value[index]
@@ -341,14 +343,17 @@ class MyDatasetV3(MyDataset):
             if value:
                 self.modality.add(key)
                 item = np.load(value, mmap_mode=self.mmap_mode)
-                result[key] = item
+                if self.id is not None:
+                    result[key] = item[self.id]
+                else:
+                    result[key] = item
                 count = item.shape[0]
                 print(f"loaded {key} of {item.shape} as {item.dtype}")
                 self.length = count
             else:
                 print(f"skipping {key}")
 
-        self.data['ind'] = np.arange(self.length)
+        self.data['ind'] = self.id
 
         if self.number != 0:
             if self.random:
@@ -364,30 +369,20 @@ class MyDatasetV3(MyDataset):
 
 
 class DataSplitterV2:
-    def __init__(self, train_data, test_data, train_id, valid_id, batch_size=64, shuffle=True):
-        self.train_data = train_data
-        self.test_data = test_data
-        self.train_id = train_id
-        self.valid_id = valid_id
+    def __init__(self, dataset:MyDatasetV3, batch_size=64, shuffle=True):
+        self.dataset = dataset
         self.batch_size = batch_size
         self.shuffle = shuffle
 
-    def split_loader(self, test_batch_size=1, num_workers=14, pin_memory=False):
+    def gen_loader(self, batch_size=None, shuffle=None, num_workers=14, pin_memory=False):
         print("Exporting loaders...")
-        train_loader = Data.DataLoader(self.train_data[self.train_id], batch_size=self.batch_size, shuffle=self.shuffle,
-                                       num_workers=num_workers, drop_last=True, pin_memory=pin_memory)
-        valid_loader = Data.DataLoader(self.train_data[self.valid_id], batch_size=self.batch_size, shuffle=self.shuffle,
-                                       num_workers=num_workers, drop_last=True, pin_memory=pin_memory)
+        if not batch_size:
+            batch_size = self.batch_size
 
-        test_loader = Data.DataLoader(self.test_data, batch_size=test_batch_size, shuffle=self.shuffle, drop_last=False)
-        print(f"Dataset len: train {len(self.train_data[self.train_id])}, "
-              f"valid {len(self.train_data[self.valid_id])}, "
-              f"test {len(self.test_data)}")
-        print(f"Exported loader len: train {len(train_loader)}, "
-              f"valid {len(valid_loader)}, "
-              f"test {len(test_loader)}")
+        loader = Data.DataLoader(self.dataset, batch_size=batch_size, shuffle=self.shuffle, num_workers=num_workers, drop_last=True, pin_memory=pin_memory)
+        print(f"{self.dataset.name} len {len(self.dataset)} - exported loader of len {len(loader)}")
 
-        return train_loader, valid_loader, test_loader
+        return loader
 
 
 class ExperimentInfo:
