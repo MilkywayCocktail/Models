@@ -317,6 +317,7 @@ class MyDatasetV3(MyDataset):
 
         self.paths = paths
         self.modality = set()
+        self.length = 0
 
     def __getitem__(self, index):
         ret = {key: self.__transform__(value[index]) if key == 'img' else value[index]
@@ -326,7 +327,7 @@ class MyDatasetV3(MyDataset):
         return ret
 
     def __len__(self):
-        return self.data['csi'].shape[0]
+        return self.length
 
     def load_data(self):
         """
@@ -343,8 +344,11 @@ class MyDatasetV3(MyDataset):
                 result[key] = item
                 count = item.shape[0]
                 print(f"loaded {key} of {item.shape} as {item.dtype}")
+                self.length = count
             else:
                 print(f"skipping {key}")
+
+        self.data['ind'] = np.arange(self.length)
 
         if self.number != 0:
             if self.random:
