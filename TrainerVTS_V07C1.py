@@ -164,7 +164,7 @@ class CSIEncoder(BasicCSIEncoder):
         )
 
         self.cnn_aoa = nn.Sequential(
-            nn.Conv1d(6, 128, 5, 1, 1),
+            nn.Conv1d(1, 128, 5, 1, 1),
             batchnorm_layer(128, self.batchnorm),
             nn.LeakyReLU(inplace=True),
             nn.Conv1d(128, 256, 3, 2, 1),
@@ -176,7 +176,7 @@ class CSIEncoder(BasicCSIEncoder):
         )
 
         self.cnn_tof = nn.Sequential(
-            nn.Conv2d(6, 128, 5, 1, 1),
+            nn.Conv2d(1, 128, 5, 1, 1),
             batchnorm_layer(128, self.batchnorm),
             nn.LeakyReLU(inplace=True),
             nn.Conv2d(128, 256, 3, 2, 1),
