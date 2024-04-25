@@ -29,7 +29,7 @@ version = 'V07C1'
 # -------------------------------------------------------------------------- #
 ##############################################################################
 
-feature_length = 512 * 7
+feature_length = 512 * 15
 steps = 25
 
 
@@ -364,7 +364,7 @@ class StudentTrainer(BasicTrainer):
 
         figs.append(self.loss.plot_predict(plot_terms=('GT', 'T_PRED', 'S_PRED')))
         figs.append(self.loss.plot_latent(plot_terms=('T_LATENT', 'S_LATENT')))
-        figs.append(self.loss.plot_ctr())
+        figs.append(self.loss.plot_center())
         figs.append(self.loss.plot_test(plot_terms='all'))
         figs.append(self.loss.plot_test_cdf(plot_terms='all'))
         #figs.append(self.loss.plot_tsne(plot_terms=('GT', 'T_LATENT', 'S_LATENT')))
@@ -377,5 +377,5 @@ class StudentTrainer(BasicTrainer):
 
 
 if __name__ == '__main__':
-    cc = ImageDecoder()
-    summary(cc, input_size=(1, 16))
+    cc = CSIEncoder()
+    summary(cc, input_size=[(6, 30, 100), (1, 30, 100)])
