@@ -379,10 +379,10 @@ class MyLossCTR(MyLoss):
                                  (48, 10),
                                  fontsize=20, color='orange')
 
-            x2, y2 = self.loss['pred']['S_CRT'][self.select_inds[j]]
+            x2, y2 = self.loss['pred']['S_CTR'][self.select_inds[j]]
             x2 = int(x2 * 226)
             y2 = int(y2 * 128)
-            axes[j].scatter(x2, y2, c='orange', marker=(5, 1), alpha=0.5, linewidths=5, label='PRED_CTR')
+            axes[j].scatter(x2, y2, c='orange', marker=(5, 1), alpha=0.5, linewidths=5, label='S_CTR')
 
             axes[j].axis('off')
             axes[j].add_patch(Rectangle((0, 0), 226, 128, facecolor="#F0FFFF",

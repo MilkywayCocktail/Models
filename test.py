@@ -7,6 +7,7 @@ import torch
 from datetime import datetime
 import os
 import copy
+from functools import wraps
 
 #print(z * torch.transpose(z, -1, -2) - eye)
 #print(torch.matmul(x, torch.transpose(x, -1, -2)))
@@ -14,12 +15,32 @@ import copy
 a1 = np.array(['4th', '1st', '3rd', '2nd', '5th'])
 samples = np.array([3,0,2,1,4])
 
-inds = np.random.choice([0, 1, 2, 3, 4], 4, replace=False)
-inds = np.sort(inds)
 
-s = samples[inds]
-#print(s)
-#print(a1[inds[np.argsort(s)]])
+class My:
+    def __init__(self, x):
+        self.x = x
 
-strr = ['group 0, segment [4] + [3]', 'group 1, segment [8] + [7]', 'group 2, segment [6] + [5]', 'group 3, segment [4] + [3]', 'group 4, segment [1] + [0]']
-print('; '.join(strr))
+    def wrapper(self, func):
+        @wraps(func)
+        def inner(*args, **kwargs):
+            print(f"Starting {func.__name__}...")
+            print("My x = ", self.x)
+            ret = func(*args, **kwargs)
+            print('Done')
+            return ret
+
+        return inner
+
+    wrap = wrapper()
+
+    @wrap
+    def hello(self):
+        print("Hello!")
+
+        #self.hello = hello
+
+
+my1 = My(55)
+my1.hello()
+my1.x = 99
+my1.hello()
