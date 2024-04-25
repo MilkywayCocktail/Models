@@ -309,10 +309,10 @@ class StudentTrainer(BasicTrainer):
                               pred_terms=self.pred_terms,
                               depth=True)
 
-        self.latent_weight = 0.046
+        self.latent_weight = 1.
         self.img_weight = 0
-        self.center_weight = 0.027
-        self.depth_weight = 0.926
+        self.center_weight = 100.
+        self.depth_weight = 1000.
 
     def kd_loss(self, mu_s, logvar_s, mu_t, logvar_t):
         mu_loss = self.recon_lossfunc(mu_s, mu_t) / mu_s.shape[0]

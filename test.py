@@ -16,31 +16,34 @@ a1 = np.array(['4th', '1st', '3rd', '2nd', '5th'])
 samples = np.array([3,0,2,1,4])
 
 
+def wrap_with_attributes(cls):
+    def decorator(func):
+        # Create a wrapper function that takes the class attributes as parameters
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            # Use the attributes from the given class
+            print(f"My x = {cls.x}:")
+
+            # Call the original function
+            return func(*args, **kwargs)
+
+        return wrapper
+    return decorator
+
+
 class My:
     def __init__(self, x):
         self.x = x
 
-    def wrapper(self, func):
-        @wraps(func)
-        def inner(*args, **kwargs):
-            print(f"Starting {func.__name__}...")
-            print("My x = ", self.x)
-            ret = func(*args, **kwargs)
-            print('Done')
-            return ret
+        @wrap_with_attributes(self)
+        def hello():
+            print("Hello!")
 
-        return inner
-
-    wrap = wrapper()
-
-    @wrap
-    def hello(self):
-        print("Hello!")
-
-        #self.hello = hello
+        self.hello = hello
 
 
-my1 = My(55)
-my1.hello()
-my1.x = 99
-my1.hello()
+#my1 = My(55)
+#my1.hello()
+#my1.x = 99
+#my1.hello()
+
