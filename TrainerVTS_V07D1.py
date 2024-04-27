@@ -310,8 +310,8 @@ class StudentTrainer(BasicTrainer):
 
         self.latent_weight = 1.
         self.img_weight = 0
-        self.bbx_weight = 100.
-        self.depth_weight = 1000.
+        self.bbx_weight = 1.
+        self.depth_weight = 10.
 
     @staticmethod
     def bbx_loss(bbx1, bbx2):
