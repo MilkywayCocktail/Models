@@ -116,7 +116,7 @@ class ImageDecoder(BasicImageDecoder):
 
 
 class BBXDecoder(nn.Module):
-    name = 'ctrde'
+    name = 'bbxde'
 
     def __init__(self):
         super(BBXDecoder, self).__init__()
@@ -131,7 +131,7 @@ class BBXDecoder(nn.Module):
         init.xavier_normal_(self.fc[-2].weight)
 
     def __str__(self):
-        return f"CTRDE{version}"
+        return f"BBXDE{version}"
 
     def forward(self, x):
         out = self.fc(x.view(-1, 128))
