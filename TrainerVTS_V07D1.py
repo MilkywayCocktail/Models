@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import os
 from Trainer import BasicTrainer
 from Model import *
-from Loss import MyLoss, MyLossCTR, MyLossBBX
+from Loss import MyLoss, MyLossBBX
 
 version = 'V07D1'
 
@@ -297,7 +297,7 @@ class StudentTrainer(BasicTrainer):
         self.depth_loss = nn.MSELoss()
         self.mask = mask
 
-        self.loss_terms = ('LOSS', 'MU', 'LOGVAR', 'CTR', 'DPT', 'IMG')
+        self.loss_terms = ('LOSS', 'MU', 'LOGVAR', 'BBX', 'DPT', 'IMG')
         self.pred_terms = ('GT', 'T_PRED', 'S_PRED',
                            'T_LATENT', 'S_LATENT',
                            'GT_BBX', 'S_BBX',
