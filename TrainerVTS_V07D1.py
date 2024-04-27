@@ -9,11 +9,11 @@ from Trainer import BasicTrainer
 from Model import *
 from Loss import MyLoss, MyLossCTR, MyLossBBX
 
-version = 'V07C1'
+version = 'V07D1'
 
 ##############################################################################
 # -------------------------------------------------------------------------- #
-# Version V07C1
+# Version V07D1
 # Teacher learns and estimates binary masks and the depth value of the center
 # pixel of the cropped depth image
 # Student learns (6, 30, m) CSIs and (2, 30, m) PhaseDiffs
@@ -25,7 +25,7 @@ version = 'V07C1'
 # CSIEncoder: in = [6 * 30 * m], [2 * 30 * m]
 #               out = [z:latent_dim, mu:latent_dim, logvar:latent_dim]
 # DepthDecoder: in = 128,
-#               out = [center:2, depth:1]
+#               out = [bbx:4, depth:1]
 # -------------------------------------------------------------------------- #
 ##############################################################################
 
