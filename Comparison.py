@@ -183,8 +183,8 @@ class CenterResultCalculator(ResultCalculator):
         print("Reconstructing...", end='')
 
         for i, (x, y) in enumerate(self.center):
-            dx = int(x - 113)
-            dy = int(y - 64)
+            dx = int(x * 226 - 113)
+            dy = int(y * 128 - 64)
 
             new_img = np.zeros((128 + np.abs(dy), 226 + np.abs(dx)), dtype=float)
 
@@ -237,9 +237,13 @@ class CenterResultCalculator(ResultCalculator):
                                      else np.squeeze(value[inds[j]]), vmin=0, vmax=1)
                 if key == 'Raw Ground Truth':
                     x1, y1 = self.preds['GT_CTR'][i]
+                    x1 = int(x1 * 226)
+                    y1 = int(y1 * 128)
                     axes[j].scatter(x1, y1, c='blue', marker=(5, 1), alpha=0.5, linewidths=5, label='GT_CTR')
                 elif key == 'Raw Estimates':
                     x2, y2 = self.preds['S_CTR'][i]
+                    x2 = int(x2 * 226)
+                    y2 = int(y2 * 128)
                     axes[j].scatter(x2, y2, c='orange', marker=(5, 1), alpha=0.5, linewidths=5, label='S_CTR')
                 axes[j].axis('off')
                 axes[j].set_title(f"#{samples[j]}")
