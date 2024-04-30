@@ -192,17 +192,17 @@ class CenterResultCalculator(ResultCalculator):
                 if dx > 0:
                     if dy > 0:
                         new_img[dy:, dx:] = self.preds['S_PRED'][i]
-                        self.resized[i] = new_img[:128, :226]
+                        # self.resized[i] = new_img[:128, :226]
                     else:
                         new_img[:128, dx:] = self.preds['S_PRED'][i]
-                        self.resized[i] = new_img[dy:, :226]
+                        # self.resized[i] = new_img[dy:, :226]
                 else:
                     if dy > 0:
                         new_img[dy:, :226] = self.preds['S_PRED'][i]
-                        self.resized[i] = new_img[:128, dx:]
+                        # self.resized[i] = new_img[:128, dx:]
                     else:
                         new_img[:128, :226] = self.preds['S_PRED'][i]
-                        self.resized[i] = new_img[dy:, dx:]
+                        # self.resized[i] = new_img[dy:, dx:]
             except Exception as e:
                 print(e)
                 print(x, y)
