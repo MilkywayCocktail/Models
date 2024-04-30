@@ -66,6 +66,7 @@ class BasicTrainer:
         self.loss = MyLoss(self.name, self.loss_terms, self.pred_terms)
         self.temp_loss = {}
         self.best_val_loss = float("inf")
+        self.best_vloss_ep = 0
 
     def current_ep(self):
         return self.loss.epochs[-1]
@@ -143,6 +144,7 @@ class BasicTrainer:
                 val_loss = np.average(EPOCH_LOSS['LOSS'])
                 if 0 < val_loss < self.best_val_loss:
                     self.best_val_loss = val_loss
+                    self.best_vloss_ep = self.current_ep()
 
                 if idx % 5 == 0:
                     print(f"\r{self.name} valid: epoch={epoch}/{self.epochs}, "
@@ -156,7 +158,7 @@ class BasicTrainer:
 
                     with open(f"{save_path}{notion}_{self.name}.txt", 'w') as logfile:
                         logfile.write(f"{notion}_{self.name}\n"
-                                      f"Best : val_loss={self.best_val_loss} @ epoch {self.current_ep()}\n"
+                                      f"Best : val_loss={self.best_val_loss} @ epoch {self.best_vloss_ep}\n"
                                       f"Modules:\n{list(self.models.values())}\n"
                                       )
                     logfile.close()

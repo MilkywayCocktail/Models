@@ -69,9 +69,9 @@ class ResultCalculator:
         return fig, filename
 
 
-class PropResultCalculator(ResultCalculator):
+class BBXResultCalculator(ResultCalculator):
     def __init__(self, *args, **kwargs):
-        super(PropResultCalculator, self).__init__(*args, **kwargs)
+        super(BBXResultCalculator, self).__init__(*args, **kwargs)
 
         self.bbx = np.array(self.preds['S_BBX'])
         self.depth = np.array(self.preds['S_DPT'])
@@ -162,6 +162,85 @@ class PropResultCalculator(ResultCalculator):
                     w = int((x2 - x1) * 226)
                     h = int((y2 - y1) * 128)
                     axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='orange', fill=False, lw=3))
+                axes[j].axis('off')
+                axes[j].set_title(f"#{samples[j]}")
+        plt.show()
+        filename = f"{self.name}_Reconstruct.jpg"
+        return fig, filename
+
+
+class CenterResultCalculator(ResultCalculator):
+    def __init__(self, *args, **kwargs):
+        super(CenterResultCalculator, self).__init__(*args, **kwargs)
+
+        self.center = np.array(self.preds['S_CTR'])
+        self.depth = np.array(self.preds['S_DPT'])
+
+        self.fail_count = 0
+        self.fail_ind = []
+
+    def resize(self):
+        print("Reconstructing...", end='')
+
+        for i, (x, y) in enumerate(self.center):
+            dx = int(x - 113)
+            dy = int(y - 64)
+
+            new_img = np.zeros((128 + np.abs(dy), 226 + np.abs(dx)), dtype=float)
+
+            try:
+                if dx > 0:
+                    if dy > 0:
+                        new_img[dy:, dx:] = self.preds['S_PRED'][i]
+                        self.resized[i] = new_img[:128, :226]
+                    else:
+                        new_img[:128, dx:] = self.preds['S_PRED'][i]
+                        self.resized[i] = new_img[dy:, :226]
+                else:
+                    if dy > 0:
+                        new_img[dy:, :226] = self.preds['S_PRED'][i]
+                        self.resized[i] = new_img[:128, dx:]
+                    else:
+                        new_img[:128, :226] = self.preds['S_PRED'][i]
+                        self.resized[i] = new_img[dy:, dx:]
+            except Exception as e:
+                print(e)
+                print(x, y)
+                self.fail_count += 1
+                self.fail_ind.append(i)
+
+        print("Done")
+        print(f"Reconstruction finished. Failure count = {self.fail_count}")
+
+    def plot_example(self, inds=None, title=None):
+        fig = plot_settings()
+        fig.suptitle(f"{self.name} Reconstruction Examples" if not title else title)
+
+        subfigs = fig.subfigures(nrows=4, ncols=1)
+
+        plot_terms = {'Cropped Ground Truth': self.preds['GT'],
+                      'Cropped Estimates': self.preds['S_PRED'],
+                      'Raw Ground Truth': self.gt,
+                      'Raw Estimates': self.resized}
+
+        if not inds:
+            inds = np.random.choice(np.arange(len(self.preds['IND'])), 8, replace=False).astype(int)
+            inds = np.sort(inds)
+        samples = np.array(self.preds['IND']).astype(int)[inds]
+
+        for i, (key, value) in enumerate(plot_terms.items()):
+            subfigs[i].suptitle(key, fontweight="bold")
+            axes = subfigs[i].subplots(nrows=1, ncols=8)
+            for j in range(len(axes)):
+                _ind = np.where(self.gt_ind == samples[j])
+                img = axes[j].imshow(np.squeeze(value[_ind]) if key == 'Raw Ground Truth'
+                                     else np.squeeze(value[inds[j]]), vmin=0, vmax=1)
+                if key == 'Raw Ground Truth':
+                    x1, y1 = self.preds['GT_CTR'][i]
+                    axes[j].scatter(x1, y1, c='blue', marker=(5, 1), alpha=0.5, linewidths=5, label='GT_CTR')
+                elif key == 'Raw Estimates':
+                    x2, y2 = self.preds['S_CTR'][i]
+                    axes[j].scatter(x2, y2, c='orange', marker=(5, 1), alpha=0.5, linewidths=5, label='S_CTR')
                 axes[j].axis('off')
                 axes[j].set_title(f"#{samples[j]}")
         plt.show()
