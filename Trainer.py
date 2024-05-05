@@ -40,10 +40,35 @@ class ExtraParams:
         return fig, "Extra_Parameters.jpg"
 
 
+class EarlyStopping:
+
+    def __init__(self, save_path, patience=7, verbose=False, delta=0):
+
+        self.save_path = save_path
+        self.patience = patience
+        self.verbose = verbose
+        self.counter = 0
+        self.best_valid_loss = -np.inf
+        self.early_stop = False
+        self.delta = delta
+
+    def __call__(self, val_loss, *args, **kwargs):
+
+        if val_loss > self.best_valid_loss:
+            self.counter += 1
+            print(f"\033[32mEarly Stopping reporting {self.counter} out of {self.patience}\033[0m")
+            if self.counter >= self.patience:
+                self.early_stop = True
+            else:
+                self.best_valid_loss = val_loss
+                self.couner = 0
+
+
 class BasicTrainer:
     def __init__(self, name, networks,
                  lr, epochs, cuda,
                  train_loader, valid_loader, test_loader,
+                 save_path
                  ):
         self.name = name
         self.lr = lr
@@ -66,6 +91,9 @@ class BasicTrainer:
         self.loss = MyLoss(self.name, self.loss_terms, self.pred_terms)
         self.temp_loss = {}
         self.best_val_loss = float("inf")
+
+        self.save_path = save_path
+        self.early_stopping = EarlyStopping()
 
     def current_ep(self):
         return self.loss.epochs[-1]
