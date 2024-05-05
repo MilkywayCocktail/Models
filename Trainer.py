@@ -42,22 +42,22 @@ class ExtraParams:
 
 class EarlyStopping:
 
-    def __init__(self, save_path, patience=7, verbose=False, delta=0):
+    def __init__(self, patience=7, verbose=False, delta=0):
 
-        self.save_path = save_path
         self.patience = patience
         self.verbose = verbose
-        self.counter = 0
+        self.wait_counter = 0
+        self.total_epochs = 0
         self.best_valid_loss = -np.inf
         self.early_stop = False
         self.delta = delta
 
     def __call__(self, val_loss, *args, **kwargs):
-
+        self.total_epochs += 1
         if val_loss > self.best_valid_loss:
-            self.counter += 1
-            print(f"\033[32mEarly Stopping reporting {self.counter} out of {self.patience}\033[0m")
-            if self.counter >= self.patience:
+            self.wait_counter += 1
+            print(f"\033[32mEarly Stopping reporting: {self.wait_counter} out of {self.patience}\033[0m")
+            if self.wait_counter >= self.patience:
                 self.early_stop = True
             else:
                 self.best_valid_loss = val_loss
@@ -68,7 +68,8 @@ class BasicTrainer:
     def __init__(self, name, networks,
                  lr, epochs, cuda,
                  train_loader, valid_loader, test_loader,
-                 save_path
+                 notion,
+                 *args, **kwargs
                  ):
         self.name = name
         self.lr = lr
@@ -93,8 +94,8 @@ class BasicTrainer:
         self.best_val_loss = float("inf")
         self.best_vloss_ep = 0
 
-        self.save_path = save_path
-        self.early_stopping = EarlyStopping()
+        self.save_path = f'../saved/{notion}/'
+        self.early_stopping = EarlyStopping(*args, **kwargs)
 
     def current_ep(self):
         return self.loss.epochs[-1]
@@ -105,7 +106,7 @@ class BasicTrainer:
         return {pred: None for pred in self.pred_terms}
 
     @timer
-    def train(self, train_module=None, eval_module=None, autosave=False, notion='', **kwargs):
+    def train(self, train_module=None, eval_module=None, early_stop=True, notion='', **kwargs):
         if 'ind' not in self.modality:
             self.modality.add('ind')
         if not train_module:
@@ -117,7 +118,8 @@ class BasicTrainer:
         optimizer = self.optimizer(params, lr=self.lr)
 
         # ===============train and validate each epoch==============
-        for epoch in range(self.epochs):
+        train_range = 1000 if early_stop else self.epochs
+        for epoch in range(train_range):
             self.loss.logger(self.lr)
             # =====================train============================
             for model in train_module:
@@ -179,31 +181,34 @@ class BasicTrainer:
                           f"batch={idx}/{len(self.dataloader['valid'])}, "
                           f"current best valid loss={self.best_val_loss:.4f}        ", end='', flush=True)
 
-                if autosave:
-                    save_path = f'../saved/{notion}/'
-                    if not os.path.exists(save_path):
-                        os.makedirs(save_path)
+                if not os.path.exists(self.save_path):
+                    os.makedirs(self.save_path)
 
-                    with open(f"{save_path}{notion}_{self.name}.txt", 'w') as logfile:
-                        logfile.write(f"{notion}_{self.name}\n"
-                                      f"Best : val_loss={self.best_val_loss} @ epoch {self.best_vloss_ep}\n"
-                                      f"Modules:\n{list(self.models.values())}\n"
-                                      )
-                    logfile.close()
+                with open(f"{self.save_path}{notion}_{self.name}.txt", 'w') as logfile:
+                    logfile.write(f"{notion}_{self.name}\n"
+                                  f"Total epochs = {self.current_ep()}"
+                                  f"Best : val_loss={self.best_val_loss} @ epoch {self.best_vloss_ep}\n"
+                                  f"Modules:\n{list(self.models.values())}\n"
+                                  )
 
+                self.early_stopping(val_loss)
+                if early_stop and self.early_stopping.early_stop:
                     if 'save_model' in kwargs.keys() and kwargs['save_model'] is False:
-                        pass
+                        break
                     else:
+                        print(f"\033[32mEarly Stopping triggered. Saving @ epoch {epoch}...\033[0m")
                         for model in train_module:
                             torch.save(self.models[model].state_dict(),
-                                       f"{save_path}{notion}_{self.models[model]}_best.pth")
+                                       f"{self.save_path}{notion}_{self.models[model]}_best.pth")
+                        break
 
             for key in EPOCH_LOSS.keys():
                 EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
             self.loss.update('valid', EPOCH_LOSS)
+        return self.models
 
     @timer
-    def test(self, test_module=None, loader: str = 'test', **kwargs):
+    def test(self, test_module=None, loader: str = 'test', *args, **kwargs):
         if 'ind' not in self.modality:
             self.modality.add('ind')
         if not test_module:
