@@ -204,7 +204,7 @@ class CenterResultCalculator(ResultCalculator):
                         new_img[:128, :226] = self.preds['S_PRED'][i]
                         # self.resized[i] = new_img[dy:, dx:]
                 self.resized[i] = new_img
-                
+
             except Exception as e:
                 print(e)
                 print(x, y)
