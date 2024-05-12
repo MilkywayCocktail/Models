@@ -28,9 +28,9 @@ class DataPlanner:
             for file_name in tqdm(file_lst):
                 fname, ext = os.path.splitext(file_name)
                 if ext == '.npy':
-                    Take, Group, Segment, modality = fname.split('_')[-1]
+                    Take, Group, Segment, modality = fname.split('_')
                     if modality not in self.modality:
-                        self.modality.extend(modality)
+                        self.modality.append(modality)
 
                     if Take not in self.data.keys():
                         self.data[Take]: dict = {}
