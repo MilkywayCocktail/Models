@@ -108,15 +108,23 @@ class DataSplitter:
         self.batch_size = batch_size
         self.shuffle = shuffle
 
-    def split_loader(self, train_ratio=0.8):
+    def split_loader(self, train_ratio=0.8,  num_workers=14, pin_memory=False):
+        print("Generating loaders...")
         train_size = int(train_ratio * len(self.dataset))
         valid_size = len(self.dataset) - train_size
         train_dataset, valid_dataset = Data.random_split(self.dataset, [train_size, valid_size])
-        return train_dataset, valid_dataset
+        train_loader = Data.DataLoader(train_dataset, batch_size=self.batch_size, shuffle=self.shuffle,
+                                       num_workers=num_workers, drop_last=True, pin_memory=pin_memory)
+        valid_loader = Data.DataLoader(valid_dataset, batch_size=self.batch_size, shuffle=self.shuffle,
+                                       num_workers=num_workers, drop_last=True, pin_memory=pin_memory)
+        print(f"{self.dataset.name} len {len(self.dataset)} - "
+              f"exported train loader of len {len(train_loader)}, batch size {self.batch_size}"
+              f"exported valid loader of len {len(valid_loader)}, batch size {self.batch_size}")
+
+        return train_loader, valid_loader
 
     def gen_loader(self, num_workers=14, pin_memory=False):
-        print("Exporting loaders...")
-
+        print("Generating loaders...")
         loader = Data.DataLoader(self.dataset, batch_size=self.batch_size, shuffle=self.shuffle,
                                  num_workers=num_workers, drop_last=True, pin_memory=pin_memory)
         print(f"{self.dataset.name} len {len(self.dataset)} - "
