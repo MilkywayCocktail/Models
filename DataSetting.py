@@ -393,3 +393,6 @@ class ExperimentInfo:
                           f"gpu={self.gpu}\n"
                           )
         logfile.close()
+
+
+
