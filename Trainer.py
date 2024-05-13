@@ -42,26 +42,41 @@ class ExtraParams:
 
 class EarlyStopping:
 
-    def __init__(self, patience=7, verbose=False, delta=0):
+    def __init__(self, early_stop_max=7, lr_decay_max=5, lr_decay=False, verbose=False, delta=0):
 
-        self.patience = patience
+        self.early_stop_max = early_stop_max
+        self.early_stop_counter = 0
+        self.early_stop = False
+
         self.verbose = verbose
-        self.wait_counter = 0
+        self.delta = delta
         self.total_epochs = 0
         self.best_valid_loss = -np.inf
-        self.early_stop = False
-        self.delta = delta
+
+        self.lr_decay = lr_decay
+        self.decay_flag = False
+        self.lr_decay_counter = 0
+        self.lr_decay_max = lr_decay_max
 
     def __call__(self, val_loss, *args, **kwargs):
         self.total_epochs += 1
-        if val_loss > self.best_valid_loss:
-            self.wait_counter += 1
-            print(f"\033[32mEarly Stopping reporting: {self.wait_counter} out of {self.patience}\033[0m")
-            if self.wait_counter >= self.patience:
-                self.early_stop = True
-            else:
-                self.best_valid_loss = val_loss
-                self.couner = 0
+        self.decay_flag = False
+        if val_loss >= self.best_valid_loss:
+            self.early_stop_counter += 1
+            print(f"\033[32mEarly Stopping reporting: {self.early_stop_counter} out of {self.early_stop_max}\033[0m")
+            if self.early_stop_counter >= self.early_stop_max:
+                if self.lr_decay:
+                    self.lr_decay_counter += 1
+                    if self.lr_decay_counter >= self.lr_decay_max:
+                        self.early_stop = True
+                    else:
+                        self.decay_Flag = True
+                else:
+                    self.early_stop = True
+        else:
+            self.best_valid_loss = val_loss
+            self.early_stop_counter = 0
+            self.lr_decay_counter = 0
 
 
 class BasicTrainer:
@@ -106,7 +121,7 @@ class BasicTrainer:
         return {pred: None for pred in self.pred_terms}
 
     @timer
-    def train(self, train_module=None, eval_module=None, early_stop=True, notion='', **kwargs):
+    def train(self, train_module=None, eval_module=None, early_stop=True, lr_decay=True, notion='', **kwargs):
         if 'ind' not in self.modality:
             self.modality.add('ind')
         if not train_module:
@@ -192,6 +207,8 @@ class BasicTrainer:
                                   )
 
                 self.early_stopping(val_loss)
+                if lr_decay and self.early_stopping.decay_flag:
+                    self.lr *= 0.5
                 if early_stop and self.early_stopping.early_stop:
                     if 'save_model' in kwargs.keys() and kwargs['save_model'] is False:
                         break

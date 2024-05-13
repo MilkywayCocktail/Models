@@ -9,6 +9,26 @@ from tqdm.notebook import tqdm
 ver = 'V05'
 
 
+class ExperimentInfo:
+    def __init__(self, date, run, gpu, data_path):
+        self.date = date
+        self.run = run
+        self.gpu = gpu
+        self.data_path = data_path
+
+    def log(self):
+        save_path = f'../saved/{self.date}_{self.run}/'
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
+
+        with open(f"{save_path}ExpInfo.txt", 'w') as logfile:
+            logfile.write(f"Experiment Info of {self.date}_{self.run}\n"
+                          f"Data_dir={self.data_path}\n"
+                          f"gpu={self.gpu}\n"
+                          )
+        logfile.close()
+
+
 class DataPlanner:
     version = ver
 
