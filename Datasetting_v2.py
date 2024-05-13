@@ -52,7 +52,7 @@ class DataPlanner:
                     for Segment in self.data[Take][Group].keys():
                         ret_data[modality].append(self.data[Take][Group][Segment][modality])
 
-            ret_data[modality] = np.concatenate(ret_data[modality], axis=-1)
+            ret_data[modality] = np.concatenate(ret_data[modality], axis=0)
         return ret_data
 
 
@@ -117,9 +117,9 @@ class DataSplitter:
                                        num_workers=num_workers, drop_last=True, pin_memory=pin_memory)
         valid_loader = Data.DataLoader(valid_dataset, batch_size=self.batch_size, shuffle=self.shuffle,
                                        num_workers=num_workers, drop_last=True, pin_memory=pin_memory)
-        print(f"{self.dataset.name} len {len(self.dataset)} - "
-              f"exported train loader of len {len(train_loader)}, batch size {self.batch_size}"
-              f"exported valid loader of len {len(valid_loader)}, batch size {self.batch_size}")
+        print(f" {self.dataset.name} len {len(self.dataset)}\n"
+              f" exported train loader of len {len(train_loader)}, batch size {self.batch_size}\n"
+              f" exported valid loader of len {len(valid_loader)}, batch size {self.batch_size}\n")
 
         return train_loader, valid_loader
 
@@ -127,7 +127,7 @@ class DataSplitter:
         print("Generating loaders...")
         loader = Data.DataLoader(self.dataset, batch_size=self.batch_size, shuffle=self.shuffle,
                                  num_workers=num_workers, drop_last=True, pin_memory=pin_memory)
-        print(f"{self.dataset.name} len {len(self.dataset)} - "
-              f"exported loader of len {len(loader)}, batch size {self.batch_size}")
+        print(f" {self.dataset.name} len {len(self.dataset)}\n"
+              f" exported loader of len {len(loader)}, batch size {self.batch_size}")
 
         return loader
