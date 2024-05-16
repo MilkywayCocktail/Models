@@ -67,6 +67,7 @@ class EarlyStopping:
             if self.early_stop_counter >= self.early_stop_max:
                 if self.lr_decay:
                     self.lr_decay_counter += 1
+                    print(f"\033[32mLr decay reporting: {self.lr_decay_counter} out of {self.lr_decay_max}\033[0m")
                     if self.lr_decay_counter >= self.lr_decay_max:
                         self.early_stop = True
                     else:
