@@ -42,7 +42,7 @@ class ExtraParams:
 
 class EarlyStopping:
 
-    def __init__(self, early_stop_max=7, lr_decay_max=5, lr_decay=False, verbose=False, delta=0):
+    def __init__(self, early_stop_max=7, lr_decay_max=5, lr_decay=True, verbose=False, delta=0):
 
         self.early_stop_max = early_stop_max
         self.early_stop_counter = 0
