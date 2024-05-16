@@ -237,7 +237,7 @@ class TeacherTrainer(BasicTrainer):
         self.mask = mask
 
         self.loss_terms = ('LOSS', 'KL', 'RECON')
-        self.pred_terms = ('GT', 'PRED', 'LAT', 'IND')
+        self.pred_terms = ('GT', 'PRED', 'LAT', 'TAG', 'IND')
         self.loss = MyLoss(name=self.name,
                            loss_terms=self.loss_terms,
                            pred_terms=self.pred_terms)
@@ -261,7 +261,8 @@ class TeacherTrainer(BasicTrainer):
         return {'GT': img,
                 'PRED': output,
                 'LAT': torch.cat((mu, logvar), -1),
-                'IND': data['ind']
+                'IND': data['ind'],
+                'TAG': data['tag']
                 }
 
     def plot_test(self, select_ind=None, select_num=8, autosave=False, notion='', **kwargs):
@@ -302,7 +303,7 @@ class StudentTrainer(BasicTrainer):
                            'T_LATENT', 'S_LATENT',
                            'GT_BBX', 'S_BBX',
                            'GT_DPT', 'S_DPT',
-                           'IND')
+                           'IND', 'TAG')
         self.loss = MyLossBBX(name=self.name,
                               loss_terms=self.loss_terms,
                               pred_terms=self.pred_terms,
@@ -360,7 +361,8 @@ class StudentTrainer(BasicTrainer):
                 'S_BBX': s_ctr,
                 'GT_DPT': data['dpt'],
                 'S_DPT': s_depth,
-                'IND': data['ind']}
+                'IND': data['ind'],
+                'TAG': data['tag']}
 
     def plot_test(self, select_ind=None, select_num=8, autosave=False, notion='', **kwargs):
         save_path = f'../saved/{notion}/'
