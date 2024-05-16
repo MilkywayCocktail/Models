@@ -71,7 +71,8 @@ class DataPlanner:
                 for Group in self.data[Take].keys():
                     for Segment in self.data[Take][Group].keys():
                         ret_data[modality].append(self.data[Take][Group][Segment][modality])
-                print(f"Take{Take} {modality} len={len(ret_data[modality])}")
+                print(f"Take{Take} {modality} len={len(ret_data[modality])} "
+                      f"type={type(self.data[Take][Group][Segment][modality])}")
             try:
                 ret_data[modality] = np.concatenate(ret_data[modality], axis=0)
             except Exception:
