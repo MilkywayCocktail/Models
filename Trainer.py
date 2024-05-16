@@ -115,7 +115,7 @@ class BasicTrainer:
         self.early_stopping = EarlyStopping(*args, **kwargs)
 
     def current_ep(self):
-        return self.loss.epochs[-1]
+        return self.loss.current_epoch
 
     def calculate_loss(self, *inputs):
         # --- Return losses in this way ---
@@ -135,9 +135,9 @@ class BasicTrainer:
         optimizer = self.optimizer(params, lr=self.lr)
 
         # ===============train and validate each epoch==============
-        train_range = 1000 if early_stop else self.epochs
-        for epoch in range(train_range):
-            self.loss.logger(self.lr)
+        train_range = range(1000) if early_stop else range(self.epochs)
+        for epoch, _ in enumerate(train_range, start=1):
+            self.loss(self.lr)
             # =====================train============================
             for model in train_module:
                 self.models[model].train()
@@ -196,6 +196,7 @@ class BasicTrainer:
                 if idx % 5 == 0:
                     print(f"{self.name} valid: epoch={epoch}/{train_range}, "
                           f"batch={idx}/{len(self.dataloader['valid'])}, "
+                          f"loss={self.temp_loss['LOSS'].item():.4f}, "
                           f"current best valid loss={self.best_val_loss:.4f}        ", flush=True)
 
                 if not os.path.exists(self.save_path):
