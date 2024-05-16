@@ -71,6 +71,7 @@ class DataPlanner:
         for modality in tqdm(self.modality):
             ret_data[modality] = []
             for Take in takes:
+                Take = int(Take.replace('T', ''))
                 for Group in self.data[Take].keys():
                     for Segment in self.data[Take][Group].keys():
                         ret_data[modality].append(self.data[Take][Group][Segment][modality])
