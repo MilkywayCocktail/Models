@@ -119,7 +119,7 @@ class MyDataset(Data.Dataset):
         """
 
         ret = {key: self.__transform__(value[index]) if key == 'img' else value[index]
-               for key, value in self.data.items() if key != 'tag'
+               for key, value in self.data.items()
                }
 
         return ret
