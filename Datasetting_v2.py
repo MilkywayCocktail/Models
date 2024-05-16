@@ -49,6 +49,9 @@ class DataPlanner:
                 fname, ext = os.path.splitext(file_name)
                 if ext == '.npy':
                     Take, Group, Segment, modality = fname.split('_')
+                    Take = eval(Take.replace('T', ''))
+                    Group = eval(Group.replace('G', ''))
+                    Segment = eval(Segment.replace('S', ''))
                     if modalities and modality not in modalities:
                         continue
                     if Take not in self.data.keys():
@@ -59,7 +62,7 @@ class DataPlanner:
                         self.data[Take][Group][Segment]: dict = {}
 
                     self.data[Take][Group][Segment][modality] = np.load(os.path.join(path, file_name))
-                    self.data[Take][Group][Segment]['tag'] = np.array([f'{Take}_{Group}_{Segment}'] * len(
+                    self.data[Take][Group][Segment]['tag'] = np.array([[Take, Group, Segment]] * len(
                         self.data[Take][Group][Segment][modality]))
 
     def regroup(self, takes):
@@ -78,7 +81,7 @@ class DataPlanner:
                 print(modality)
         # 'ind' = Take_Group_Segment_ind
         for i in range(len(ret_data['ind'])):
-            ret_data['ind'][i] = np.array(f"{ret_data['tag'][i]}_{ret_data['ind'][i]}")
+            ret_data['ind'][i] = np.array([ret_data['ind'][i].squeeze(), ret_data['tag'][i].squeeze()]).astype(int)
         return ret_data
 
 
