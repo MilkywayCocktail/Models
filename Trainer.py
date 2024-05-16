@@ -157,7 +157,7 @@ class BasicTrainer:
                     EPOCH_LOSS[key].append(self.temp_loss[key].item())
 
                 if idx % 5 == 0:
-                    print(f"{self.name} train: epoch={epoch}/{self.epochs}, "
+                    print(f"{self.name} train: epoch={epoch}/{train_range}, "
                           f"batch={idx}/{len(self.dataloader['train'])}, "
                           f"loss={self.temp_loss['LOSS'].item():.4f}, "
                           f"current best valid loss={self.best_val_loss:.4f}    ", flush=True)
@@ -192,7 +192,7 @@ class BasicTrainer:
                     self.best_vloss_ep = self.current_ep()
 
                 if idx % 5 == 0:
-                    print(f"{self.name} valid: epoch={epoch}/{self.epochs}, "
+                    print(f"{self.name} valid: epoch={epoch}/{train_range}, "
                           f"batch={idx}/{len(self.dataloader['valid'])}, "
                           f"current best valid loss={self.best_val_loss:.4f}        ", flush=True)
 
@@ -206,18 +206,18 @@ class BasicTrainer:
                                   f"Modules:\n{list(self.models.values())}\n"
                                   )
 
-                self.early_stopping(val_loss)
-                if lr_decay and self.early_stopping.decay_flag:
-                    self.lr *= 0.5
-                if early_stop and self.early_stopping.early_stop:
-                    if 'save_model' in kwargs.keys() and kwargs['save_model'] is False:
-                        break
-                    else:
-                        print(f"\033[32mEarly Stopping triggered. Saving @ epoch {epoch}...\033[0m")
-                        for model in train_module:
-                            torch.save(self.models[model].state_dict(),
-                                       f"{self.save_path}{notion}_{self.models[model]}_best.pth")
-                        break
+            self.early_stopping(self.best_val_loss)
+            if lr_decay and self.early_stopping.decay_flag:
+                self.lr *= 0.5
+            if early_stop and self.early_stopping.early_stop:
+                if 'save_model' in kwargs.keys() and kwargs['save_model'] is False:
+                    break
+                else:
+                    print(f"\033[32mEarly Stopping triggered. Saving @ epoch {epoch}...\033[0m")
+                    for model in train_module:
+                        torch.save(self.models[model].state_dict(),
+                                   f"{self.save_path}{notion}_{self.models[model]}_best.pth")
+                    break
 
             for key in EPOCH_LOSS.keys():
                 EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
