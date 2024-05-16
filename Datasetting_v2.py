@@ -49,9 +49,9 @@ class DataPlanner:
                 fname, ext = os.path.splitext(file_name)
                 if ext == '.npy':
                     Take, Group, Segment, modality = fname.split('_')
-                    Take = eval(Take.replace('T', ''))
-                    Group = eval(Group.replace('G', ''))
-                    Segment = eval(Segment.replace('S', ''))
+                    Take = int(Take.replace('T', ''))
+                    Group = int(Group.replace('G', ''))
+                    Segment = int(Segment.replace('S', ''))
                     if modalities and modality not in modalities:
                         continue
                     if Take not in self.data.keys():
