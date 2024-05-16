@@ -80,9 +80,8 @@ class DataPlanner:
                 ret_data[modality] = np.concatenate(ret_data[modality], axis=0)
             except Exception:
                 print(modality)
-        # 'ind' = Take_Group_Segment_ind
-        for i in range(len(ret_data['ind'])):
-            ret_data['ind'][i] = np.array([ret_data['ind'][i].squeeze(), ret_data['tag'][i].squeeze()]).astype(int)
+        # 'tag' = Take, Group, Segment, ind
+        ret_data['tag'] = np.hstack((ret_data['tag'], ret_data['ind'].squeeze(axis=1))).astype(int)
         return ret_data
 
 
