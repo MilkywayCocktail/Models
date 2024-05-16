@@ -36,9 +36,9 @@ class DataPlanner:
         self.data_dir = data_dir
         self.mode = mode
         self.data: dict = {}
-        self.modality = ['tag']
+        self.modality = ['tag', 'depth', 'csi', 'center', 'pd', 'cimg', 'bbx', 'time', 'ind', 'rimg']
 
-    def load_raw(self):
+    def load_raw(self, modalities=None):
         # Filename: Txx_Gyy_Szz_mode.npy
 
         paths = os.walk(self.data_dir)
@@ -49,9 +49,8 @@ class DataPlanner:
                 fname, ext = os.path.splitext(file_name)
                 if ext == '.npy':
                     Take, Group, Segment, modality = fname.split('_')
-                    if modality not in self.modality:
-                        self.modality.append(modality)
-
+                    if modalities and modality not in modalities:
+                        continue
                     if Take not in self.data.keys():
                         self.data[Take]: dict = {}
                     if Group not in self.data[Take].keys():
@@ -71,7 +70,7 @@ class DataPlanner:
                 for Group in self.data[Take].keys():
                     for Segment in self.data[Take][Group].keys():
                         ret_data[modality].append(self.data[Take][Group][Segment][modality])
-
+                print(f"Take{Take} {modality} len={len(ret_data[modality])}")
             ret_data[modality] = np.concatenate(ret_data[modality], axis=0)
         return ret_data
 
