@@ -68,7 +68,7 @@ class EarlyStopping:
                 if self.lr_decay:
                     self.lr_decay_counter += 1
                     print(f"\033[32mLr decay reporting: {self.lr_decay_counter} out of {self.lr_decay_max}. "
-                          f"Decay rate = {2 ** self.lr_decay_counter}\033[0m")
+                          f"Decay rate = {0.5 ** self.lr_decay_counter}\033[0m")
                     if self.lr_decay_counter >= self.lr_decay_max:
                         self.early_stop = True
                     else:
@@ -171,7 +171,7 @@ class BasicTrainer:
             self.extra_params.update()
 
             # =====================valid============================
-            print('\n')
+            print('')
             for model in train_module:
                 self.models[model].eval()
             if eval_module:
@@ -260,8 +260,8 @@ class BasicTrainer:
                     self.loss.update('pred', PREDS)
 
             if idx % 5 == 0:
-                print(f"{self.name} test: sample={idx}/{len(self.dataloader[loader])}, "
-                      f"loss={self.temp_loss['LOSS'].item():.4f}    ", flush=True)
+                print(f"\r{self.name} test: sample={idx}/{len(self.dataloader[loader])}, "
+                      f"loss={self.temp_loss['LOSS'].item():.4f}    ", end='', flush=True)
 
         self.loss.update('test', EPOCH_LOSS)
         for key in EPOCH_LOSS.keys():

@@ -230,14 +230,15 @@ class TeacherTrainer(BasicTrainer):
                  *args, **kwargs):
         super(TeacherTrainer, self).__init__(*args, **kwargs)
 
-        self.modality = {'img'}
+        self.img_mode = 'cimg'
+        self.modality = {self.img_mode, 'tag', 'ind'}
 
         self.beta = beta
         self.recon_lossfunc = recon_lossfunc
         self.mask = mask
 
         self.loss_terms = ('LOSS', 'KL', 'RECON')
-        self.pred_terms = ('GT', 'PRED', 'LAT', 'IND')
+        self.pred_terms = ('GT', 'PRED', 'LAT', 'IND', 'TAG')
         self.loss = MyLoss(name=self.name,
                            loss_terms=self.loss_terms,
                            pred_terms=self.pred_terms)
@@ -249,7 +250,7 @@ class TeacherTrainer(BasicTrainer):
         return loss, kl_loss, recon_loss
 
     def calculate_loss(self, data):
-        img = torch.where(data['img'] > 0, 1., 0.) if self.mask else data['img']
+        img = torch.where(data[self.img_mode] > 0, 1., 0.) if self.mask else data[self.img_mode]
         z, mu, logvar = self.models['imgen'](img)
         output = self.models['imgde'](z)
         loss, kl_loss, recon_loss = self.vae_loss(output, img, mu, logvar)
@@ -290,7 +291,8 @@ class StudentTrainer(BasicTrainer):
                  *args, **kwargs):
         super(StudentTrainer, self).__init__(*args, **kwargs)
 
-        self.modality = {'img', 'csi', 'ctr', 'dpt', 'pd'}
+        self.img_mode = 'cimg'
+        self.modality = {self.img_mode, 'csi', 'center', 'depth', 'pd', 'tag', 'ind'}
 
         self.alpha = alpha
         self.recon_lossfunc = recon_lossfunc
@@ -303,7 +305,7 @@ class StudentTrainer(BasicTrainer):
                            'T_LATENT', 'S_LATENT',
                            'GT_CTR', 'S_CTR',
                            'GT_DPT', 'S_DPT',
-                           'IND')
+                           'IND', 'TAG')
         self.loss = MyLossCTR(name=self.name,
                               loss_terms=self.loss_terms,
                               pred_terms=self.pred_terms,
@@ -321,7 +323,7 @@ class StudentTrainer(BasicTrainer):
         return loss, mu_loss, logvar_loss
 
     def calculate_loss(self, data):
-        img = torch.where(data['img'] > 0, 1., 0.) if self.mask else data['img']
+        img = torch.where(data[self.img_mode] > 0, 1., 0.) if self.mask else data[self.img_mode]
         features, s_z, s_mu, s_logvar = self.models['csien'](csi=data['csi'], pd=data['pd'])
         s_image = self.models['imgde'](s_z)
         s_ctr, s_depth = self.models['ctrde'](features)
@@ -331,8 +333,8 @@ class StudentTrainer(BasicTrainer):
             t_image = self.models['imgde'](t_z)
             image_loss = self.recon_lossfunc(s_image, img)
 
-        center_loss = self.center_loss(s_ctr, torch.squeeze(data['ctr']))
-        depth_loss = self.depth_loss(s_depth, torch.squeeze(data['dpt']))
+        center_loss = self.center_loss(s_ctr, torch.squeeze(data['center']))
+        depth_loss = self.depth_loss(s_depth, torch.squeeze(data['depth']))
         latent_loss, mu_loss, logvar_loss = self.kd_loss(s_mu, s_logvar, t_mu, t_logvar)
 
         loss = image_loss * self.img_weight + \
@@ -351,11 +353,12 @@ class StudentTrainer(BasicTrainer):
                 'S_LATENT': torch.cat((s_mu, s_logvar), -1),
                 'T_PRED': t_image,
                 'S_PRED': s_image,
-                'GT_CTR': data['ctr'],
+                'GT_CTR': data['center'],
                 'S_CTR': s_ctr,
-                'GT_DPT': data['dpt'],
+                'GT_DPT': data['depth'],
                 'S_DPT': s_depth,
-                'IND': data['ind']}
+                'IND': data['ind'],
+                'TAG': data['tag']}
 
     def plot_test(self, select_ind=None, select_num=8, autosave=False, notion='', **kwargs):
         save_path = f'../saved/{notion}/'

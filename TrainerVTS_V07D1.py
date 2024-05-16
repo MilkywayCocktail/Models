@@ -231,7 +231,7 @@ class TeacherTrainer(BasicTrainer):
         super(TeacherTrainer, self).__init__(*args, **kwargs)
 
         self.img_mode = 'cimg'
-        self.modality = {self.img_mode, 'tag'}
+        self.modality = {self.img_mode, 'tag', 'ind'}
 
         self.beta = beta
         self.recon_lossfunc = recon_lossfunc
@@ -293,7 +293,7 @@ class StudentTrainer(BasicTrainer):
         super(StudentTrainer, self).__init__(*args, **kwargs)
 
         self.img_mode = 'cimg'
-        self.modality = {self.img_mode, 'csi', 'bbx', 'dpt', 'pd', 'tag'}
+        self.modality = {self.img_mode, 'csi', 'bbx', 'depth', 'pd', 'tag'}
 
         self.alpha = alpha
         self.recon_lossfunc = recon_lossfunc
@@ -340,7 +340,7 @@ class StudentTrainer(BasicTrainer):
             image_loss = self.recon_lossfunc(s_image, img)
 
         bbx_loss = self.bbx_loss(s_ctr, torch.squeeze(data['bbx']))
-        depth_loss = self.depth_loss(s_depth, torch.squeeze(data['dpt']))
+        depth_loss = self.depth_loss(s_depth, torch.squeeze(data['depth']))
         latent_loss, mu_loss, logvar_loss = self.kd_loss(s_mu, s_logvar, t_mu, t_logvar)
 
         loss = image_loss * self.img_weight + \
@@ -361,7 +361,7 @@ class StudentTrainer(BasicTrainer):
                 'S_PRED': s_image,
                 'GT_BBX': data['bbx'],
                 'S_BBX': s_ctr,
-                'GT_DPT': data['dpt'],
+                'GT_DPT': data['depth'],
                 'S_DPT': s_depth,
                 'IND': data['ind'],
                 'TAG': data['tag']}
