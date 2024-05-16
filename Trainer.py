@@ -71,6 +71,7 @@ class EarlyStopping:
                         self.early_stop = True
                     else:
                         self.decay_Flag = True
+                        self.early_stop_counter = 0
                 else:
                     self.early_stop = True
         else:
