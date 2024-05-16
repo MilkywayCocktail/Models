@@ -219,9 +219,11 @@ class BasicTrainer:
                     break
                 else:
                     print(f"\033[32mEarly Stopping triggered. Saving @ epoch {epoch}...\033[0m")
+                    if not os.path.exists(self.save_path):
+                        os.makedirs(self.save_path)
                     for model in train_module:
                         torch.save(self.models[model].state_dict(),
-                                   f"{self.save_path}{notion}_{self.models[model]}_best.pth")
+                                   f"{self.save_path}{self.name}_{self.models[model]}_best.pth")
                     break
 
             for key in EPOCH_LOSS.keys():
