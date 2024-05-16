@@ -106,9 +106,9 @@ class MyLoss:
         line_color = ['b', 'orange']
 
         if title:
-            title = f"{title} @ep{self.epochs[-1]}"
+            title = f"{title} @ep{self.current_epoch}"
         else:
-            title = f"{self.name} Training Status @ep{self.epochs[-1]}"
+            title = f"{self.name} Training Status @ep{self.current_epoch}"
 
         if plot_terms == 'all':
             plot_terms = list(self.loss['train'].keys())
@@ -148,14 +148,14 @@ class MyLoss:
             axes[i].grid()
             axes[i].legend()
         plt.show()
-        filename = f"{self.name}_TRAIN@ep{self.epochs[-1]}.jpg"
+        filename = f"{self.name}_TRAIN@ep{self.current_epoch}.jpg"
         return fig, filename
 
     def plot_test(self, title=None, plot_terms='all'):
         if title:
-            title = f"{title} @ep{self.epochs[-1]}"
+            title = f"{title} @ep{self.current_epoch}"
         else:
-            title = f"{self.name} Test Loss on {self.dataset} @ep{self.epochs[-1]}"
+            title = f"{self.name} Test Loss on {self.dataset} @ep{self.current_epoch}"
 
         if plot_terms == 'all':
             plot_terms = list(self.loss['test'].keys())
@@ -171,14 +171,14 @@ class MyLoss:
                         boxprops={'facecolor': 'lightgreen'})
 
         plt.show()
-        filename = f"{self.name}_TEST_{self.dataset}SET@ep{self.epochs[-1]}.jpg"
+        filename = f"{self.name}_TEST_{self.dataset}SET@ep{self.current_epoch}.jpg"
         return fig, filename
 
     def plot_test_cdf(self, title=None, plot_terms='all'):
         if title:
-            title = f"{title} @ep{self.epochs[-1]}"
+            title = f"{title} @ep{self.current_epoch}"
         else:
-            title = f"{self.name} Test PDF-CDF on {self.dataset} @ep{self.epochs[-1]}"
+            title = f"{self.name} Test PDF-CDF on {self.dataset} @ep{self.current_epoch}"
 
         if plot_terms == 'all':
             plot_terms = list(self.loss['test'].keys())
@@ -208,14 +208,14 @@ class MyLoss:
             axes[i].grid()
 
         plt.show()
-        filename = f"{self.name}_PDF_{self.dataset}SET@ep{self.epochs[-1]}.jpg"
+        filename = f"{self.name}_PDF_{self.dataset}SET@ep{self.current_epoch}.jpg"
         return fig, filename
 
     def plot_predict(self, plot_terms, title=None):
         if title:
-            title = f"{title} @ep{self.epochs[-1]}"
+            title = f"{title} @ep{self.current_epoch}"
         else:
-            title = f"{self.name} Image Predicts on {self.dataset} @ep{self.epochs[-1]}"
+            title = f"{self.name} Image Predicts on {self.dataset} @ep{self.current_epoch}"
         samples = np.array(self.loss['pred']['IND']).astype(int)[self.select_inds]
 
         fig = self.__plot_settings__()
@@ -231,14 +231,14 @@ class MyLoss:
                 axes[j].set_title(f"#{samples[j]}", fontweight="bold")
             subfigs[i].colorbar(img, ax=axes, shrink=0.8)
         plt.show()
-        filename = f"{self.name}_PRED_{self.dataset}SET@ep{self.epochs[-1]}.jpg"
+        filename = f"{self.name}_PRED_{self.dataset}SET@ep{self.current_epoch}.jpg"
         return fig, filename
 
     def plot_latent(self, plot_terms, title=None, ylim: tuple = (-1, 1)):
         if title:
-            title = f"{title} @ep{self.epochs[-1]}"
+            title = f"{title} @ep{self.current_epoch}"
         else:
-            title = f"{self.name} Latent Predicts on {self.dataset} @ep{self.epochs[-1]}"
+            title = f"{self.name} Latent Predicts on {self.dataset} @ep{self.current_epoch}"
         samples = np.array(self.loss['pred']['IND']).astype(int)[self.select_inds]
         colors = ('blue', 'orange')
 
@@ -259,15 +259,15 @@ class MyLoss:
 
         axes[0].legend()
         plt.show()
-        filename = f"{self.name}_LAT_{self.dataset}SET@ep{self.epochs[-1]}.jpg"
+        filename = f"{self.name}_LAT_{self.dataset}SET@ep{self.current_epoch}.jpg"
         return fig, filename
 
     def plot_tsne(self, plot_terms, title=None):
         # plt.style.use('dark_background')
         if title:
-            title = f"{title} @ep{self.epochs[-1]}"
+            title = f"{title} @ep{self.current_epoch}"
         else:
-            title = f"{self.name} T-SNE on {self.dataset} @ep{self.epochs[-1]}"
+            title = f"{self.name} T-SNE on {self.dataset} @ep{self.current_epoch}"
         samples = np.array(self.loss['pred']['IND']).astype(int)[self.select_inds]
         tsne = {}
 
@@ -290,7 +290,7 @@ class MyLoss:
                                  fontsize=20)
 
         plt.show()
-        filename = f"{self.name}_TSNE_{self.dataset}SET@ep{self.epochs[-1]}.jpg"
+        filename = f"{self.name}_TSNE_{self.dataset}SET@ep{self.current_epoch}.jpg"
         return fig, filename
 
 
@@ -301,9 +301,9 @@ class MyLossBBX(MyLoss):
 
     def plot_bbx(self, title=None):
         if title:
-            title = f"{title} @ep{self.epochs[-1]}"
+            title = f"{title} @ep{self.current_epoch}"
         else:
-            title = f"{self.name} Bounding Box Predicts on {self.dataset} @ep{self.epochs[-1]}"
+            title = f"{self.name} Bounding Box Predicts on {self.dataset} @ep{self.current_epoch}"
         samples = np.array(self.loss['pred']['IND']).astype(int)[self.select_inds]
 
         fig = self.__plot_settings__()
@@ -344,7 +344,7 @@ class MyLossBBX(MyLoss):
 
         axes[0].legend()
         plt.show()
-        filename = f"{self.name}_BBX_{self.dataset}SET@ep{self.epochs[-1]}.jpg"
+        filename = f"{self.name}_BBX_{self.dataset}SET@ep{self.current_epoch}.jpg"
         return fig, filename
 
 
@@ -355,9 +355,9 @@ class MyLossCTR(MyLoss):
 
     def plot_center(self, title=None):
         if title:
-            title = f"{title} @ep{self.epochs[-1]}"
+            title = f"{title} @ep{self.current_epoch}"
         else:
-            title = f"{self.name} Center Predicts on {self.dataset} @ep{self.epochs[-1]}"
+            title = f"{self.name} Center Predicts on {self.dataset} @ep{self.current_epoch}"
         samples = np.array(self.loss['pred']['IND']).astype(int)[self.select_inds]
 
         fig = self.__plot_settings__()
@@ -391,5 +391,5 @@ class MyLossCTR(MyLoss):
 
         axes[0].legend()
         plt.show()
-        filename = f"{self.name}_CTR_{self.dataset}SET@ep{self.epochs[-1]}.jpg"
+        filename = f"{self.name}_CTR_{self.dataset}SET@ep{self.current_epoch}.jpg"
         return fig, filename
