@@ -231,7 +231,7 @@ class TeacherTrainer(BasicTrainer):
         super(TeacherTrainer, self).__init__(*args, **kwargs)
 
         self.img_mode = 'cimg'
-        self.modality = {self.img_mode}
+        self.modality = {self.img_mode, 'tag'}
 
         self.beta = beta
         self.recon_lossfunc = recon_lossfunc
@@ -293,7 +293,7 @@ class StudentTrainer(BasicTrainer):
         super(StudentTrainer, self).__init__(*args, **kwargs)
 
         self.img_mode = 'cimg'
-        self.modality = {self.img_mode, 'csi', 'bbx', 'dpt', 'pd'}
+        self.modality = {self.img_mode, 'csi', 'bbx', 'dpt', 'pd', 'tag'}
 
         self.alpha = alpha
         self.recon_lossfunc = recon_lossfunc
