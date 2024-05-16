@@ -51,7 +51,7 @@ class EarlyStopping:
         self.verbose = verbose
         self.delta = delta
         self.total_epochs = 0
-        self.best_valid_loss = -np.inf
+        self.best_valid_loss = np.inf
 
         self.lr_decay = lr_decay
         self.decay_flag = False
@@ -157,10 +157,10 @@ class BasicTrainer:
                     EPOCH_LOSS[key].append(self.temp_loss[key].item())
 
                 if idx % 5 == 0:
-                    print(f"\r{self.name} train: epoch={epoch}/{self.epochs}, "
+                    print(f"{self.name} train: epoch={epoch}/{self.epochs}, "
                           f"batch={idx}/{len(self.dataloader['train'])}, "
                           f"loss={self.temp_loss['LOSS'].item():.4f}, "
-                          f"current best valid loss={self.best_val_loss:.4f}    ", end='', flush=True)
+                          f"current best valid loss={self.best_val_loss:.4f}    ", flush=True)
 
             for key, value in EPOCH_LOSS.items():
                 EPOCH_LOSS[key] = np.average(value)
@@ -192,9 +192,9 @@ class BasicTrainer:
                     self.best_vloss_ep = self.current_ep()
 
                 if idx % 5 == 0:
-                    print(f"\r{self.name} valid: epoch={epoch}/{self.epochs}, "
+                    print(f"{self.name} valid: epoch={epoch}/{self.epochs}, "
                           f"batch={idx}/{len(self.dataloader['valid'])}, "
-                          f"current best valid loss={self.best_val_loss:.4f}        ", end='', flush=True)
+                          f"current best valid loss={self.best_val_loss:.4f}        ", flush=True)
 
                 if not os.path.exists(self.save_path):
                     os.makedirs(self.save_path)
@@ -255,9 +255,8 @@ class BasicTrainer:
                     self.loss.update('pred', PREDS)
 
             if idx % 5 == 0:
-                print(f"\r{self.name} test: sample={idx}/{len(self.dataloader[loader])}, "
-                      f"loss={self.temp_loss['LOSS'].item():.4f}    ",
-                      end='', flush=True)
+                print(f"{self.name} test: sample={idx}/{len(self.dataloader[loader])}, "
+                      f"loss={self.temp_loss['LOSS'].item():.4f}    ", flush=True)
 
         self.loss.update('test', EPOCH_LOSS)
         for key in EPOCH_LOSS.keys():
