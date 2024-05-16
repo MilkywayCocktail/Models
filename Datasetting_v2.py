@@ -118,7 +118,7 @@ class MyDataset(Data.Dataset):
         :return: all modalities
         """
 
-        ret = {key: self.__transform__(value[index]) if key == 'img' else value[index]
+        ret = {key: self.__transform__(value[index]) if key == 'rimg' or key == 'cimg' else value[index]
                for key, value in self.data.items()
                }
 
