@@ -67,7 +67,8 @@ class EarlyStopping:
             if self.early_stop_counter >= self.early_stop_max:
                 if self.lr_decay:
                     self.lr_decay_counter += 1
-                    print(f"\033[32mLr decay reporting: {self.lr_decay_counter} out of {self.lr_decay_max}\033[0m")
+                    print(f"\033[32mLr decay reporting: {self.lr_decay_counter} out of {self.lr_decay_max}. "
+                          f"Decay rate = {2 ** self.lr_decay_counter}\033[0m")
                     if self.lr_decay_counter >= self.lr_decay_max:
                         self.early_stop = True
                     else:
@@ -159,7 +160,7 @@ class BasicTrainer:
                     EPOCH_LOSS[key].append(self.temp_loss[key].item())
 
                 if idx % 5 == 0:
-                    print(f"{self.name} train: epoch={epoch}/{train_range}, "
+                    print(f"{self.name} train: epoch={epoch}/{train_range[-1]}, "
                           f"batch={idx}/{len(self.dataloader['train'])}, "
                           f"loss={self.temp_loss['LOSS'].item():.4f}, "
                           f"current best valid loss={self.best_val_loss:.4f}    ", flush=True)
@@ -170,6 +171,7 @@ class BasicTrainer:
             self.extra_params.update()
 
             # =====================valid============================
+            print('\n')
             for model in train_module:
                 self.models[model].eval()
             if eval_module:
@@ -194,7 +196,7 @@ class BasicTrainer:
                     self.best_vloss_ep = self.current_ep()
 
                 if idx % 5 == 0:
-                    print(f"{self.name} valid: epoch={epoch}/{train_range}, "
+                    print(f"{self.name} valid: epoch={epoch}/{train_range[-1]}, "
                           f"batch={idx}/{len(self.dataloader['valid'])}, "
                           f"loss={self.temp_loss['LOSS'].item():.4f}, "
                           f"current best valid loss={self.best_val_loss:.4f}        ", flush=True)

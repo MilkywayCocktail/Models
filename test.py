@@ -41,9 +41,5 @@ class My:
 
         self.hello = hello
 
-
-#my1 = My(55)
-#my1.hello()
-#my1.x = 99
-#my1.hello()
-
+rang = range(100)
+print(rang[-1])
