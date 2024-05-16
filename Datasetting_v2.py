@@ -71,12 +71,14 @@ class DataPlanner:
                 for Group in self.data[Take].keys():
                     for Segment in self.data[Take][Group].keys():
                         ret_data[modality].append(self.data[Take][Group][Segment][modality])
-                print(f"Take{Take} {modality} len={len(ret_data[modality])} "
-                      f"type={type(self.data[Take][Group][Segment][modality])}")
+                print(f"Take{Take} {modality} len={len(ret_data[modality])} ")
             try:
                 ret_data[modality] = np.concatenate(ret_data[modality], axis=0)
             except Exception:
                 print(modality)
+        # 'ind' = Take_Group_Segment_ind
+        for i in range(len(ret_data['ind'])):
+            ret_data['ind'][i] = np.array(f"{ret_data['tag'][i]}_{ret_data['ind'][i]}")
         return ret_data
 
 
@@ -111,13 +113,11 @@ class MyDataset(Data.Dataset):
         Retrieving samples.\n
         :param index: index of sample
         :return: all modalities
-        'ind' = Take_Group_Segment_ind
         """
 
         ret = {key: self.__transform__(value[index]) if key == 'img' else value[index]
                for key, value in self.data.items() if key != 'tag'
                }
-        ret['ind'] = f"{self.data['tag'][index]}_{self.data['ind'][index]}"
 
         return ret
 
