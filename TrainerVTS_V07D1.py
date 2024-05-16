@@ -230,7 +230,8 @@ class TeacherTrainer(BasicTrainer):
                  *args, **kwargs):
         super(TeacherTrainer, self).__init__(*args, **kwargs)
 
-        self.modality = {'img'}
+        self.img_mode = 'cimg'
+        self.modality = {self.img_mode}
 
         self.beta = beta
         self.recon_lossfunc = recon_lossfunc
@@ -249,7 +250,7 @@ class TeacherTrainer(BasicTrainer):
         return loss, kl_loss, recon_loss
 
     def calculate_loss(self, data):
-        img = torch.where(data['img'] > 0, 1., 0.) if self.mask else data['img']
+        img = torch.where(data[self.img_mode] > 0, 1., 0.) if self.mask else data[self.img_mode]
         z, mu, logvar = self.models['imgen'](img)
         output = self.models['imgde'](z)
         loss, kl_loss, recon_loss = self.vae_loss(output, img, mu, logvar)
@@ -291,7 +292,8 @@ class StudentTrainer(BasicTrainer):
                  *args, **kwargs):
         super(StudentTrainer, self).__init__(*args, **kwargs)
 
-        self.modality = {'img', 'csi', 'bbx', 'dpt', 'pd'}
+        self.img_mode = 'cimg'
+        self.modality = {self.img_mode, 'csi', 'bbx', 'dpt', 'pd'}
 
         self.alpha = alpha
         self.recon_lossfunc = recon_lossfunc
@@ -327,7 +329,7 @@ class StudentTrainer(BasicTrainer):
         return loss, mu_loss, logvar_loss
 
     def calculate_loss(self, data):
-        img = torch.where(data['img'] > 0, 1., 0.) if self.mask else data['img']
+        img = torch.where(data[self.img_mode] > 0, 1., 0.) if self.mask else data[self.img_mode]
         features, s_z, s_mu, s_logvar = self.models['csien'](csi=data['csi'], pd=data['pd'])
         s_image = self.models['imgde'](s_z)
         s_ctr, s_depth = self.models['bbxde'](features)
