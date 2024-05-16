@@ -107,7 +107,7 @@ class MyDataset(Data.Dataset):
         :return: transformed image (tensor if transformed; ndarray if not transformed)
         """
         if self.transform:
-            return self.transform(Image.fromarray(sample))
+            return self.transform(Image.fromarray(np.squeeze(np.uint8(np.asarray(sample) * 255))))
         else:
             return sample
 
@@ -118,7 +118,7 @@ class MyDataset(Data.Dataset):
         :return: all modalities
         """
 
-        ret = {key: self.__transform__(value[index]) if key == 'rimg' or key == 'cimg' else value[index]
+        ret = {key: self.__transform__(value[index]) if key in ('rimg', 'cimg') else value[index]
                for key, value in self.data.items()
                }
 
