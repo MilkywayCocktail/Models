@@ -36,7 +36,7 @@ class DataPlanner:
         self.data_dir = data_dir
         self.mode = mode
         self.data: dict = {}
-        self.modality = []
+        self.modality = ['tag']
 
     def load_raw(self):
         # Filename: Txx_Gyy_Szz_mode.npy
@@ -60,7 +60,7 @@ class DataPlanner:
                         self.data[Take][Group][Segment]: dict = {}
 
                     self.data[Take][Group][Segment][modality] = np.load(os.path.join(path, file_name))
-                    self.data[Take][Group][Segment]['fname'] = fname
+                    self.data[Take][Group][Segment]['tag'] = f'{Take}_{Group}_{Segment}'
 
     def regroup(self, takes):
         ret_data: dict = {}
@@ -106,13 +106,14 @@ class MyDataset(Data.Dataset):
         """
         Retrieving samples.\n
         :param index: index of sample
-        :return: csi, img, index
+        :return: all modalities
+        'ind' = Take_Group_Segment_ind
         """
 
         ret = {key: self.__transform__(value[index]) if key == 'img' else value[index]
-               for key, value in self.data.items() if key != 'fname'
+               for key, value in self.data.items() if key != 'tag'
                }
-        ret['ind'] = f"{self.data['fname'][index]}_{self.data['ind'][index]}"
+        ret['ind'] = f"{self.data['tag'][index]}_{self.data['ind'][index]}"
 
         return ret
 
