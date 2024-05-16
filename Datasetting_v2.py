@@ -59,7 +59,8 @@ class DataPlanner:
                         self.data[Take][Group][Segment]: dict = {}
 
                     self.data[Take][Group][Segment][modality] = np.load(os.path.join(path, file_name))
-                    self.data[Take][Group][Segment]['tag'] = f'{Take}_{Group}_{Segment}'
+                    self.data[Take][Group][Segment]['tag'] = [f'{Take}_{Group}_{Segment}'] * len(
+                        self.data[Take][Group][Segment][modality])
 
     def regroup(self, takes):
         ret_data: dict = {}
