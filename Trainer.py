@@ -297,9 +297,9 @@ class BasicTrainer:
                        f"{save_path}{notion}_{self.name}_{self.models[model]}@ep{self.current_ep()}.pth")
         print("All saved!")
 
-    def schedule(self, autosave=True):
+    def schedule(self, autosave=True, *args, **kwargs):
         # Training, testing and saving
-        model = self.train(autosave=autosave, notion=self.notion)
+        model = self.train(autosave=autosave, notion=self.notion, *args, **kwargs)
         self.plot_train_loss(autosave=autosave, notion=self.notion)
         self.test(mode='train')
         self.plot_test(select_num=8, autosave=autosave, notion=self.notion)
