@@ -41,11 +41,5 @@ class My:
 
         self.hello = hello
 
-so = np.array([[0,1], [0,2], [1,2]])
-tar = np.array([0, 2])
-take, ind = tar[0], tar[-1]
-_ind = np.where(so[:, 1] == ind)
-print(so[_ind])
-_take = np.where(so[_ind][:, 0] == take)
-print(_take)
-print(so[_ind][_take])
+arrr = np.array([1, 2] * 0)
+print(arrr)

@@ -65,10 +65,12 @@ class DataPlanner:
                     if Segment not in self.data[Take][Group].keys():
                         self.data[Take][Group][Segment]: dict = {}
 
-                    self.data[Take][Group][Segment][modality] = np.load(os.path.join(path, file_name))
-                    self.data[Take][Group][Segment]['tag'] = np.array([[Take, Group, Segment]] * len(
-                        self.data[Take][Group][Segment][modality]))
-                    tqdm.write(f'Loaded {fname} of len {len(self.data[Take][Group][Segment][modality])}')
+                    din = np.load(os.path.join(path, file_name))
+                    if len(din) > 0:
+                        self.data[Take][Group][Segment][modality] = din
+                        self.data[Take][Group][Segment]['tag'] = np.array([[Take, Group, Segment]] * len(
+                            self.data[Take][Group][Segment][modality]))
+                        tqdm.write(f'Loaded {fname} of len {len(self.data[Take][Group][Segment][modality])}')
 
     def regroup(self, takes):
         ret_data: dict = {}
