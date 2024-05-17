@@ -38,7 +38,7 @@ class DataPlanner:
         self.data: dict = {}
         self.modality = ['tag', 'depth', 'csi', 'center', 'pd', 'cimg', 'bbx', 'time', 'ind', 'rimg']
 
-    def load_raw(self, modalities=None):
+    def load_raw(self, modalities=None, scope=None):
         # Filename: Txx_Gyy_Szz_mode.npy
 
         paths = os.walk(self.data_dir)
@@ -49,11 +49,14 @@ class DataPlanner:
                 fname, ext = os.path.splitext(file_name)
                 if ext == '.npy':
                     Take, Group, Segment, modality = fname.split('_')
+                    if scope and Take not in scope:
+                        continue
+                    if modalities and modality not in modalities:
+                        continue
                     Take = int(Take.replace('T', ''))
                     Group = int(Group.replace('G', ''))
                     Segment = int(Segment.replace('S', ''))
-                    if modalities and modality not in modalities:
-                        continue
+
                     if Take not in self.data.keys():
                         self.data[Take]: dict = {}
                     if Group not in self.data[Take].keys():
@@ -78,8 +81,8 @@ class DataPlanner:
                 print(f"Take{Take} {modality} len={len(ret_data[modality])} ")
             try:
                 ret_data[modality] = np.concatenate(ret_data[modality], axis=0)
-            except Exception:
-                print(modality)
+            except Exception as e:
+                print(modality, e)
         # 'tag' = Take, Group, Segment, ind
         ret_data['tag'] = np.hstack((ret_data['tag'], ret_data['ind'].squeeze(axis=1))).astype(int)
         return ret_data
@@ -107,7 +110,7 @@ class MyDataset(Data.Dataset):
         :return: transformed image (tensor if transformed; ndarray if not transformed)
         """
         if self.transform:
-            return self.transform(Image.fromarray(sample))
+            return self.transform(Image.fromarray(np.squeeze(np.uint8(np.asarray(sample) * 255))))
         else:
             return sample
 
@@ -118,7 +121,7 @@ class MyDataset(Data.Dataset):
         :return: all modalities
         """
 
-        ret = {key: self.__transform__(value[index]) if key == 'img' else value[index]
+        ret = {key: self.__transform__(value[index]) if key in ('rimg', 'cimg') else value[index]
                for key, value in self.data.items()
                }
 
