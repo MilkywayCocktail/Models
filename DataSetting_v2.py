@@ -53,6 +53,7 @@ class DataPlanner:
                         continue
                     if modalities and modality not in modalities:
                         continue
+
                     Take = int(Take.replace('T', ''))
                     Group = int(Group.replace('G', ''))
                     Segment = int(Segment.replace('S', ''))
@@ -67,6 +68,7 @@ class DataPlanner:
                     self.data[Take][Group][Segment][modality] = np.load(os.path.join(path, file_name))
                     self.data[Take][Group][Segment]['tag'] = np.array([[Take, Group, Segment]] * len(
                         self.data[Take][Group][Segment][modality]))
+                    tqdm.write(f'Loaded {fname} of len {len(self.data[Take][Group][Segment][modality])}')
 
     def regroup(self, takes):
         ret_data: dict = {}
@@ -74,11 +76,11 @@ class DataPlanner:
         for modality in tqdm(self.modality):
             ret_data[modality] = []
             for Take in takes:
-                Take = int(Take.replace('T', ''))
-                for Group in self.data[Take].keys():
-                    for Segment in self.data[Take][Group].keys():
-                        ret_data[modality].append(self.data[Take][Group][Segment][modality])
-                print(f"Take{Take} {modality} len={len(ret_data[modality])} ")
+                _Take = int(Take.replace('T', ''))
+                for Group in self.data[_Take].keys():
+                    for Segment in self.data[_Take][Group].keys():
+                        ret_data[modality].append(self.data[_Take][Group][Segment][modality])
+                print(f"{Take} {modality} len={len(ret_data[modality])} ")
             try:
                 ret_data[modality] = np.concatenate(ret_data[modality], axis=0)
             except Exception as e:
