@@ -38,7 +38,7 @@ class DataPlanner:
         self.data: dict = {}
         self.modality = ['tag', 'depth', 'csi', 'center', 'pd', 'cimg', 'bbx', 'time', 'ind', 'rimg']
 
-    def load_raw(self, modalities=None):
+    def load_raw(self, modalities=None, scope=None):
         # Filename: Txx_Gyy_Szz_mode.npy
 
         paths = os.walk(self.data_dir)
@@ -49,11 +49,14 @@ class DataPlanner:
                 fname, ext = os.path.splitext(file_name)
                 if ext == '.npy':
                     Take, Group, Segment, modality = fname.split('_')
+                    if scope and Take not in scope:
+                        continue
+                    if modalities and modality not in modalities:
+                        continue
                     Take = int(Take.replace('T', ''))
                     Group = int(Group.replace('G', ''))
                     Segment = int(Segment.replace('S', ''))
-                    if modalities and modality not in modalities:
-                        continue
+
                     if Take not in self.data.keys():
                         self.data[Take]: dict = {}
                     if Group not in self.data[Take].keys():
