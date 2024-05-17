@@ -309,3 +309,15 @@ class BasicTrainer:
                 self.lr *= decay_rate
 
         print('\nSchedule Completed!')
+
+
+def schedule(trainer: BasicTrainer, autosave, notion):
+    # Training, testing and saving
+    model = trainer.train(autosave=autosave, notion=notion)
+    trainer.plot_train_loss(autosave=autosave, notion=notion)
+    trainer.test(mode='train')
+    trainer.plot_test(select_num=8, autosave=autosave, notion=notion)
+    trainer.test(mode='test')
+    trainer.plot_test(select_num=8, autosave=autosave, notion=notion)
+    trainer.loss.save('pred', notion=notion)
+    return model
