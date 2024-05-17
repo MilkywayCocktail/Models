@@ -305,7 +305,7 @@ class CompTrainer(BasicTrainer):
         self.mode = mode
         self.mask = mask
         self.beta = kwargs['beta'] if 'beta' in kwargs.keys() else 0.5
-        self.modality = {'csi', 'rimg'}
+        self.modality = {'csi', 'rimg', 'ind', 'tag'}
         self.recon_lossfunc = nn.BCELoss() if self.mask else nn.MSELoss()
 
         self.loss_terms = {'LOSS'}
@@ -395,7 +395,7 @@ class CompTrainerAEStudent(BasicTrainer):
         super(CompTrainerAEStudent, self).__init__(*args, **kwargs)
 
         self.mask = mask
-        self.modality = {'csi', 'rimg'}
+        self.modality = {'csi', 'rimg', 'ind', 'tag'}
 
         self.alpha = alpha
         self.recon_lossfunc = nn.BCELoss() if self.mask else nn.MSELoss()
