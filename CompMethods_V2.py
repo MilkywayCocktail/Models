@@ -323,6 +323,7 @@ class CompTrainer(BasicTrainer):
 
     def calculate_loss(self, data):
         img = torch.where(data['rimg'] > 0, 1., 0.) if self.mask else data['rimg']
+        print(img.shape)
 
         if self.mode == 'wi2vi':
             output = self.models['wi2vi'](data['csi'])
@@ -330,7 +331,8 @@ class CompTrainer(BasicTrainer):
             self.temp_loss = {'LOSS': loss}
             return {'GT': img,
                     'PRED': output,
-                    'IND': data['ind']}
+                    'IND': data['ind'],
+                    'TAG': data['tag']}
 
         elif self.mode == 'ae':
             latent, output = self.models['ae'](data['csi'])
