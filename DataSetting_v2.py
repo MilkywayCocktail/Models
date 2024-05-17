@@ -74,7 +74,7 @@ class DataPlanner:
                             self.data[Take][Group][Segment][modality]))
                         tqdm.write(f'Loaded {fname} of len {len(self.data[Take][Group][Segment][modality])}')
                     else:
-                        tqdm.write(f'Excluded {fname} len {len(self.data[Take][Group][Segment][modality])}')
+                        tqdm.write(f'Excluded {fname} len {len(din)}')
                         self.zero_segments.append([Take, Group, Segment])
 
     def regroup(self, takes):
