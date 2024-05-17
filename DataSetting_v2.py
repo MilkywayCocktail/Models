@@ -49,6 +49,10 @@ class DataPlanner:
                 fname, ext = os.path.splitext(file_name)
                 if ext == '.npy':
                     Take, Group, Segment, modality = fname.split('_')
+                    Take = int(Take.replace('T', ''))
+                    Group = int(Group.replace('G', ''))
+                    Segment = int(Segment.replace('S', ''))
+
                     if scope and Take not in scope:
                         continue
                     if modalities and modality not in modalities:
@@ -56,19 +60,15 @@ class DataPlanner:
                     if [Take, Group, Segment] in self.zero_segments:
                         continue
 
-                    Take = int(Take.replace('T', ''))
-                    Group = int(Group.replace('G', ''))
-                    Segment = int(Segment.replace('S', ''))
-
-                    if Take not in self.data.keys():
-                        self.data[Take]: dict = {}
-                    if Group not in self.data[Take].keys():
-                        self.data[Take][Group]: dict = {}
-                    if Segment not in self.data[Take][Group].keys():
-                        self.data[Take][Group][Segment]: dict = {}
-
                     din = np.load(os.path.join(path, file_name))
                     if len(din) > 0:
+                        if Take not in self.data.keys():
+                            self.data[Take]: dict = {}
+                        if Group not in self.data[Take].keys():
+                            self.data[Take][Group]: dict = {}
+                        if Segment not in self.data[Take][Group].keys():
+                            self.data[Take][Group][Segment]: dict = {}
+
                         self.data[Take][Group][Segment][modality] = din
                         self.data[Take][Group][Segment]['tag'] = np.array([[Take, Group, Segment]] * len(
                             self.data[Take][Group][Segment][modality]))
