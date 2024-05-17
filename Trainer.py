@@ -296,28 +296,15 @@ class BasicTrainer:
                        f"{save_path}{notion}_{self.name}_{self.models[model]}@ep{self.current_ep()}.pth")
         print("All saved!")
 
-    def scheduler(self, turns=10,
-                  lr_decay=False, decay_rate=0.4,
-                  test_loader='train', select_num=8,
-                  autosave=False, notion='', **kwargs):
-        for i in range(turns):
-            self.train(autosave=autosave, notion=notion, **kwargs)
-            self.test(loader=test_loader, **kwargs)
-            self.plot_train_loss(autosave=autosave, notion=notion, **kwargs)
-            self.plot_test(select_num=select_num, autosave=autosave, notion=notion, **kwargs)
-            if lr_decay:
-                self.lr *= decay_rate
+    def schedule(self, autosave, notion):
+        # Training, testing and saving
+        model = self.train(autosave=autosave, notion=notion)
+        self.plot_train_loss(autosave=autosave, notion=notion)
+        self.test(mode='train')
+        self.plot_test(select_num=8, autosave=autosave, notion=notion)
+        self.test(mode='test')
+        self.plot_test(select_num=8, autosave=autosave, notion=notion)
+        self.loss.save('pred', notion=notion)
+        print(f'\n\033[32m{self.name} schedule Completed!\033[0m')
+        return model
 
-        print('\nSchedule Completed!')
-
-
-def schedule(trainer: BasicTrainer, autosave, notion):
-    # Training, testing and saving
-    model = trainer.train(autosave=autosave, notion=notion)
-    trainer.plot_train_loss(autosave=autosave, notion=notion)
-    trainer.test(mode='train')
-    trainer.plot_test(select_num=8, autosave=autosave, notion=notion)
-    trainer.test(mode='test')
-    trainer.plot_test(select_num=8, autosave=autosave, notion=notion)
-    trainer.loss.save('pred', notion=notion)
-    return model
