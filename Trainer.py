@@ -79,7 +79,6 @@ class EarlyStopping:
         else:
             self.best_valid_loss = val_loss
             self.early_stop_counter = 0
-            self.lr_decay_counter = 0
 
 
 class BasicTrainer:
