@@ -78,8 +78,8 @@ class DataPlanner:
                 print(f"Take{Take} {modality} len={len(ret_data[modality])} ")
             try:
                 ret_data[modality] = np.concatenate(ret_data[modality], axis=0)
-            except Exception:
-                print(modality)
+            except Exception as e:
+                print(modality, e)
         # 'tag' = Take, Group, Segment, ind
         ret_data['tag'] = np.hstack((ret_data['tag'], ret_data['ind'].squeeze(axis=1))).astype(int)
         return ret_data
