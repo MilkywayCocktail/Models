@@ -32,10 +32,10 @@ class ExperimentInfo:
 class DataPlanner:
     version = ver
 
-    def __init__(self, data_dir, mode='valid'):
+    def __init__(self, data_dir):
         self.data_dir = data_dir
-        self.mode = mode
         self.data: dict = {}
+        self.zero_segments = []
         self.modality = ['tag', 'depth', 'csi', 'center', 'pd', 'cimg', 'bbx', 'time', 'ind', 'rimg']
 
     def load_raw(self, modalities=None, scope=None):
@@ -52,6 +52,8 @@ class DataPlanner:
                     if scope and Take not in scope:
                         continue
                     if modalities and modality not in modalities:
+                        continue
+                    if [Take, Group, Segment] in self.zero_segments:
                         continue
 
                     Take = int(Take.replace('T', ''))
@@ -71,6 +73,9 @@ class DataPlanner:
                         self.data[Take][Group][Segment]['tag'] = np.array([[Take, Group, Segment]] * len(
                             self.data[Take][Group][Segment][modality]))
                         tqdm.write(f'Loaded {fname} of len {len(self.data[Take][Group][Segment][modality])}')
+                    else:
+                        tqdm.write(f'Excluded {fname} len {len(self.data[Take][Group][Segment][modality])}')
+                        self.zero_segments.append([Take, Group, Segment])
 
     def regroup(self, takes):
         ret_data: dict = {}

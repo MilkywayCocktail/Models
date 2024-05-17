@@ -41,5 +41,8 @@ class My:
 
         self.hello = hello
 
-arrr = np.array([1, 2] * 0)
-print(arrr)
+lsls = [['a', 'b'], [1, 2]]
+if ['a', 'b'] in lsls:
+    print(1)
+if [1, 2] in lsls:
+    print(2)
