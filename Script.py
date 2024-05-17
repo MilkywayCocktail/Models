@@ -1,5 +1,5 @@
 import Trainer
-import Datasetting_v2
+import DataSetting_v2
 
 
 class PropScript:
