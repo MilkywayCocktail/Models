@@ -203,7 +203,7 @@ class BasicTrainer:
                 if not os.path.exists(self.save_path):
                     os.makedirs(self.save_path)
 
-                with open(f"{self.save_path}{notion}_{self.name}.txt", 'w') as logfile:
+                with open(f"{self.save_path}{self.name}.txt", 'w') as logfile:
                     logfile.write(f"{notion}_{self.name}\n"
                                   f"Total epochs = {self.current_ep()}"
                                   f"Best : val_loss={self.best_val_loss} @ epoch {self.best_vloss_ep}\n"
