@@ -72,7 +72,7 @@ class EarlyStopping:
                     if self.lr_decay_counter >= self.lr_decay_max:
                         self.early_stop = True
                     else:
-                        self.decay_Flag = True
+                        self.decay_flag = True
                         self.early_stop_counter = 0
                 else:
                     self.early_stop = True
