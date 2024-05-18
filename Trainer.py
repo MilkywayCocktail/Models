@@ -129,7 +129,7 @@ class BasicTrainer:
         os.environ['CUDA_VISIBLE_DEVICES'] = ','.join(map(str, cuda))
         os.environ['MASTER_ADDR'] = 'localhost'
         os.environ['MASTER_PORT'] = '12355'
-        dist.init_process_group(backend="nccl", rank=0, world_size=2)
+        dist.init_process_group(backend="nccl", rank=0, world_size=1)
 
     def data_to_device(self, data):
         if self.thread == 'single':

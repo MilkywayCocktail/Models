@@ -1,5 +1,6 @@
 import torch
 import torch.utils.data as Data
+import torch.distributed as dist
 from torchvision import transforms
 import numpy as np
 import os
@@ -148,6 +149,8 @@ class DataSplitter:
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.distributed = distributed
+        if self.distributed:
+            dist.init_process_group(backend="nccl", rank=0, world_size=1)
 
     def split_loader(self, train_ratio=0.8,  num_workers=14, pin_memory=False):
         print("Generating loaders...")
