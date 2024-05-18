@@ -1,4 +1,6 @@
 import torch
+import torch.distributed as dist
+from torch.nn.parallel import DistributedDataParallel as DDP
 import numpy as np
 import os
 import matplotlib.pyplot as plt
@@ -91,16 +93,23 @@ class BasicTrainer:
         self.name = name
         self.lr = lr
         self.epochs = epochs
-        self.device = torch.device("cuda:" + str(cuda) if torch.cuda.is_available() else "cpu")
         self.optimizer = torch.optim.Adam
-
-        self.extra_params = ExtraParams(self.device)
-        self.models = {network.name: network.to(self.device) for network in networks
-                       }
+        self.thread = 'single'
 
         self.dataloader = {'train': train_loader,
                            'valid': valid_loader,
                            'test': test_loader}
+
+        if isinstance(cuda, int):
+            self.device = torch.device(f"cuda:{cuda}" if torch.cuda.is_available() else "cpu")
+            self.extra_params = ExtraParams(self.device)
+            self.models = {network.name: network.to(self.device) for network in networks
+                           }
+        elif isinstance(cuda, list) or isinstance(cuda, tuple) or isinstance(cuda, set):
+            self.thread = 'multi'
+            self.ddp_setup(cuda=cuda)
+            self.models = {network.name: DDP(network.cuda()) for network in networks
+                           }
 
         self.modality = {'modality1', 'modality2', '...'}
 
@@ -114,6 +123,19 @@ class BasicTrainer:
         self.notion = notion
         self.save_path = f'../saved/{notion}/'
         self.early_stopping = EarlyStopping(*args, **kwargs)
+
+    @staticmethod
+    def ddp_setup(cuda):
+        os.environ['CUDA_VISIBLE_DEVICES'] = ','.join(map(str, cuda))
+        os.environ['MASTER_ADDR'] = 'localhost'
+        os.environ['MASTER_PORT'] = '12355'
+        dist.init_process_group(backend="nccl", rank=0, world_size=2)
+
+    def data_to_device(self, data):
+        if self.thread == 'single':
+            return data.to(torch.float32).to(self.device)
+        elif self.thread == 'multi':
+            return data.cuda(non_blocking=True)
 
     def current_ep(self):
         return self.loss.current_epoch
@@ -150,7 +172,7 @@ class BasicTrainer:
                 data_ = {}
                 for key, value in data.items():
                     if key in self.modality:
-                        data_[key] = value.to(torch.float32).to(self.device)
+                        data_[key] = self.data_to_device(value)
 
                 optimizer.zero_grad()
                 PREDS = self.calculate_loss(data_)
@@ -183,7 +205,7 @@ class BasicTrainer:
                 data_ = {}
                 for key, value in data.items():
                     if key in self.modality:
-                        data_[key] = value.to(torch.float32).to(self.device)
+                        data_[key] = self.data_to_device(value)
 
                 with torch.no_grad():
                     PREDS = self.calculate_loss(data_)
@@ -229,6 +251,8 @@ class BasicTrainer:
             for key in EPOCH_LOSS.keys():
                 EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
             self.loss.update('valid', EPOCH_LOSS)
+
+        dist.destroy_process_group()
         return self.models
 
     @timer
@@ -248,7 +272,7 @@ class BasicTrainer:
             length = 0
             for key, value in data.items():
                 if key in self.modality:
-                    data_[key] = value.to(torch.float32).to(self.device)
+                    data_[key] = self.data_to_device(value)
                     length = len(value)
 
             with torch.no_grad():

@@ -143,21 +143,33 @@ class MyDataset(Data.Dataset):
 class DataSplitter:
     version = ver
 
-    def __init__(self, dataset: MyDataset, batch_size=64, shuffle=True):
+    def __init__(self, dataset: MyDataset, batch_size=64, shuffle=True, distributed=False):
         self.dataset = dataset
         self.batch_size = batch_size
         self.shuffle = shuffle
+        self.distributed = distributed
 
     def split_loader(self, train_ratio=0.8,  num_workers=14, pin_memory=False):
         print("Generating loaders...")
         train_size = int(train_ratio * len(self.dataset))
         valid_size = len(self.dataset) - train_size
         train_dataset, valid_dataset = Data.random_split(self.dataset, [train_size, valid_size])
-        train_loader = Data.DataLoader(train_dataset, batch_size=self.batch_size, shuffle=self.shuffle,
-                                       num_workers=num_workers, drop_last=True, pin_memory=pin_memory)
-        valid_loader = Data.DataLoader(valid_dataset, batch_size=self.batch_size, shuffle=self.shuffle,
-                                       num_workers=num_workers, drop_last=True, pin_memory=pin_memory)
-        print(f" {self.dataset.name} len {len(self.dataset)}\n"
+        if not self.distributed:
+            train_loader = Data.DataLoader(train_dataset, batch_size=self.batch_size, shuffle=self.shuffle,
+                                           num_workers=num_workers, drop_last=True, pin_memory=pin_memory)
+            valid_loader = Data.DataLoader(valid_dataset, batch_size=self.batch_size, shuffle=self.shuffle,
+                                           num_workers=num_workers, drop_last=True, pin_memory=pin_memory)
+        else:
+            train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
+            train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=self.batch_size,
+                                                       shuffle=self.shuffle, num_workers=num_workers,
+                                                       drop_last=True, pin_memory=pin_memory, sampler=train_sampler)
+            valid_sampler = torch.utils.data.distributed.DistributedSampler(valid_dataset)
+            valid_loader = torch.utils.data.DataLoader(valid_dataset, batch_size=self.batch_size,
+                                                       shuffle=self.shuffle, num_workers=num_workers,
+                                                       drop_last=True, pin_memory=pin_memory, sampler=valid_sampler)
+
+        print(f" {self.dataset.name} len {len(self.dataset)} distributed={self.distributed}\n"
               f" exported train loader of len {len(train_loader)}, batch size {self.batch_size}\n"
               f" exported valid loader of len {len(valid_loader)}, batch size {self.batch_size}\n")
 
@@ -165,8 +177,14 @@ class DataSplitter:
 
     def gen_loader(self, num_workers=14, pin_memory=False):
         print("Generating loaders...")
-        loader = Data.DataLoader(self.dataset, batch_size=self.batch_size, shuffle=self.shuffle,
-                                 num_workers=num_workers, drop_last=True, pin_memory=pin_memory)
+        if not self.distributed:
+            loader = Data.DataLoader(self.dataset, batch_size=self.batch_size, shuffle=self.shuffle,
+                                     num_workers=num_workers, drop_last=True, pin_memory=pin_memory)
+        else:
+            sampler = torch.utils.data.distributed.DistributedSampler(self.dataset)
+            loader = torch.utils.data.DataLoader(self.dataset, batch_size=self.batch_size,
+                                                 shuffle=self.shuffle, num_workers=num_workers,
+                                                 drop_last=True, pin_memory=pin_memory, sampler=sampler)
         print(f" {self.dataset.name} len {len(self.dataset)}\n"
               f" exported loader of len {len(loader)}, batch size {self.batch_size}")
 

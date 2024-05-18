@@ -9,12 +9,13 @@ from Trainer import BasicTrainer
 from Model import *
 from Loss import MyLoss, MyLossCTR
 
-version = 'V07C2'
+version = 'V08C1'
 
 ##############################################################################
 # -------------------------------------------------------------------------- #
-# Version V07C1
-# Teacher learns and estimates binary masks and the depth value of the center
+# Version V08C1
+# Teacher1 learns and estimates raw images and the bbx of the raw depth image
+# Teacher2 learns and estimates binary masks and the depth value of the center
 # pixel of the cropped depth image
 # Student learns (6, 30, m) CSIs and (2, 30, m) PhaseDiffs
 

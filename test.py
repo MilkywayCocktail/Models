@@ -41,8 +41,5 @@ class My:
 
         self.hello = hello
 
-lsls = [['a', 'b'], [1, 2]]
-if ['a', 'b'] in lsls:
-    print(1)
-if [1, 2] in lsls:
-    print(2)
+lsls = [1, 3]
+print(','.join(map(str, lsls)))
