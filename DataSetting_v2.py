@@ -151,7 +151,7 @@ class DataSplitter:
         self.distributed = distributed
         if self.distributed:
             os.environ['MASTER_ADDR'] = 'localhost'
-            os.environ['MASTER_PORT'] = '5800'
+            os.environ['MASTER_PORT'] = '5500'
             os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(map(str, gpu))
             dist.init_process_group(backend='nccl', init_method='env://', rank=torch.cuda.device_count(), world_size=1)
 
