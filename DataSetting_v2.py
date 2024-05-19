@@ -39,7 +39,7 @@ class DataPlanner:
         self.zero_segments = []
         self.modality = ['tag', 'depth', 'csi', 'center', 'pd', 'cimg', 'bbx', 'time', 'ind', 'rimg']
 
-    def load_raw(self, modalities=None, scope=None):
+    def load_raw(self, modalities=None, scope=None, mmap_mode=None):
         # Filename: Txx_Gyy_Szz_mode.npy
 
         paths = os.walk(self.data_dir)
@@ -61,7 +61,7 @@ class DataPlanner:
                     if [Take, Group, Segment] in self.zero_segments:
                         continue
 
-                    din = np.load(os.path.join(path, file_name))
+                    din = np.load(os.path.join(path, file_name), mmap_mode=mmap_mode)
                     if len(din) > 0:
                         if Take not in self.data.keys():
                             self.data[Take]: dict = {}
