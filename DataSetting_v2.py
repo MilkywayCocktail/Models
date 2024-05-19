@@ -144,13 +144,16 @@ class MyDataset(Data.Dataset):
 class DataSplitter:
     version = ver
 
-    def __init__(self, dataset: MyDataset, batch_size=64, shuffle=True, distributed=False):
+    def __init__(self, dataset: MyDataset, batch_size=64, shuffle=True, distributed=False, gpu=None):
         self.dataset = dataset
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.distributed = distributed
         if self.distributed:
-            dist.init_process_group(backend="nccl", rank=0, world_size=1)
+            os.environ['MASTER_ADDR'] = 'localhost'
+            os.environ['MASTER_PORT'] = '12355'
+            os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(map(str, gpu))
+            dist.init_process_group(backend='nccl', init_method='env://', rank=torch.cuda.device_count(), world_size=1)
 
     def split_loader(self, train_ratio=0.8,  num_workers=14, pin_memory=False):
         print("Generating loaders...")
