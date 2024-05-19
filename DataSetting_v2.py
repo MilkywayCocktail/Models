@@ -44,6 +44,8 @@ class DataPlanner:
 
         paths = os.walk(self.data_dir)
         tqdm.write('Loading dataset...')
+        if scope:
+            scope = {int(S.replace('T', '')) for S in scope}
 
         for path, dir_lst, file_lst in paths:
             for file_name in tqdm(file_lst):
