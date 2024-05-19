@@ -128,7 +128,7 @@ class BasicTrainer:
     def ddp_setup(cuda):
         os.environ['CUDA_VISIBLE_DEVICES'] = ','.join(map(str, cuda))
         os.environ['MASTER_ADDR'] = 'localhost'
-        os.environ['MASTER_PORT'] = '12355'
+        os.environ['MASTER_PORT'] = '5800'
         dist.init_process_group(backend='nccl', init_method='env://', rank=torch.cuda.device_count(), world_size=1)
 
     def data_to_device(self, data):
