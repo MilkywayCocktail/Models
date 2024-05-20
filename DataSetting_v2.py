@@ -33,11 +33,15 @@ class ExperimentInfo:
 class DataPlanner:
     version = ver
 
-    def __init__(self, data_dir):
+    def __init__(self, data_dir, gt_mode=False):
         self.data_dir = data_dir
         self.data: dict = {}
         self.zero_segments = []
-        self.modality = ['tag', 'depth', 'csi', 'center', 'pd', 'cimg', 'bbx', 'time', 'ind', 'rimg']
+        self.gt_mode = gt_mode
+        if self.gt_mode:
+            self.modality = ['tag', 'rimg']
+        else:
+            self.modality = ['tag', 'depth', 'csi', 'center', 'pd', 'cimg', 'bbx', 'time', 'ind', 'rimg']
 
     def load_raw(self, modalities=None, scope=None, mmap_mode=None):
         # Filename: Txx_Gyy_Szz_mode.npy
