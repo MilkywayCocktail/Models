@@ -44,11 +44,12 @@ class ExtraParams:
 
 class EarlyStopping:
 
-    def __init__(self, early_stop_max=7, lr_decay_max=5, lr_decay=True, verbose=False, delta=0):
+    def __init__(self, early_stop_max=7, lr_decay_max=5, early_stop=True, lr_decay=True, verbose=False, delta=0):
 
         self.early_stop_max = early_stop_max
         self.early_stop_counter = 0
-        self.early_stop = False
+        self.early_stop = early_stop
+        self.stop_flag = False
 
         self.verbose = verbose
         self.delta = delta
@@ -63,24 +64,25 @@ class EarlyStopping:
     def __call__(self, val_loss, *args, **kwargs):
         self.total_epochs += 1
         self.decay_flag = False
-        if val_loss >= self.best_valid_loss:
-            self.early_stop_counter += 1
-            print(f"\033[32mEarly Stopping reporting: {self.early_stop_counter} out of {self.early_stop_max}\033[0m")
-            if self.early_stop_counter >= self.early_stop_max:
-                if self.lr_decay:
-                    self.lr_decay_counter += 1
-                    print(f"\033[32mLr decay reporting: {self.lr_decay_counter} out of {self.lr_decay_max}. "
-                          f"Decay rate = {0.5 ** self.lr_decay_counter}\033[0m")
-                    if self.lr_decay_counter >= self.lr_decay_max:
-                        self.early_stop = True
+        if self.early_stop:
+            if val_loss >= self.best_valid_loss:
+                self.early_stop_counter += 1
+                print(f"\033[32mEarly Stopping reporting: {self.early_stop_counter} out of {self.early_stop_max}\033[0m")
+                if self.early_stop_counter >= self.early_stop_max:
+                    if self.lr_decay:
+                        self.lr_decay_counter += 1
+                        print(f"\033[32mLr decay reporting: {self.lr_decay_counter} out of {self.lr_decay_max}. "
+                              f"Decay rate = {0.5 ** self.lr_decay_counter}\033[0m")
+                        if self.lr_decay_counter >= self.lr_decay_max:
+                            self.early_stop = True
+                        else:
+                            self.decay_flag = True
+                            self.early_stop_counter = 0
                     else:
-                        self.decay_flag = True
-                        self.early_stop_counter = 0
-                else:
-                    self.early_stop = True
-        else:
-            self.best_valid_loss = val_loss
-            self.early_stop_counter = 0
+                        self.stop_flag = True
+            else:
+                self.best_valid_loss = val_loss
+                self.early_stop_counter = 0
 
 
 class BasicTrainer:
@@ -236,7 +238,7 @@ class BasicTrainer:
             self.early_stopping(self.best_val_loss)
             if lr_decay and self.early_stopping.decay_flag:
                 self.lr *= 0.5
-            if early_stop and self.early_stopping.early_stop:
+            if early_stop and self.early_stopping.stop_flag:
                 if 'save_model' in kwargs.keys() and kwargs['save_model'] is False:
                     break
                 else:
