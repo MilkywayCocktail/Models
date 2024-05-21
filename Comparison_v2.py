@@ -123,7 +123,7 @@ class BBXResultCalculator(ResultCalculator):
                                 self.resized[i, y0 + y_, x0 + x_] = subject1[y_, x_]
                     except Exception as e:
                         print(e)
-                        print(x0, y0,  w0, h0)
+                        print(x0, y0, w0, h0)
                         self.fail_count += 1
                         self.fail_ind.append(i)
         print("Done")
@@ -187,27 +187,24 @@ class CenterResultCalculator(ResultCalculator):
         print("Reconstructing...", end='')
 
         for i, (x, y) in enumerate(self.center):
-            dx = int(x * 226 - 113)
-            dy = int(y * 128 - 64)
-
-            new_img = np.zeros((128 + np.abs(dy), 226 + np.abs(dx)), dtype=float)
-
+            x = int(x * 226)
+            y = int(y * 128)
+            new_img = np.zeros((128 + np.abs(y - 64), 226 + np.abs(x - 113)))
             try:
-                if dx > 0:
-                    if dy > 0:
-                        new_img[dy: dy + 128, dx: dx + 226] = self.preds['S_PRED'][i]
-                        # self.resized[i] = new_img[:128, :226]
+                if x > 113:
+                    if y > 64:
+                        new_img[-128:, -128:] = self.preds['S_PRED'][i]
+                        self.resized[i] = new_img[:128, :226]
                     else:
-                        new_img[:128, dx:dx + 226] = self.preds['S_PRED'][i]
-                        # self.resized[i] = new_img[dy:, :226]
+                        new_img[:128, -128:] = self.preds['S_PRED'][i]
+                        self.resized[i] = new_img[-128:, :226]
                 else:
-                    if dy > 0:
-                        new_img[dy: dy + 128, :226] = self.preds['S_PRED'][i]
-                        # self.resized[i] = new_img[:128, dx:]
+                    if y > 64:
+                        new_img[-128:, :128] = self.preds['S_PRED'][i]
+                        self.resized[i] = new_img[:128, -226:]
                     else:
-                        new_img[:128, :226] = self.preds['S_PRED'][i]
-                        # self.resized[i] = new_img[dy:, dx:]
-                self.resized[i] = new_img
+                        new_img[:128, :128] = self.preds['S_PRED'][i]
+                        self.resized[i] = new_img[-128:, -226:]
 
             except Exception as e:
                 print(e)
@@ -287,14 +284,14 @@ def gather_plot(*args: ResultCalculator, title=None):
         cdf = np.cumsum(hist_ / sum(hist_))
         if not ar.zero:
             plt.bar(bin_edges[1:], hist_ / max(hist_), width=width, label=ar.name, zorder=i)
-            plt.plot(bin_edges[1:], cdf, '-*', label=ar.name, zorder=i+len(args))
+            plt.plot(bin_edges[1:], cdf, '-*', label=ar.name, zorder=i + len(args))
         else:
             plt.bar(bin_edges[1:], hist_ / max(hist_), width=width * 0.4, label=ar.name, hatch='-', zorder=len(args))
-            plt.plot(bin_edges[1:], cdf, '-.', marker='o', label=ar.name, zorder=2*len(args))
+            plt.plot(bin_edges[1:], cdf, '-.', marker='o', label=ar.name, zorder=2 * len(args))
 
     ax = plt.gca()
     ax.fill_between(np.arange(0, np.max([np.max(ar.result) for ar in args]), 0.01), 1.02,
-                    color='white', alpha=0.5, zorder=len(args)+0.5)
+                    color='white', alpha=0.5, zorder=len(args) + 0.5)
     plt.title('Test PDF-CDF', fontweight="bold")
     plt.xlabel('Per-sample Loss')
     plt.ylabel('Frequency')
@@ -327,8 +324,8 @@ def visualization(*args: ResultCalculator, inds=None, figsize=(20, 10), title=No
 
     for i, ar in enumerate(args):
         if not ar.zero:
-            subfigs[i+1].suptitle(ar.name, fontweight="bold")
-            axes = subfigs[i+1].subplots(nrows=1, ncols=8)
+            subfigs[i + 1].suptitle(ar.name, fontweight="bold")
+            axes = subfigs[i + 1].subplots(nrows=1, ncols=8)
             for j in range(len(axes)):
                 _ind = np.where(ar.preds['IND'] == samples[j])
                 img = axes[j].imshow(np.squeeze(ar.resized[_ind]), vmin=0, vmax=1)
