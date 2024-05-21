@@ -334,4 +334,3 @@ def visualization(*args: ResultCalculator, inds=None, figsize=(20, 10), title=No
     filename = f"comparison_visual.jpg"
     return fig, filename
 
-

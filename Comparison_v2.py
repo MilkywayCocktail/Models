@@ -22,6 +22,7 @@ class ResultCalculator:
             )
 
         self.gt = gt
+        self.gt_tag = gt['tag']
         self.image_size = (128, 226)  # in rows * columns
         self.resized = np.zeros((len(self.tags), *self.image_size)) if pred_path else None
         self.result = np.zeros_like(self.tags) if pred_path else None
