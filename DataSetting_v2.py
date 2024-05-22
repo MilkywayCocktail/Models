@@ -30,7 +30,7 @@ class ExperimentInfo:
         logfile.close()
 
 
-class DataPlanner:
+class DataRegroup:
     version = ver
 
     def __init__(self, data_dir, gt_mode=False):
@@ -96,28 +96,54 @@ class DataPlanner:
                         ret_data[modality].append(self.data[_Take][Group][Segment][modality])
                 print(f"{Take} {modality} len={len(ret_data[modality])} ")
             try:
-                ret_data[modality] = np.concatenate(ret_data[modality], axis=0)
+                ret_data[modality] = np.concatenate(ret_data[modality], axis=0)        
             except Exception as e:
                 print(modality, e)
         # 'tag' = Take, Group, Segment, ind
         ret_data['tag'] = np.hstack((ret_data['tag'], ret_data['ind'].squeeze(axis=1))).astype(int)
+            
         return ret_data
+        
 
+class ModalityLoader:
+    def __init__(self, data_dir=None, modalities=None, *args, **kwargs) -> None:
+        self.data_dir = data_dir
+        self.modalities = modality
+        self.data: dict = {}
+        
+        if data_dir:
+            print(f"Loading from {data_dir}")
+            paths = os.walk(self.data_dir)
+            for path, _, file_lst in paths:
+                for file_name in tqdm(file_lst):
+                    fname, ext = os.path.splitext(file_name)
+                    if ext == '.npy':
+                        _, modality = fname.split('_')
+                        if modalities and modality not in modalities:
+                            continue
+                        self.data[modality] = np.load(os.path.join(path, file_name))
 
-class MyDataset(Data.Dataset):
+class MyDataset(Data.Dataset, ModalityLoader):
     """
     DATASET READER
     """
     version = ver
 
     def __init__(self, name,
-                 data,
+                 data = None,
                  transform=None,
                  *args, **kwargs):
 
         self.name = name
         self.transform = transform
-        self.data = data
+
+        if data:
+            ModalityLoader.__init__(data_dir=None, modalities=None)
+            self.data = data
+        else:
+            ModalityLoader.__init__(*args, **kwargs)
+            
+        self.profile = np.ones(self.data['ind'].shape[0], dtype=bool)
 
     def __transform__(self, sample):
         """
@@ -137,7 +163,7 @@ class MyDataset(Data.Dataset):
         :return: all modalities
         """
 
-        ret = {key: self.__transform__(value[index]) if key in ('rimg', 'cimg') else value[index]
+        ret = {key: self.__transform__(value[self.profile][index]) if key in ('rimg', 'cimg') else value[self.profile][index]
                for key, value in self.data.items()
                }
 
@@ -145,7 +171,16 @@ class MyDataset(Data.Dataset):
 
     def __len__(self):
         return self.data['ind'].shape[0]
-
+    
+    def profiling(self, scope):
+        self.profile = np.zeros(self.data['ind'].shape[0], dtype=bool)
+        for Take in scope:
+            # Select specified takes
+            _Take = int(Take.replace('T', ''))
+            _take = np.where(self.gt_tag[:, 0] == _Take)
+            self.profile[_take] = 1
+        print(f'Profiled by {scope}')
+            
 
 class DataSplitter:
     version = ver
@@ -157,11 +192,11 @@ class DataSplitter:
         self.distributed = distributed
         if self.distributed:
             os.environ['MASTER_ADDR'] = 'localhost'
-            os.environ['MASTER_PORT'] = '5500'
+            os.environ['MASTER_PORT'] = '5550'
             os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(map(str, gpu))
             dist.init_process_group(backend='nccl', init_method='env://', rank=torch.cuda.device_count(), world_size=1)
 
-    def split_loader(self, train_ratio=0.8,  num_workers=14, pin_memory=False):
+    def split_loader(self, train_ratio=0.8,  num_workers=14, pin_memory=True):
         print("Generating loaders...")
         train_size = int(train_ratio * len(self.dataset))
         valid_size = len(self.dataset) - train_size
