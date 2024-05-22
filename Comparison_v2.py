@@ -21,7 +21,7 @@ class ResultCalculator:
                 pred_img=np.array(self.preds['S_PRED'] if 'S_PRED' in self.preds.keys() else self.preds['PRED']))
             )
 
-        self.gt = gt
+        self.gt = gt['rimg']
         self.gt_tag = gt['tag']
         self.image_size = (128, 226)  # in rows * columns
         self.resized = np.zeros((len(self.tags), *self.image_size)) if pred_path else None
@@ -45,7 +45,7 @@ class ResultCalculator:
             _take = np.where(self.gt_tag[_ind][:, 0] == take)
 
             pred = torch.from_numpy(self.resized[i])
-            self.result[i] = F.mse_loss(pred, torch.from_numpy(self.gt_tag[_ind][_take]))
+            self.result[i] = F.mse_loss(pred, torch.from_numpy(self.gt[_ind][_take]))
         print("Done")
         if np.any(np.isnan(self.result)):
             print("nan detected!")
@@ -189,22 +189,15 @@ class CenterResultCalculator(ResultCalculator):
         for i, (x, y) in enumerate(self.center):
             x = int(x * 226)
             y = int(y * 128)
-            new_img = np.zeros((128 + np.abs(y - 64), 226 + np.abs(x - 113)))
+            # Image slightly larger image than raw size
+            new_img = np.zeros((140, 248), dtype=float)
+            new_img[6:-6, 60:-60] = self.preds['S_PRED'][i]
             try:
-                if x > 113:
-                    if y > 64:
-                        new_img[-128:, -128:] = self.preds['S_PRED'][i]
-                        self.resized[i] = new_img[:128, :226]
-                    else:
-                        new_img[:128, -128:] = self.preds['S_PRED'][i]
-                        self.resized[i] = new_img[-128:, :226]
-                else:
-                    if y > 64:
-                        new_img[-128:, :128] = self.preds['S_PRED'][i]
-                        self.resized[i] = new_img[:128, -226:]
-                    else:
-                        new_img[:128, :128] = self.preds['S_PRED'][i]
-                        self.resized[i] = new_img[-128:, -226:]
+                # Roll to estimated position
+                new_img = np.roll(new_img, y-64, axis=0)
+                new_img = np.roll(new_img, x-113, axis=1)
+                # Crop out raw image
+                self.resized[i] = new_img[6:-6, 11:-11]
 
             except Exception as e:
                 print(e)
@@ -214,6 +207,12 @@ class CenterResultCalculator(ResultCalculator):
 
         print("Done")
         print(f"Reconstruction finished. Failure count = {self.fail_count}")
+        
+    def find_real_ind(self, ind):
+        take, ind = self.tags[ind][0], self.tags[ind][-1]
+        _ind = np.where(self.gt_tag[:, -1] == ind)
+        _take = np.where(self.gt_tag[_ind][:, 0] == take)
+        return _take, _ind
 
     def plot_example(self, inds=None, title=None):
         fig = plot_settings()
@@ -221,35 +220,35 @@ class CenterResultCalculator(ResultCalculator):
 
         subfigs = fig.subfigures(nrows=4, ncols=1)
 
-        plot_terms = {'Cropped Ground Truth': self.preds['GT'],
-                      'Cropped Estimates': self.preds['S_PRED'],
-                      'Raw Ground Truth': self.gt,
-                      'Raw Estimates': self.resized}
+        plot_terms = {
+            'Cropped Ground Truth': self.preds['GT'],
+            'Cropped Estimates'   : self.preds['S_PRED'],
+            'Raw Ground Truth'    : self.gt,
+            'Raw Estimates'       : self.resized}
 
         if not inds:
-            inds = np.random.choice(np.arange(len(self.preds['IND'])), 8, replace=False).astype(int)
-            inds = np.sort(inds)
-        samples = np.array(self.preds['IND']).astype(int)[inds]
+            inds = np.random.choice(np.arange(len(self.preds['TAG']), dtype=int), 8, replace=False)
 
         for i, (key, value) in enumerate(plot_terms.items()):
             subfigs[i].suptitle(key, fontweight="bold")
-            axes = subfigs[i].subplots(nrows=1, ncols=8)
-            for j in range(len(axes)):
-                _ind = np.where(self.gt_ind == samples[j])
-                img = axes[j].imshow(np.squeeze(value[_ind]) if key == 'Raw Ground Truth'
-                                     else np.squeeze(value[inds[j]]), vmin=0, vmax=1)
+            axes = subfigs[i].subplots(nrows=1, ncols=len(inds))
+            for j, iind in enumerate(inds):
+                take, ind = self.find_real_ind(iind)
+                img = axes[j].imshow(np.squeeze(value[ind][take]) if key == 'Raw Ground Truth'
+                                    else np.squeeze(value[iind]), vmin=0, vmax=1)
+
                 if key == 'Raw Ground Truth':
-                    x1, y1 = self.preds['GT_CTR'][i]
+                    x1, y1 = self.preds['GT_CTR'][iind]
                     x1 = int(x1 * 226)
                     y1 = int(y1 * 128)
-                    axes[j].scatter(x1, y1, c='blue', marker=(5, 1), alpha=0.5, linewidths=5, label='GT_CTR')
+                    axes[j].scatter(x1, y1, c='red', marker=(5, 1), alpha=0.5, linewidths=5, label='GT_CTR')
                 elif key == 'Raw Estimates':
-                    x2, y2 = self.preds['S_CTR'][i]
+                    x2, y2 = self.preds['S_CTR'][iind]
                     x2 = int(x2 * 226)
                     y2 = int(y2 * 128)
-                    axes[j].scatter(x2, y2, c='orange', marker=(5, 1), alpha=0.5, linewidths=5, label='S_CTR')
+                    axes[j].scatter(x2, y2, c='red', marker=(5, 1), alpha=0.5, linewidths=5, label='S_CTR')
                 axes[j].axis('off')
-                axes[j].set_title(f"#{samples[j]}")
+                axes[j].set_title(f"{'-'.join(map(str, map(int, self.tags[iind])))}")
         plt.show()
         filename = f"{self.name}_Reconstruct.jpg"
         return fig, filename
