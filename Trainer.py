@@ -44,11 +44,10 @@ class ExtraParams:
 
 class EarlyStopping:
 
-    def __init__(self, early_stop_max=7, lr_decay_max=5, early_stop=True, lr_decay=True, verbose=False, delta=0):
+    def __init__(self, early_stop_max=7, lr_decay_max=5, verbose=False, delta=0):
 
         self.early_stop_max = early_stop_max
         self.early_stop_counter = 0
-        self.early_stop = early_stop
         self.stop_flag = False
 
         self.verbose = verbose
@@ -56,25 +55,24 @@ class EarlyStopping:
         self.total_epochs = 0
         self.best_valid_loss = np.inf
 
-        self.lr_decay = lr_decay
         self.decay_flag = False
         self.lr_decay_counter = 0
         self.lr_decay_max = lr_decay_max
 
-    def __call__(self, val_loss, *args, **kwargs):
+    def __call__(self, val_loss, early_stop=True, lr_decay=True, *args, **kwargs):
         self.total_epochs += 1
         self.decay_flag = False
-        if self.early_stop:
+        if early_stop:
             if val_loss >= self.best_valid_loss:
                 self.early_stop_counter += 1
                 print(f"\033[32mEarly Stopping reporting: {self.early_stop_counter} out of {self.early_stop_max}\033[0m")
                 if self.early_stop_counter >= self.early_stop_max:
-                    if self.lr_decay:
+                    if lr_decay:
                         self.lr_decay_counter += 1
                         print(f"\033[32mLr decay reporting: {self.lr_decay_counter} out of {self.lr_decay_max}. "
                               f"Decay rate = {0.5 ** self.lr_decay_counter}\033[0m")
                         if self.lr_decay_counter >= self.lr_decay_max:
-                            self.early_stop = True
+                            self.stop_flag = True
                         else:
                             self.decay_flag = True
                             self.early_stop_counter = 0
@@ -110,6 +108,7 @@ class BasicTrainer:
         elif isinstance(cuda, list) or isinstance(cuda, tuple) or isinstance(cuda, set):
             self.thread = 'multi'
             self.ddp_setup(cuda=cuda)
+            self.extra_params = ExtraParams(self.device)
             self.models = {network.name: DDP(network.cuda()) for network in networks
                            }
 
@@ -148,9 +147,9 @@ class BasicTrainer:
         return {pred: None for pred in self.pred_terms}
 
     @timer
-    def train(self, train_module=None, eval_module=None, early_stop=True, lr_decay=True, notion='', **kwargs):
-        if 'ind' not in self.modality:
-            self.modality.add('ind')
+    def train(self, train_module=None, eval_module=None, early_stop=True, lr_decay=True, notion='', *args, **kwargs):
+        if 'tag' not in self.modality:
+            self.modality.add('tag')
         if not train_module:
             train_module = list(self.models.keys())
         params = [{'params': self.models[model].parameters()} for model in train_module]
@@ -235,7 +234,7 @@ class BasicTrainer:
                                   f"Modules:\n{list(self.models.values())}\n"
                                   )
 
-            self.early_stopping(self.best_val_loss)
+            self.early_stopping(self.best_val_loss, early_stop, lr_decay)
             if lr_decay and self.early_stopping.decay_flag:
                 self.lr *= 0.5
             if early_stop and self.early_stopping.stop_flag:
@@ -254,13 +253,14 @@ class BasicTrainer:
                 EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
             self.loss.update('valid', EPOCH_LOSS)
 
-        dist.destroy_process_group()
+        if self.thread == 'multi':
+            dist.destroy_process_group()
         return self.models
 
     @timer
     def test(self, test_module=None, loader: str = 'test', *args, **kwargs):
-        if 'ind' not in self.modality:
-            self.modality.add('ind')
+        if 'tag' not in self.modality:
+            self.modality.add('tag')
         if not test_module:
             test_module = list(self.models.keys())
         for model in test_module:
@@ -327,9 +327,9 @@ class BasicTrainer:
         # Training, testing and saving
         model = self.train(autosave=autosave, notion=self.notion, *args, **kwargs)
         self.plot_train_loss(autosave=autosave, notion=self.notion)
-        self.test(mode='train')
+        self.test(loader='train')
         self.plot_test(select_num=8, autosave=autosave, notion=self.notion)
-        self.test(mode='test')
+        self.test(loader='test')
         self.plot_test(select_num=8, autosave=autosave, notion=self.notion)
         self.loss.save('pred', notion=self.notion)
         print(f'\n\033[32m{self.name} schedule Completed!\033[0m')

@@ -94,8 +94,8 @@ class MyLoss:
         if select_ind:
             self.select_inds = np.array(select_ind)
         else:
-            if not np.any(self.select_inds) or self.ind_range != len(self.loss['pred']['IND']):
-                self.ind_range = len(self.loss['pred']['IND'])
+            if not np.any(self.select_inds) or self.ind_range != len(self.loss['pred']['TAG']):
+                self.ind_range = len(self.loss['pred']['TAG'])
                 inds = np.random.choice(np.arange(self.ind_range), select_num, replace=False).astype(int)
                 inds = np.sort(inds)
                 self.select_inds = inds
@@ -216,7 +216,7 @@ class MyLoss:
             title = f"{title} @ep{self.current_epoch}"
         else:
             title = f"{self.name} Image Predicts on {self.dataset} @ep{self.current_epoch}"
-        samples = np.array(self.loss['pred']['IND']).astype(int)[self.select_inds]
+        samples = np.array(self.loss['pred']['TAG']).astype(int)[self.select_inds]
 
         fig = self.__plot_settings__()
         fig.suptitle(title)
@@ -228,7 +228,7 @@ class MyLoss:
             for j in range(len(axes)):
                 img = axes[j].imshow(self.loss['pred'][item][self.select_inds[j]], vmin=0, vmax=1)
                 axes[j].axis('off')
-                axes[j].set_title(f"#{samples[j]}", fontweight="bold")
+                axes[j].set_title(f"{'-'.join(map(str, map(int, samples[j])))}", fontweight="bold")
             subfigs[i].colorbar(img, ax=axes, shrink=0.8)
         plt.show()
         filename = f"{self.name}_PRED_{self.dataset}SET@ep{self.current_epoch}.jpg"
@@ -239,7 +239,7 @@ class MyLoss:
             title = f"{title} @ep{self.current_epoch}"
         else:
             title = f"{self.name} Latent Predicts on {self.dataset} @ep{self.current_epoch}"
-        samples = np.array(self.loss['pred']['IND']).astype(int)[self.select_inds]
+        samples = np.array(self.loss['pred']['TAG']).astype(int)[self.select_inds]
         colors = ('blue', 'orange')
 
         fig = self.__plot_settings__()
@@ -254,7 +254,7 @@ class MyLoss:
             if ylim:
                 axes[j].set_ylim(*ylim)
 
-            axes[j].set_title(f"#{samples[j]}", fontweight="bold")
+            axes[j].set_title(f"{'-'.join(map(str, map(int, samples[j])))}", fontweight="bold")
             axes[j].grid()
 
         axes[0].legend()
@@ -268,7 +268,7 @@ class MyLoss:
             title = f"{title} @ep{self.current_epoch}"
         else:
             title = f"{self.name} T-SNE on {self.dataset} @ep{self.current_epoch}"
-        samples = np.array(self.loss['pred']['IND']).astype(int)[self.select_inds]
+        samples = np.array(self.loss['pred']['TAG']).astype(int)[self.select_inds]
         tsne = {}
 
         for item in plot_terms:
@@ -285,7 +285,7 @@ class MyLoss:
             for j in range(self.select_num):
                 axes[i].scatter(tsne[item][self.select_inds[j], 0], tsne[item][self.select_inds[j], 1],
                                 c='magenta', marker=(5, 1), linewidths=4)
-                axes[i].annotate(str(samples[j]),
+                axes[i].annotate(f"{'-'.join(map(str, map(int, samples[j])))}",
                                  (tsne[item][self.select_inds[j], 0], tsne[item][self.select_inds[j], 1]),
                                  fontsize=20)
 
@@ -304,8 +304,8 @@ class MyLossBBX(MyLoss):
             title = f"{title} @ep{self.current_epoch}"
         else:
             title = f"{self.name} Bounding Box Predicts on {self.dataset} @ep{self.current_epoch}"
-        samples = np.array(self.loss['pred']['IND']).astype(int)[self.select_inds]
-
+        samples = np.array(self.loss['pred']['TAG']).astype(int)[self.select_inds]
+        
         fig = self.__plot_settings__()
         fig.suptitle(title)
         axes = fig.subplots(nrows=2, ncols=np.ceil(self.select_num / 2).astype(int))
@@ -313,7 +313,7 @@ class MyLossBBX(MyLoss):
         for j in range(self.select_num):
             axes[j].set_xlim([0, 226])
             axes[j].set_ylim([0, 128])
-            axes[j].set_title(f"#{samples[j]}", fontweight="bold")
+            axes[j].set_title(f"{'-'.join(map(str, map(int, samples[j])))}", fontweight="bold")
             x1, y1, x2, y2 = self.loss['pred']['GT_BBX'][self.select_inds[j]]
             x = int(x1 * 226)
             y = int(y1 * 128)
@@ -358,8 +358,8 @@ class MyLossCTR(MyLoss):
             title = f"{title} @ep{self.current_epoch}"
         else:
             title = f"{self.name} Center Predicts on {self.dataset} @ep{self.current_epoch}"
-        samples = np.array(self.loss['pred']['IND']).astype(int)[self.select_inds]
-
+        samples = np.array(self.loss['pred']['TAG']).astype(int)[self.select_inds]
+        
         fig = self.__plot_settings__()
         fig.suptitle(title)
         axes = fig.subplots(nrows=2, ncols=np.ceil(self.select_num / 2).astype(int))
@@ -367,7 +367,7 @@ class MyLossCTR(MyLoss):
         for j in range(self.select_num):
             axes[j].set_xlim([0, 226])
             axes[j].set_ylim([0, 128])
-            axes[j].set_title(f"#{samples[j]}", fontweight="bold")
+            axes[j].set_title(f"{'-'.join(map(str, map(int, samples[j])))}", fontweight="bold")
             x1, y1 = self.loss['pred']['GT_CTR'][self.select_inds[j]]
             x1 = int(x1 * 226)
             y1 = int(y1 * 128)

@@ -190,8 +190,10 @@ class CenterResultCalculator(ResultCalculator):
             x = int(x * 226)
             y = int(y * 128)
             # Image slightly larger image than raw size
+            img = np.squeeze(self.preds['S_PRED'][i]) * np.squeeze(self.depth[i])
             new_img = np.zeros((140, 248), dtype=float)
-            new_img[6:-6, 60:-60] = self.preds['S_PRED'][i]
+            new_img[6:-6, 60:-60] = img
+
             try:
                 # Roll to estimated position
                 new_img = np.roll(new_img, y-64, axis=0)

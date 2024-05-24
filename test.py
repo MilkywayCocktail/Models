@@ -40,6 +40,3 @@ class My:
             print("Hello!")
 
         self.hello = hello
-
-lsls = [1, 3]
-print(','.join(map(str, lsls)))

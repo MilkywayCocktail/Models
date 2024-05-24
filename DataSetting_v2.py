@@ -30,18 +30,14 @@ class ExperimentInfo:
         logfile.close()
 
 
-class DataRegroup:
+class DataRegrouper:
     version = ver
 
-    def __init__(self, data_dir, gt_mode=False):
+    def __init__(self, data_dir):
         self.data_dir = data_dir
         self.data: dict = {}
         self.zero_segments = []
-        self.gt_mode = gt_mode
-        if self.gt_mode:
-            self.modality = ['tag', 'rimg']
-        else:
-            self.modality = ['tag', 'depth', 'csi', 'center', 'pd', 'cimg', 'bbx', 'time', 'ind', 'rimg']
+        self.modality = ['tag', 'depth', 'csi', 'center', 'pd', 'cimg', 'bbx', 'time', 'ind', 'rimg']
 
     def load_raw(self, modalities=None, scope=None, mmap_mode=None):
         # Filename: Txx_Gyy_Szz_mode.npy
@@ -106,9 +102,9 @@ class DataRegroup:
         
 
 class ModalityLoader:
-    def __init__(self, data_dir=None, modalities=None, *args, **kwargs) -> None:
+    def __init__(self, data_dir=None, modalities=None, mmap_mode=None, *args, **kwargs) -> None:
         self.data_dir = data_dir
-        self.modalities = modality
+        self.modalities = modalities
         self.data: dict = {}
         
         if data_dir:
@@ -116,34 +112,43 @@ class ModalityLoader:
             paths = os.walk(self.data_dir)
             for path, _, file_lst in paths:
                 for file_name in tqdm(file_lst):
-                    fname, ext = os.path.splitext(file_name)
+                    modality, ext = os.path.splitext(file_name)
                     if ext == '.npy':
-                        _, modality = fname.split('_')
                         if modalities and modality not in modalities:
                             continue
-                        self.data[modality] = np.load(os.path.join(path, file_name))
+                        self.data[modality] = np.load(os.path.join(path, file_name), mmap_mode=mmap_mode)
+                        
+        
+    def profiling(self, scope):
+        self.profile = np.zeros(list(self.data.values())[0].shape[0], dtype=bool)
+        assert 'tag' in self.data.keys()
+        ret_data: dict = {}
+        for Take in scope:
+            # Select specified takes
+            _Take = int(Take.replace('T', ''))
+            _take = np.where(self.data['tag'][:, 0] == _Take)
+            self.profile[_take] = 1
+            
+        for mod, value in self.data.items():
+            ret_data[mod] = value[self.profile]
+        print(f'Profiled by {scope}')
+        return ret_data
+        
 
-class MyDataset(Data.Dataset, ModalityLoader):
+class MyDataset(Data.Dataset):
     """
     DATASET READER
     """
     version = ver
 
     def __init__(self, name,
-                 data = None,
+                 data=None,
                  transform=None,
                  *args, **kwargs):
 
         self.name = name
         self.transform = transform
-
-        if data:
-            ModalityLoader.__init__(data_dir=None, modalities=None)
-            self.data = data
-        else:
-            ModalityLoader.__init__(*args, **kwargs)
-            
-        self.profile = np.ones(self.data['ind'].shape[0], dtype=bool)
+        self.data = data
 
     def __transform__(self, sample):
         """
@@ -163,23 +168,15 @@ class MyDataset(Data.Dataset, ModalityLoader):
         :return: all modalities
         """
 
-        ret = {key: self.__transform__(value[self.profile][index]) if key in ('rimg', 'cimg') else value[self.profile][index]
+        ret = {key: self.__transform__(value[index]) if key in ('rimg', 'cimg') else value[index]
                for key, value in self.data.items()
                }
 
         return ret
 
     def __len__(self):
-        return self.data['ind'].shape[0]
-    
-    def profiling(self, scope):
-        self.profile = np.zeros(self.data['ind'].shape[0], dtype=bool)
-        for Take in scope:
-            # Select specified takes
-            _Take = int(Take.replace('T', ''))
-            _take = np.where(self.gt_tag[:, 0] == _Take)
-            self.profile[_take] = 1
-        print(f'Profiled by {scope}')
+        return list(self.data.values())[0].shape[0]
+
             
 
 class DataSplitter:
@@ -216,7 +213,7 @@ class DataSplitter:
                                                        shuffle=self.shuffle, num_workers=num_workers,
                                                        drop_last=True, pin_memory=pin_memory, sampler=valid_sampler)
 
-        print(f" {self.dataset.name} len {len(self.dataset)} distributed={self.distributed}\n"
+        print(f" {self.dataset.name} len {len(self.dataset)}, distributed={self.distributed}\n"
               f" exported train loader of len {len(train_loader)}, batch size {self.batch_size}\n"
               f" exported valid loader of len {len(valid_loader)}, batch size {self.batch_size}\n")
 
@@ -232,7 +229,7 @@ class DataSplitter:
             loader = torch.utils.data.DataLoader(self.dataset, batch_size=self.batch_size,
                                                  shuffle=self.shuffle, num_workers=num_workers,
                                                  drop_last=True, pin_memory=pin_memory, sampler=sampler)
-        print(f" {self.dataset.name} len {len(self.dataset)}\n"
+        print(f" {self.dataset.name} len {len(self.dataset)}, distributed={self.distributed}\n"
               f" exported loader of len {len(loader)}, batch size {self.batch_size}")
 
         return loader

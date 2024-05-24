@@ -305,11 +305,11 @@ class CompTrainer(BasicTrainer):
         self.mode = mode
         self.mask = mask
         self.beta = kwargs['beta'] if 'beta' in kwargs.keys() else 0.5
-        self.modality = {'csi', 'rimg', 'ind', 'tag'}
+        self.modality = {'csi', 'rimg', 'tag'}
         self.recon_lossfunc = nn.BCELoss() if self.mask else nn.MSELoss()
 
         self.loss_terms = {'LOSS'}
-        self.pred_terms = ('GT', 'PRED', 'IND', 'TAG') if mode == 'wi2vi' else ('GT', 'PRED', 'LAT', 'IND', 'TAG')
+        self.pred_terms = ('GT', 'PRED', 'TAG') if mode == 'wi2vi' else ('GT', 'PRED', 'LAT', 'TAG')
 
         self.loss = MyLoss(name=self.name,
                            loss_terms=self.loss_terms,
@@ -330,7 +330,6 @@ class CompTrainer(BasicTrainer):
             self.temp_loss = {'LOSS': loss}
             return {'GT': img,
                     'PRED': output,
-                    'IND': data['ind'],
                     'TAG': data['tag']}
 
         elif self.mode == 'ae':
@@ -340,7 +339,6 @@ class CompTrainer(BasicTrainer):
             return {'GT': img,
                     'PRED': output,
                     'LAT': latent,
-                    'IND': data['ind'],
                     'TAG': data['tag']}
 
         elif self.mode == 'vae':
@@ -355,7 +353,6 @@ class CompTrainer(BasicTrainer):
             return {'GT': img,
                     'PRED': output,
                     'LAT': torch.cat((mu, logvar), -1),
-                    'IND': data['ind'],
                     'TAG': data['tag']
                     }
 
@@ -367,7 +364,6 @@ class CompTrainer(BasicTrainer):
             return {'GT': img,
                     'PRED': output,
                     'LAT': z,
-                    'IND': data['ind'],
                     'TAG': data['tag']}
 
     def plot_test(self, select_ind=None, select_num=8, autosave=False, notion='', **kwargs):
@@ -396,13 +392,13 @@ class CompTrainerAEStudent(BasicTrainer):
         super(CompTrainerAEStudent, self).__init__(*args, **kwargs)
 
         self.mask = mask
-        self.modality = {'csi', 'rimg', 'ind', 'tag'}
+        self.modality = {'csi', 'rimg', 'tag'}
 
         self.alpha = alpha
         self.recon_lossfunc = nn.BCELoss() if self.mask else nn.MSELoss()
         self.kd_loss = nn.MSELoss()
         self.loss_terms = ('LOSS', 'IMG')
-        self.pred_terms = ('GT', 'T_PRED', 'S_PRED', 'T_LATENT', 'S_LATENT', 'IND', 'TAG')
+        self.pred_terms = ('GT', 'T_PRED', 'S_PRED', 'T_LATENT', 'S_LATENT', 'TAG')
         self.loss = MyLoss(name=self.name,
                            loss_terms=self.loss_terms,
                            pred_terms=self.pred_terms)
@@ -427,7 +423,6 @@ class CompTrainerAEStudent(BasicTrainer):
                 'S_LATENT': s_z,
                 'T_PRED': t_output,
                 'S_PRED': s_output,
-                'IND': data['ind'],
                 'TAG': data['tag']}
 
     def plot_test(self, select_ind=None, select_num=8, autosave=False, notion='', **kwargs):

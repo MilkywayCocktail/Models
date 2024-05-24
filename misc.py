@@ -28,8 +28,8 @@ def plot_settings(figsize=(20, 10)):
     mpl.rcParams['figure.figsize'] = figsize
     mpl.rcParams["figure.titlesize"] = 35
     mpl.rcParams['lines.markersize'] = 10
-    mpl.rcParams['axes.titlesize'] = 30
-    mpl.rcParams['axes.labelsize'] = 30
+    mpl.rcParams['axes.titlesize'] = 26
+    mpl.rcParams['axes.labelsize'] = 26
     mpl.rcParams['xtick.labelsize'] = 20
     mpl.rcParams['ytick.labelsize'] = 20
     fig = plt.figure(constrained_layout=True)
