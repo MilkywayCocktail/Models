@@ -5,6 +5,8 @@ from matplotlib.patches import Rectangle
 import numpy as np
 import cv2
 from misc import plot_settings
+from PIL import Image
+from scipy import signal
 
 
 class ResultCalculator:
@@ -14,7 +16,7 @@ class ResultCalculator:
         self.name = name
         print(f"{self.name} loading...")
         self.preds: dict = np.load(pred_path, allow_pickle=True).item() if pred_path else None
-        self.tags = self.preds['TAG'] if pred_path else None
+        self.tags = np.array(self.preds['TAG']) if pred_path else None
         if self.preds:
             print("{name} loaded Estimates of {pred_img.shape} as {pred_img.dtype}".format(
                 name=self.name,
@@ -24,8 +26,14 @@ class ResultCalculator:
         self.gt = gt['rimg']
         self.gt_tag = gt['tag']
         self.image_size = (128, 226)  # in rows * columns
-        self.resized = np.zeros((len(self.tags), *self.image_size)) if pred_path else None
-        self.result = np.zeros_like(self.tags) if pred_path else None
+        
+        self.resized = np.zeros((len(self.tags), *self.image_size), dtype=float) if pred_path else None
+        self.matched = np.zeros((len(self.tags), *self.image_size), dtype=float) if pred_path else None
+        
+        self.result = np.zeros_like(self.tags, dtype=float) if pred_path else None
+        self.result_matched = np.zeros_like(self.tags, dtype=float) if pred_path else None
+        self.deviation = np.zeros((len(self.tags), 3), dtype=float) if pred_path else None
+        
         self.loss = F.mse_loss
 
     def resize(self):
@@ -35,11 +43,17 @@ class ResultCalculator:
                 np.squeeze(self.preds['S_PRED'][i] if 'S_PRED' in self.preds.keys() else self.preds['PRED'][i]),
                 (self.image_size[1], self.image_size[0]))
         print("Done!")
+        
+    def find_real_ind(self, iind):
+        take, ind = self.tags[iind][0], self.tags[iind][-1]
+        _ind = np.where(self.gt_tag[:, -1] == ind)
+        _take = np.where(self.gt_tag[_ind][:, 0] == take)
+        return _take, _ind
 
     def calculate_loss(self):
         print(f"{self.name} calculating loss...", end='')
         for i, tag in enumerate(self.tags):
-            # Locate ground truth by ind and take
+            # Find gt tag from pred tag
             take, ind = tag[0], tag[-1]
             _ind = np.where(self.gt_tag[:, -1] == ind)
             _take = np.where(self.gt_tag[_ind][:, 0] == take)
@@ -71,6 +85,37 @@ class ResultCalculator:
         plt.show()
         filename = f"{self.name}_CDF.jpg"
         return fig, filename
+    
+    def matching_mae(self, scale=0.3):
+        print(f"{self.name} calculating 2D correlation...", end='')
+        for i, (im, tag) in enumerate(zip(self.resized, self.tags)):
+            
+            _im = Image.fromarray((im * 255).astype(np.uint8))
+            im = _im.resize((int(self.image_size[1]*scale), int(self.image_size[0]*scale)),Image.BILINEAR)
+            im = np.array(im).astype(float)
+            
+            take, ind = self.find_real_ind(i)
+            gt = np.squeeze(self.gt[ind][take])
+            
+            _gt = Image.fromarray((gt * 255).astype(np.uint8))
+            gt = _gt.resize((int(self.image_size[1]*scale), int(self.image_size[0]*scale)),Image.BILINEAR)
+            gt = np.array(gt).astype(float)
+        
+            tmp = signal.correlate2d(gt, im, mode="full")
+            y, x = np.unravel_index(np.argmax(tmp), tmp.shape)
+            y = int(y / scale) - self.image_size[0]
+            x = int(x / scale) - self.image_size[1]
+        
+            im_re = _im.rotate(0, translate = (x, y))
+            im_re = np.array(im_re).astype(float) / 255.
+            gt_re = _gt.resize((int(self.image_size[1]), int(self.image_size[0])),Image.BILINEAR)
+            gt_re = np.array(gt_re).astype(float) / 255.
+            
+            self.result_matched[i] = np.mean(np.abs(gt_re - im_re))
+            self.matched[i] = im_re
+            self.deviation[i] = np.array([x, y, np.sqrt(x**2+y**2)])
+
+        print("Done!")
 
 
 class BBXResultCalculator(ResultCalculator):
@@ -78,6 +123,7 @@ class BBXResultCalculator(ResultCalculator):
         super(BBXResultCalculator, self).__init__(*args, **kwargs)
 
         self.bbx = np.array(self.preds['S_BBX'])
+        self.center = np.zeros((len(self.preds['S_BBX']), 2))
         self.depth = np.array(self.preds['S_DPT'])
 
         self.min_area = 0
@@ -86,7 +132,7 @@ class BBXResultCalculator(ResultCalculator):
 
     def resize(self):
         print("Reconstructing...", end='')
-        for i in range(len(self.inds)):
+        for i in range(len(self.bbx)):
             img = np.squeeze(self.preds['S_PRED'][i]) * np.squeeze(self.depth[i])
             (T, timg) = cv2.threshold((img * 255).astype(np.uint8), 1, 255, cv2.THRESH_BINARY)
             contours, hierarchy = cv2.findContours(timg, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
@@ -108,6 +154,7 @@ class BBXResultCalculator(ResultCalculator):
                     y0 = int(y1 * 128)
                     w0 = int((x2 - x1) * 226)
                     h0 = int((y2 - y1) * 128)
+                    self.center[i] = np.array([y0 + int(h0 / 2), x0 + int(w0 / 2)])
 
                     # In case of reversing (x1, y1) and (x2, y2)
                     if w0 < 0 and h0 < 0:
@@ -115,12 +162,14 @@ class BBXResultCalculator(ResultCalculator):
                         y0 = int(y2 * 128)
                         w0 = int((x1 - x2) * 226)
                         h0 = int((y1 - y2) * 128)
+                        self.center[i] = np.array([y0 + int(h0 / 2), x0 + int(w0 / 2)])
 
                     try:
                         subject1 = cv2.resize(subject, (w0, h0))
                         for x_ in range(w0):
                             for y_ in range(h0):
                                 self.resized[i, y0 + y_, x0 + x_] = subject1[y_, x_]
+
                     except Exception as e:
                         print(e)
                         print(x0, y0, w0, h0)
@@ -141,33 +190,31 @@ class BBXResultCalculator(ResultCalculator):
                       'Raw Estimates': self.resized}
 
         if not inds:
-            inds = np.random.choice(np.arange(len(self.preds['IND'])), 8, replace=False).astype(int)
-            inds = np.sort(inds)
-        samples = np.array(self.preds['IND']).astype(int)[inds]
+            inds = np.random.choice(np.arange(len(self.preds['TAG']), dtype=int), 8, replace=False)
 
         for i, (key, value) in enumerate(plot_terms.items()):
             subfigs[i].suptitle(key, fontweight="bold")
-            axes = subfigs[i].subplots(nrows=1, ncols=8)
-            for j in range(len(axes)):
-                _ind = np.where(self.gt_ind == samples[j])
-                img = axes[j].imshow(np.squeeze(value[_ind]) if key == 'Raw Ground Truth'
-                                     else np.squeeze(value[inds[j]]), vmin=0, vmax=1)
+            axes = subfigs[i].subplots(nrows=1, ncols=len(inds))
+            for j, iind in enumerate(inds):
+                take, ind = self.find_real_ind(iind)
+                img = axes[j].imshow(np.squeeze(value[ind][take]) if key == 'Raw Ground Truth'
+                                     else np.squeeze(value[iind]), vmin=0, vmax=1)
                 if key == 'Raw Ground Truth':
-                    x1, y1, x2, y2 = self.preds['GT_BBX'][inds[j]]
+                    x1, y1, x2, y2 = self.preds['GT_BBX'][iind]
                     x = int(x1 * 226)
                     y = int(y1 * 128)
                     w = int((x2 - x1) * 226)
                     h = int((y2 - y1) * 128)
                     axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='pink', fill=False, lw=3))
                 elif key == 'Raw Estimates':
-                    x1, y1, x2, y2 = self.preds['S_BBX'][inds[j]]
+                    x1, y1, x2, y2 = self.preds['S_BBX'][iind]
                     x = int(x1 * 226)
                     y = int(y1 * 128)
                     w = int((x2 - x1) * 226)
                     h = int((y2 - y1) * 128)
                     axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='orange', fill=False, lw=3))
                 axes[j].axis('off')
-                axes[j].set_title(f"#{samples[j]}")
+                axes[j].set_title(f"{'-'.join(map(str, map(int, self.tags[iind])))}")
         plt.show()
         filename = f"{self.name}_Reconstruct.jpg"
         return fig, filename
@@ -209,12 +256,6 @@ class CenterResultCalculator(ResultCalculator):
 
         print("Done")
         print(f"Reconstruction finished. Failure count = {self.fail_count}")
-        
-    def find_real_ind(self, ind):
-        take, ind = self.tags[ind][0], self.tags[ind][-1]
-        _ind = np.where(self.gt_tag[:, -1] == ind)
-        _take = np.where(self.gt_tag[_ind][:, 0] == take)
-        return _take, _ind
 
     def plot_example(self, inds=None, title=None):
         fig = plot_settings()
@@ -262,11 +303,10 @@ class ZeroEstimates(ResultCalculator):
     def __init__(self, *args, **kwargs):
         super(ZeroEstimates, self).__init__(*args, **kwargs)
 
-        self.inds = self.gt_ind
         print(f"{self.name} loaded Zero Estimates")
 
-        self.resized = np.zeros((len(self.inds), *self.image_size))
-        self.result = np.zeros_like(self.inds, dtype=float)
+        self.resized = np.zeros((len(self.gt), *self.image_size))
+        self.result = np.zeros(len(self.gt), dtype=float)
 
     def resize(self):
         print(f"{self.name} resized")
@@ -304,34 +344,42 @@ def gather_plot(*args: ResultCalculator, title=None):
     return fig, filename
 
 
-def visualization(*args: ResultCalculator, inds=None, figsize=(20, 10), title=None):
+def visualization(*args: ResultCalculator, univ_gt=None, inds=None, figsize=(20, 10), title=None, matched=False):
     fig = plot_settings(figsize)
-    fig.suptitle('Comparison Visualization' if not title else title)
+    mch = ' - Matched' if matched else None
+    fig.suptitle(f'Comparison Visualization{mch}' if not title else title)
 
-    if not inds:
-        inds = np.random.choice(np.arange(len(args[0].preds['IND'])), 8, replace=False).astype(int)
-        inds = np.sort(inds)
-    samples = np.array(args[0].preds['IND']).astype(int)[inds]
+    assert univ_gt
+    if inds is None:
+        inds = univ_gt['tag'][np.random.choice(np.arange(len(univ_gt['tag']), dtype=int), 8, replace=False)]
 
     subfigs = fig.subfigures(nrows=len(args) + 1, ncols=1)
 
     subfigs[0].suptitle("Ground Truth", fontweight="bold")
-    axes = subfigs[0].subplots(nrows=1, ncols=8)
-    for j in range(len(axes)):
-        _ind = np.where(args[0].gt_ind == samples[j])
-        img = axes[j].imshow(np.squeeze(args[0].gt[_ind]), vmin=0, vmax=1)
+    axes = subfigs[0].subplots(nrows=1, ncols=len(inds))
+    for j, iind in enumerate(inds):
+        take, ind = iind[0], iind[-1]
+        _ind = np.where(univ_gt['tag'][:, -1] == ind)
+        _take = np.where(univ_gt['tag'][_ind][:, 0] == take)
+        img = axes[j].imshow(np.squeeze(univ_gt['rimg'][_ind][_take]), vmin=0, vmax=1)
         axes[j].axis('off')
-        axes[j].set_title(f"#{samples[j]}")
+        axes[j].set_title(f"{'-'.join(map(str, map(int, iind)))}")
 
     for i, ar in enumerate(args):
         if not ar.zero:
             subfigs[i + 1].suptitle(ar.name, fontweight="bold")
-            axes = subfigs[i + 1].subplots(nrows=1, ncols=8)
-            for j in range(len(axes)):
-                _ind = np.where(ar.preds['IND'] == samples[j])
-                img = axes[j].imshow(np.squeeze(ar.resized[_ind]), vmin=0, vmax=1)
+            axes = subfigs[i + 1].subplots(nrows=1, ncols=len(inds))
+            for j, iind in enumerate(inds):
+                take, ind = iind[0], iind[-1]
+                _ind = np.where(ar.tags[:, -1] == ind)
+                _take = np.where(ar.tags[_ind][:, 0] == take)
+                img = axes[j].imshow(np.squeeze(ar.matched[_ind][_take] if matched else ar.resized[_ind][_take]), vmin=0, vmax=1)
                 axes[j].axis('off')
-                axes[j].set_title(f"#{samples[j]}")
+                axes[j].set_title(f"{'-'.join(map(str, map(int, iind)))}")
+                if matched:
+                    st = [ar.center[_ind][_take][..., 1], ar.center[_ind][_take][..., 0]]
+                    ed = [st[0] + ar.deviation[_ind][_take][..., 0], st[1] + ar.deviation[_ind][_take][..., 1]]
+                    axes[j].plot([st[0], ed[0]], [st[1], ed[1]], color='red', linewidth=2)
     plt.show()
     filename = f"comparison_visual.jpg"
-    return fig, filename
+    return fig, filename, inds

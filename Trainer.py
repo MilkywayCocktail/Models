@@ -44,7 +44,7 @@ class ExtraParams:
 
 class EarlyStopping:
 
-    def __init__(self, early_stop_max=7, lr_decay_max=5, verbose=False, delta=0):
+    def __init__(self, early_stop_max=7, lr_decay_max=5, verbose=True, delta=0, *args, **kwargs):
 
         self.early_stop_max = early_stop_max
         self.early_stop_counter = 0
@@ -59,18 +59,20 @@ class EarlyStopping:
         self.lr_decay_counter = 0
         self.lr_decay_max = lr_decay_max
 
-    def __call__(self, val_loss, early_stop=True, lr_decay=True, *args, **kwargs):
+    def __call__(self, val_loss, early_stop=True, lr_decay=True):
         self.total_epochs += 1
         self.decay_flag = False
         if early_stop:
             if val_loss >= self.best_valid_loss:
                 self.early_stop_counter += 1
-                print(f"\033[32mEarly Stopping reporting: {self.early_stop_counter} out of {self.early_stop_max}\033[0m")
+                if self.verbose:
+                    print(f"\033[32mEarly Stopping reporting: {self.early_stop_counter} out of {self.early_stop_max}\033[0m")
                 if self.early_stop_counter >= self.early_stop_max:
                     if lr_decay:
                         self.lr_decay_counter += 1
-                        print(f"\033[32mLr decay reporting: {self.lr_decay_counter} out of {self.lr_decay_max}. "
-                              f"Decay rate = {0.5 ** self.lr_decay_counter}\033[0m")
+                        if self.verbose:
+                            print(f"\033[32mLr decay reporting: {self.lr_decay_counter} out of {self.lr_decay_max}. "
+                                f"Decay rate = {0.5 ** self.lr_decay_counter}\033[0m")
                         if self.lr_decay_counter >= self.lr_decay_max:
                             self.stop_flag = True
                         else:
@@ -123,7 +125,7 @@ class BasicTrainer:
 
         self.notion = notion
         self.save_path = f'../saved/{notion}/'
-        self.early_stopping = EarlyStopping(*args, **kwargs)
+        self.early_stopping = None
 
     @staticmethod
     def ddp_setup(cuda):
@@ -148,6 +150,7 @@ class BasicTrainer:
 
     @timer
     def train(self, train_module=None, eval_module=None, early_stop=True, lr_decay=True, notion='', *args, **kwargs):
+        self.early_stopping = EarlyStopping(*args, **kwargs)
         if 'tag' not in self.modality:
             self.modality.add('tag')
         if not train_module:
@@ -248,7 +251,7 @@ class BasicTrainer:
                         torch.save(self.models[model].state_dict(),
                                    f"{self.save_path}{self.name}_{self.models[model]}_best.pth")
                     break
-
+            print('')
             for key in EPOCH_LOSS.keys():
                 EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
             self.loss.update('valid', EPOCH_LOSS)
