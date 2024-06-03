@@ -34,9 +34,10 @@ def wrap_with_attributes(cls):
 class My:
     def __init__(self, x):
         self.x = x
-
-        @wrap_with_attributes(self)
         def hello():
             print("Hello!")
 
         self.hello = hello
+
+
+print(np.squeeze(np.array([[[1]]])))

@@ -12,18 +12,42 @@ These definitions are not for loss functions.\n
 These are MyLoss classes that can store and plot losses.\n
 """
 
+class LossUnit:
+    def __init__(self, name):
+        self.name = name
+        self.lr = []
+        self.log = {'train': [],
+                    'valid': [],
+                    'test': []}
+        self.tsne = None
+        self.optimizer = None
+        
+    def __call__(self, mode, loss_value): 
+        self.log[mode].append(loss_value)
 
-class MyLoss:
+    def lr_decay(self, epoch, rate=0.5):
+        if self.optimizer:
+            self.lr.append(self.lr[-1] * 0.5)
+            for param_group in self.optimizer.param_groups:
+                param_group['lr'] = self.lr[-1]
+        
+    def reset(self, *modes):
+        for mode in modes:
+            self.log[mode] = []
+        
+    def Tsne(self):
+        self.tsne = TSNE(n_components=2, random_state=33).fit_transform(
+            np.array(self.log).reshape(len(self.log), -1))
+
+
+class MyLossLog:
     def __init__(self, name, loss_terms, pred_terms, dataset: str = 'TRAIN'):
         self.name = name
         self.dataset = dataset
-        self.loss = {'train': {term: [] for term in loss_terms},
-                     'valid': {term: [] for term in loss_terms},
-                     'test': {term: [] for term in loss_terms},
-                     'pred': {term: [] for term in pred_terms}
-                     }
-        self.lr = []
-        self.epochs = []
+        self.loss = {term: LossUnit(term) for term in loss_terms}
+        self.preds = {term: [] for term in pred_terms}
+
+        self.epochs = [1]
         self.current_epoch = 0
         self.loss_terms = loss_terms
         self.pred_terms = pred_terms
@@ -45,73 +69,63 @@ class MyLoss:
         c = map_vir(norm(arr))
         return c
 
-    def __call__(self, lr):
-        self.current_epoch += 1
-        # First round
-        if not self.lr:
-            self.lr.append(lr)
-            self.epochs.append(self.current_epoch)
-        else:
-            # Keeping learning rate
-            # if lr == self.lr[-1]:
-            #    pass
-
-            # Changing learning rate
-            if lr != self.lr[-1]:
-                self.lr.append(lr)
-                self.epochs.append(self.current_epoch)
-
-    def update(self, mode, losses):
-        if mode in ('train', 'valid'):
+    def __call__(self, mode, losses:dict):
+        if mode == 'train':
+            self.current_epoch += 1
+        if mode in ('train', 'valid', 'test'):
             for key in losses.keys():
-                self.loss[mode][key].append(losses[key].squeeze())
-        elif mode == 'test':
-            for key in losses.keys():
-                self.loss[mode][key] = losses[key]
+                self.loss[key](mode, np.squeeze(losses[key]))
         elif mode == 'pred':
             for key in losses.keys():
-                self.loss[mode][key].append(losses[key].cpu().detach().numpy().squeeze())
-        # for i in range(len(self.loss['pred']['IND'])):
-        #     self.loss['pred']['IND'][i] = self.loss['pred']['IND'][i].astype(int).tolist()
-
+                self.preds[key].append(losses[key].cpu().detach().numpy().squeeze())
+                
     def reset(self, *modes, dataset: str = 'TRAIN'):
         for mode in modes:
             if mode in ('train', 'valid', 'test'):
-                self.loss[mode] = {term: [] for term in self.loss_terms}
-            elif mode == 'pred':
-                self.loss[mode] = {term: [] for term in self.pred_terms}
+                for loss in self.loss.values():
+                    loss.reset(mode)
+            else:
+                self.preds = {term: [] for term in self.pred_terms}
         self.dataset = dataset.upper()
 
-    def save(self, save_term: str = 'test', notion=None):
-        save_path = f"../saved/{notion}/"
+    def decay(self, rate=0.5):
+        self.epochs.append(self.current_epoch)
+        for loss in self.loss.values():
+            loss.lr_decay(self.current_epoch, rate)
+
+    def save(self, save_term: str = 'pred', save_path=None):
         if not os.path.exists(save_path):
             os.makedirs(save_path)
-        print(f"Saving {save_term} including {', '.join([key for key in self.loss[save_term].keys()])}...", end='')
-        np.save(f"{save_path}{self.name}_{save_term}.npy", self.loss[save_term])
+        if save_term == 'pred':
+            for key, value in self.preds.items():
+                print(f"Saving {save_term}: {key}...", end='')
+                np.save(f"{save_path}{self.name}_{save_term}_{key}.npy", value)
+        else:
+            for key, value in self.loss.items():
+                print(f"Saving {save_term}: {key}...", end='')
+                np.save(f"{save_path}{self.name}_{save_term}_{key}.npy", value.log[save_term])
         print('Done')
 
     def generate_indices(self, select_ind: list = None, select_num=8):
         if select_ind:
             self.select_inds = np.array(select_ind)
         else:
-            if not np.any(self.select_inds) or self.ind_range != len(self.loss['pred']['TAG']):
-                self.ind_range = len(self.loss['pred']['TAG'])
+            if not np.any(self.select_inds) or self.ind_range != len(self.preds['TAG']):
+                self.ind_range = len(self.preds['TAG'])
                 inds = np.random.choice(np.arange(self.ind_range), select_num, replace=False).astype(int)
                 inds = np.sort(inds)
                 self.select_inds = inds
                 self.select_num = select_num
 
     def plot_train(self, title=None, plot_terms='all', double_y=False):
-        stage_color = self.colors(self.lr)
         line_color = ['b', 'orange']
-
         if title:
             title = f"{title} @ep{self.current_epoch}"
         else:
             title = f"{self.name} Training Status @ep{self.current_epoch}"
 
         if plot_terms == 'all':
-            plot_terms = list(self.loss['train'].keys())
+            plot_terms = self.loss_terms
 
         fig = self.__plot_settings__()
         fig.suptitle(title)
@@ -126,21 +140,23 @@ class MyLoss:
             axes = axes.flatten()
 
         for i, loss in enumerate(plot_terms):
-            for j, learning_rate in enumerate(self.lr):
-                axes[i].axvline(self.epochs[j],
-                                linestyle='--',
-                                color=stage_color[j],
-                                label=f'lr={learning_rate}')
+            if self.loss[loss].lr:
+                stage_color = self.colors(self.loss[loss].lr)
+                for j, lr in enumerate(self.loss[loss].lr):
+                    axes[i].axvline(self.epochs[j],
+                                    linestyle='--',
+                                    color=stage_color[j],
+                                    label=f'lr={lr}')
 
             axes[i].plot(
-                         self.loss['valid'][loss],
+                         self.loss[loss].log['valid'],
                          line_color[1], label='Valid')
             if double_y:
                 ax_r = axes[i].twinx()
             else:
                 ax_r = axes[i]
             ax_r.plot(
-                      self.loss['train'][loss],
+                      self.loss[loss].log['train'],
                       line_color[0], label='Train')
             axes[i].set_title(loss, fontweight="bold")
             axes[i].set_xlabel('#Epoch')
@@ -149,8 +165,9 @@ class MyLoss:
             axes[i].legend()
         plt.show()
         filename = f"{self.name}_TRAIN@ep{self.current_epoch}.jpg"
-        return fig, filename
+        return {filename: fig}
 
+    # TODO: something wrong
     def plot_test(self, title=None, plot_terms='all'):
         if title:
             title = f"{title} @ep{self.current_epoch}"
@@ -158,21 +175,21 @@ class MyLoss:
             title = f"{self.name} Test Loss on {self.dataset} @ep{self.current_epoch}"
 
         if plot_terms == 'all':
-            plot_terms = list(self.loss['test'].keys())
+            plot_terms = self.loss_terms
 
         fig = self.__plot_settings__()
         fig.suptitle(title)
         plt.yscale('log', base=2)
-        plt.ylim([2 ** -18, 2])
+        # plt.ylim([2 ** -18, 2])
         plt.axhline(1, linestyle='--', color='lightgreen', label='1.0')
-        for i, item in enumerate(plot_terms):
-            plt.boxplot([self.loss['test'][item]], labels=[item], positions=[i+1], vert=True, showmeans=True,
+        for i, loss in enumerate(plot_terms):
+            plt.boxplot([self.loss[loss].log['test']], labels=[loss], positions=[i+1], vert=True, showmeans=True,
                         patch_artist=True,
-                        boxprops={'facecolor': 'lightgreen'})
+                        boxprops={'facecolor': 'lightblue'})
 
         plt.show()
         filename = f"{self.name}_TEST_{self.dataset}SET@ep{self.current_epoch}.jpg"
-        return fig, filename
+        return {filename: fig}
 
     def plot_test_cdf(self, title=None, plot_terms='all'):
         if title:
@@ -181,7 +198,7 @@ class MyLoss:
             title = f"{self.name} Test PDF-CDF on {self.dataset} @ep{self.current_epoch}"
 
         if plot_terms == 'all':
-            plot_terms = list(self.loss['test'].keys())
+            plot_terms = self.loss_terms
 
         fig = self.__plot_settings__()
         fig.suptitle(title)
@@ -194,29 +211,29 @@ class MyLoss:
             axes = fig.subplots(1, len(plot_terms))
             axes = axes.flatten()
 
-        for i, item in enumerate(plot_terms):
-            hist, bin_edges = np.histogram(self.loss['test'][item])
+        for i, loss in enumerate(plot_terms):
+            hist, bin_edges = np.histogram(self.loss[loss].log['test'])
             width = (bin_edges[1] - bin_edges[0]) * 0.8
             cdf = np.cumsum(hist / sum(hist))
 
             axes[i].bar(bin_edges[1:], hist / max(hist), width=width, color='blue')
             axes[i].plot(bin_edges[1:], cdf, '-*', color='orange')
             axes[i].set_ylim([0, 1])
-            axes[i].set_title(item, fontweight="bold")
+            axes[i].set_title(loss, fontweight="bold")
             axes[i].set_xlabel('Per-sample Loss')
             axes[i].set_ylabel('Frequency')
             axes[i].grid()
 
         plt.show()
         filename = f"{self.name}_PDF_{self.dataset}SET@ep{self.current_epoch}.jpg"
-        return fig, filename
+        return {filename: fig}
 
     def plot_predict(self, plot_terms, title=None):
         if title:
             title = f"{title} @ep{self.current_epoch}"
         else:
             title = f"{self.name} Image Predicts on {self.dataset} @ep{self.current_epoch}"
-        samples = np.array(self.loss['pred']['TAG']).astype(int)[self.select_inds]
+        samples = np.array(self.preds['TAG']).astype(int)[self.select_inds]
 
         fig = self.__plot_settings__()
         fig.suptitle(title)
@@ -226,20 +243,20 @@ class MyLoss:
             subfigs[i].suptitle(item)
             axes = subfigs[i].subplots(nrows=1, ncols=self.select_num)
             for j in range(len(axes)):
-                img = axes[j].imshow(self.loss['pred'][item][self.select_inds[j]], vmin=0, vmax=1)
+                img = axes[j].imshow(self.preds[item][self.select_inds[j]], vmin=0, vmax=1)
                 axes[j].axis('off')
                 axes[j].set_title(f"{'-'.join(map(str, map(int, samples[j])))}", fontweight="bold")
             subfigs[i].colorbar(img, ax=axes, shrink=0.8)
         plt.show()
         filename = f"{self.name}_PRED_{self.dataset}SET@ep{self.current_epoch}.jpg"
-        return fig, filename
+        return {filename: fig}
 
     def plot_latent(self, plot_terms, title=None, ylim: tuple = (-1, 1)):
         if title:
             title = f"{title} @ep{self.current_epoch}"
         else:
             title = f"{self.name} Latent Predicts on {self.dataset} @ep{self.current_epoch}"
-        samples = np.array(self.loss['pred']['TAG']).astype(int)[self.select_inds]
+        samples = np.array(self.preds['TAG']).astype(int)[self.select_inds]
         colors = ('blue', 'orange')
 
         fig = self.__plot_settings__()
@@ -248,8 +265,8 @@ class MyLoss:
         axes = axes.flatten()
         for j in range(self.select_num):
             for no, item in enumerate(plot_terms):
-                axes[j].bar(range(len(self.loss['pred'][item][self.select_inds[j]])),
-                            self.loss['pred'][item][self.select_inds[j]],
+                axes[j].bar(range(len(self.preds[item][self.select_inds[j]])),
+                            self.preds[item][self.select_inds[j]],
                             width=1, fc=colors[no], alpha=0.8, label=item)
             if ylim:
                 axes[j].set_ylim(*ylim)
@@ -260,41 +277,39 @@ class MyLoss:
         axes[0].legend()
         plt.show()
         filename = f"{self.name}_LAT_{self.dataset}SET@ep{self.current_epoch}.jpg"
-        return fig, filename
+        return {filename: fig}
 
+    # TODO: pred unit
     def plot_tsne(self, plot_terms, title=None):
         # plt.style.use('dark_background')
         if title:
             title = f"{title} @ep{self.current_epoch}"
         else:
             title = f"{self.name} T-SNE on {self.dataset} @ep{self.current_epoch}"
-        samples = np.array(self.loss['pred']['TAG']).astype(int)[self.select_inds]
-        tsne = {}
-
-        for item in plot_terms:
-            unit_shape = np.array(self.loss['pred'][item]).shape
-            tsne[item] = TSNE(n_components=2, random_state=33).fit_transform(
-                np.array(self.loss['pred'][item]).reshape(unit_shape[0], -1))
+        samples = np.array(self.preds['TAG']).astype(int)[self.select_inds]
 
         fig = self.__plot_settings__()
         fig.suptitle(title)
         axes = fig.subplots(nrows=1, ncols=len(plot_terms))
         for i, item in enumerate(plot_terms):
             axes[i].set_title(item, fontweight="bold")
-            axes[i].scatter(tsne[item][:, 0], tsne[item][:, 1],  alpha=0.6)
-            for j in range(self.select_num):
-                axes[i].scatter(tsne[item][self.select_inds[j], 0], tsne[item][self.select_inds[j], 1],
+            self.preds[item].Tsne()
+            axes[i].scatter(self.preds[item].tsne[:, 0], self.preds[item].tsne[:, 1],  alpha=0.6)
+            for j, ind in enumerate(self.select_inds):
+                axes[i].scatter(self.preds[item].tsne[ind, 0], 
+                                self.preds[item].tsne[ind, 1],
                                 c='magenta', marker=(5, 1), linewidths=4)
                 axes[i].annotate(f"{'-'.join(map(str, map(int, samples[j])))}",
-                                 (tsne[item][self.select_inds[j], 0], tsne[item][self.select_inds[j], 1]),
+                                 (self.preds[item].tsne[ind, 0], 
+                                  self.preds[item].tsne[ind, 1]),
                                  fontsize=20)
 
         plt.show()
         filename = f"{self.name}_TSNE_{self.dataset}SET@ep{self.current_epoch}.jpg"
-        return fig, filename
+        return {filename: fig}
 
 
-class MyLossBBX(MyLoss):
+class MyLossBBX(MyLossLog):
     def __init__(self, depth=False, *args, **kwargs):
         super(MyLossBBX, self).__init__(*args, **kwargs)
         self.depth = depth
@@ -304,34 +319,34 @@ class MyLossBBX(MyLoss):
             title = f"{title} @ep{self.current_epoch}"
         else:
             title = f"{self.name} Bounding Box Predicts on {self.dataset} @ep{self.current_epoch}"
-        samples = np.array(self.loss['pred']['TAG']).astype(int)[self.select_inds]
+        samples = np.array(self.preds['TAG']).astype(int)[self.select_inds]
         
         fig = self.__plot_settings__()
         fig.suptitle(title)
         axes = fig.subplots(nrows=2, ncols=np.ceil(self.select_num / 2).astype(int))
         axes = axes.flatten()
-        for j in range(self.select_num):
+        for j, ind in enumerate(self.select_inds):
             axes[j].set_xlim([0, 226])
             axes[j].set_ylim([0, 128])
             axes[j].set_title(f"{'-'.join(map(str, map(int, samples[j])))}", fontweight="bold")
-            x1, y1, x2, y2 = self.loss['pred']['GT_BBX'][self.select_inds[j]]
+            x1, y1, x2, y2 = self.preds['GT_BBX'][ind]
             x = int(x1 * 226)
             y = int(y1 * 128)
             w = int((x2 - x1) * 226)
             h = int((y2 - y1) * 128)
             axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='blue', fill=False, lw=4, label='GroundTruth'))
             if self.depth:
-                axes[j].annotate(f"GT={self.loss['pred']['GT_DPT'][self.select_inds[j]]:.2f}",
+                axes[j].annotate(f"GT={self.preds['GT_DPT'][ind]:.2f}",
                                  (48, 20),
                                  fontsize=20, color='blue')
-            x1, y1, x2, y2 = self.loss['pred']['S_BBX'][self.select_inds[j]]
+            x1, y1, x2, y2 = self.preds['S_BBX'][ind]
             x = int(x1 * 226)
             y = int(y1 * 128)
             w = int((x2 - x1) * 226)
             h = int((y2 - y1) * 128)
             axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='orange', fill=False, lw=4, label='Student'))
             if self.depth:
-                axes[j].annotate(f"Pred={self.loss['pred']['S_DPT'][self.select_inds[j]]:.2f}",
+                axes[j].annotate(f"Pred={self.preds['S_DPT'][ind]:.2f}",
                                  (48, 10),
                                  fontsize=20, color='orange')
                 axes[j].scatter(48, 20,
@@ -345,10 +360,10 @@ class MyLossBBX(MyLoss):
         axes[0].legend()
         plt.show()
         filename = f"{self.name}_BBX_{self.dataset}SET@ep{self.current_epoch}.jpg"
-        return fig, filename
+        return {filename: fig}
 
 
-class MyLossCTR(MyLoss):
+class MyLossCTR(MyLossLog):
     def __init__(self, depth=False, *args, **kwargs):
         super(MyLossCTR, self).__init__(*args, **kwargs)
         self.depth = depth
@@ -358,29 +373,29 @@ class MyLossCTR(MyLoss):
             title = f"{title} @ep{self.current_epoch}"
         else:
             title = f"{self.name} Center Predicts on {self.dataset} @ep{self.current_epoch}"
-        samples = np.array(self.loss['pred']['TAG']).astype(int)[self.select_inds]
+        samples = np.array(self.preds['TAG']).astype(int)[self.select_inds]
         
         fig = self.__plot_settings__()
         fig.suptitle(title)
         axes = fig.subplots(nrows=2, ncols=np.ceil(self.select_num / 2).astype(int))
         axes = axes.flatten()
-        for j in range(self.select_num):
+        for j, ind in enumerate(self.select_inds):
             axes[j].set_xlim([0, 226])
             axes[j].set_ylim([0, 128])
             axes[j].set_title(f"{'-'.join(map(str, map(int, samples[j])))}", fontweight="bold")
-            x1, y1 = self.loss['pred']['GT_CTR'][self.select_inds[j]]
+            x1, y1 = self.preds['GT_CTR'][ind]
             x1 = int(x1 * 226)
             y1 = int(y1 * 128)
             axes[j].scatter(x1, y1, c='blue', marker=(5, 1), alpha=0.5, linewidths=5, label='GT_CTR')
             if self.depth:
-                axes[j].annotate(f"GT_DPT={self.loss['pred']['GT_DPT'][self.select_inds[j]]:.2f}",
+                axes[j].annotate(f"GT_DPT={self.preds['GT_DPT'][ind]:.2f}",
                                  (48, 20),
                                  fontsize=20, color='blue')
-                axes[j].annotate(f"Pred_DPT={self.loss['pred']['S_DPT'][self.select_inds[j]]:.2f}",
+                axes[j].annotate(f"Pred_DPT={self.preds['S_DPT'][ind]:.2f}",
                                  (48, 10),
                                  fontsize=20, color='orange')
 
-            x2, y2 = self.loss['pred']['S_CTR'][self.select_inds[j]]
+            x2, y2 = self.preds['S_CTR'][ind]
             x2 = int(x2 * 226)
             y2 = int(y2 * 128)
             axes[j].scatter(x2, y2, c='orange', marker=(5, 1), alpha=0.5, linewidths=5, label='S_CTR')
@@ -392,4 +407,58 @@ class MyLossCTR(MyLoss):
         axes[0].legend()
         plt.show()
         filename = f"{self.name}_CTR_{self.dataset}SET@ep{self.current_epoch}.jpg"
-        return fig, filename
+        return {filename: fig}
+    
+
+class MyLossBBX2(MyLossLog):
+    def __init__(self, depth=False, *args, **kwargs):
+        super(MyLossBBX2, self).__init__(*args, **kwargs)
+        self.depth = depth
+
+    def plot_bbx(self, title=None):
+        if title:
+            title = f"{title} @ep{self.current_epoch}"
+        else:
+            title = f"{self.name} Bounding Box Predicts on {self.dataset} @ep{self.current_epoch}"
+        samples = np.array(self.preds['TAG']).astype(int)[self.select_inds]
+        
+        fig = self.__plot_settings__()
+        fig.suptitle(title)
+        axes = fig.subplots(nrows=2, ncols=np.ceil(self.select_num / 2).astype(int))
+        axes = axes.flatten()
+        for j, ind in enumerate(self.select_inds):
+            axes[j].set_xlim([0, 226])
+            axes[j].set_ylim([0, 128])
+            axes[j].set_title(f"{'-'.join(map(str, map(int, samples[j])))}", fontweight="bold")
+            x1, y1, x2, y2 = self.preds['GT_BBX'][ind]
+            x = int(x1 * 226)
+            y = int(y1 * 128)
+            w = int((x2 - x1) * 226)
+            h = int((y2 - y1) * 128)
+            axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='blue', fill=False, lw=4, label='GroundTruth'))
+            if self.depth:
+                axes[j].annotate(f"GT={self.preds['GT_DPT'][ind]:.2f}",
+                                 (48, 20),
+                                 fontsize=20, color='blue')
+            x1, y1, x2, y2 = self.preds['T_BBX'][ind]
+            x = int(x1 * 226)
+            y = int(y1 * 128)
+            w = int((x2 - x1) * 226)
+            h = int((y2 - y1) * 128)
+            axes[j].add_patch(Rectangle((x, y), w, h, edgecolor='orange', fill=False, lw=4, label='Student'))
+            if self.depth:
+                axes[j].annotate(f"Pred={self.preds['T_DPT'][ind]:.2f}",
+                                 (48, 10),
+                                 fontsize=20, color='orange')
+                axes[j].scatter(48, 20,
+                                c='blue', marker=(5, 1), linewidths=4)
+                axes[j].scatter(48, 10,
+                                c='orange', marker=(5, 1), linewidths=4)
+            axes[j].axis('off')
+            axes[j].add_patch(Rectangle((0, 0), 226, 128, facecolor="#eafff5",
+                                            transform=axes[j].transAxes, zorder=-1))
+
+        axes[0].legend()
+        plt.show()
+        filename = f"{self.name}_BBX_{self.dataset}SET@ep{self.current_epoch}.jpg"
+        return {filename: fig}

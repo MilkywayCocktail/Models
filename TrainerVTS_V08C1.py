@@ -7,16 +7,14 @@ import matplotlib.pyplot as plt
 import os
 from Trainer import BasicTrainer
 from Model import *
-from Loss import MyLoss, MyLossCTR
+from Loss import MyLossLog, MyLossCTR
 
 version = 'V08C1'
 
 ##############################################################################
 # -------------------------------------------------------------------------- #
 # Version V08C1
-# Teacher1 learns and estimates raw images and the bbx of the raw depth image
-# Teacher2 learns and estimates binary masks and the depth value of the center
-# pixel of the cropped depth image
+# Teacher learns and estimates cropped images
 # Student learns (6, 30, m) CSIs and (2, 30, m) PhaseDiffs
 # Student adopts whole image loss
 
@@ -241,10 +239,10 @@ class TeacherTrainer(BasicTrainer):
 
         self.loss_terms = ('LOSS', 'KL', 'RECON')
         self.pred_terms = ('GT', 'PRED', 'LAT', 'TAG')
-        self.loss = MyLoss(name=self.name,
+        self.losslog = MyLossLog(name=self.name,
                            loss_terms=self.loss_terms,
                            pred_terms=self.pred_terms)
-
+        
     def vae_loss(self, pred, gt, mu, logvar):
         recon_loss = self.recon_lossfunc(pred, gt) / pred.shape[0]
         kl_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
@@ -269,19 +267,17 @@ class TeacherTrainer(BasicTrainer):
 
     def plot_test(self, select_ind=None, select_num=8, autosave=False, notion='', **kwargs):
         save_path = f'../saved/{notion}/'
-        figs = []
+        figs: dict = {}
         self.loss.generate_indices(select_ind, select_num)
 
-        figs.append(self.loss.plot_predict(plot_terms=('GT', 'PRED')))
-        figs.append(self.loss.plot_latent(plot_terms={'LAT'}))
-        # figs.append(self.loss.plot_test(plot_terms='all'))
-        # figs.append(self.loss.plot_tsne(plot_terms=('GT', 'LAT', 'PRED')))
+        figs.update(self.losslog.plot_predict(plot_terms=('GT', 'PRED')))
+        figs.update(self.losslog.plot_latent(plot_terms={'LAT'}))
+        # figs.update(self.loss.plot_test(plot_terms='all'))
+        # figs.update(self.loss.plot_tsne(plot_terms=('GT', 'LAT', 'PRED')))
 
         if autosave:
-            if not os.path.exists(save_path):
-                os.makedirs(save_path)
-            for fig, filename in figs:
-                fig.savefig(f"{save_path}{notion}_{filename}")
+            for filename, fig in figs.items():
+                fig.savefig(f"{save_path}{filename}")
 
 
 # Student is Mask + Center + Depth
@@ -308,12 +304,12 @@ class StudentTrainer(BasicTrainer):
                            'GT_CTR', 'S_CTR',
                            'GT_DPT', 'S_DPT',
                            'TAG')
-        self.loss = MyLossCTR(name=self.name,
+        self.losslog = MyLossCTR(name=self.name,
                               loss_terms=self.loss_terms,
                               pred_terms=self.pred_terms,
                               depth=True)
 
-        self.latent_weight = 1.
+        self.latent_weight = 0.1
         self.img_weight = 1.
         self.center_weight = 1.
         self.depth_weight = 1.
@@ -330,9 +326,8 @@ class StudentTrainer(BasicTrainer):
         y = center[..., 1]
         x = (x * 226).to(torch.int) - 113
         y = (y * 128).to(torch.int) - 64
-        #recon_img[..., :, 49:-49] = cimg
         recon_img = nn.functional.pad(cimg, (49, 49, 0, 0), 'constant', 0)
-        # recon_img *= depth.view(-1, 1, 1, 1)
+        recon_img *= depth.view(-1, 1, 1, 1)
         for i in range(recon_img.shape[0]):
             recon_img[i] = torch.roll(recon_img[i], (y[i].item(), x[i].item()), dims=(-2, -1))
 
@@ -342,10 +337,11 @@ class StudentTrainer(BasicTrainer):
     def calculate_loss(self, data):
         img = torch.where(data[self.img_mode] > 0, 1., 0.) if self.mask else data[self.img_mode]
         features, s_z, s_mu, s_logvar = self.models['csien'](csi=data['csi'], pd=data['pd'])
-        s_image = self.models['imgde'](s_z)
         s_ctr, s_depth = self.models['ctrde'](features)
 
+        # Enable / Disable grad from img_loss
         with torch.no_grad():
+            s_image = self.models['imgde'](s_z)
             t_z, t_mu, t_logvar = self.models['imgen'](img)
             t_image = self.models['imgde'](t_z)
 
@@ -378,21 +374,19 @@ class StudentTrainer(BasicTrainer):
 
     def plot_test(self, select_ind=None, select_num=8, autosave=False, notion='', **kwargs):
         save_path = f'../saved/{notion}/'
-        figs = []
-        self.loss.generate_indices(select_ind, select_num)
+        figs: dict = {}
+        self.losslog.generate_indices(select_ind, select_num)
 
-        figs.append(self.loss.plot_predict(plot_terms=('GT', 'T_PRED', 'S_PRED')))
-        figs.append(self.loss.plot_latent(plot_terms=('T_LATENT', 'S_LATENT')))
-        figs.append(self.loss.plot_center())
-        figs.append(self.loss.plot_test(plot_terms='all'))
-        figs.append(self.loss.plot_test_cdf(plot_terms='all'))
-        #figs.append(self.loss.plot_tsne(plot_terms=('GT', 'T_LATENT', 'S_LATENT')))
+        figs.update(self.losslog.plot_predict(plot_terms=('GT', 'T_PRED', 'S_PRED')))
+        figs.update(self.losslog.plot_latent(plot_terms=('T_LATENT', 'S_LATENT')))
+        figs.update(self.losslog.plot_center())
+        # figs.update(self.losslog.plot_test(plot_terms='all'))
+        figs.update(self.losslog.plot_test_cdf(plot_terms='all'))
+        #figs.update(self.losslog.plot_tsne(plot_terms=('GT', 'T_LATENT', 'S_LATENT')))
 
         if autosave:
-            if not os.path.exists(save_path):
-                os.makedirs(save_path)
-            for fig, filename in figs:
-                fig.savefig(f"{save_path}{notion}_{filename}")
+            for filename, fig in figs.items():
+                fig.savefig(f"{save_path}{filename}")
 
 
 if __name__ == '__main__':

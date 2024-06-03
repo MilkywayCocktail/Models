@@ -106,17 +106,31 @@ class ModalityLoader:
         self.data_dir = data_dir
         self.modalities = modalities
         self.data: dict = {}
+        self.train_data: dict = {}
+        self.test_data: dict = {}
         
         if data_dir:
             print(f"Loading from {data_dir}")
             paths = os.walk(self.data_dir)
             for path, _, file_lst in paths:
                 for file_name in tqdm(file_lst):
-                    modality, ext = os.path.splitext(file_name)
+                    file_name_, ext = os.path.splitext(file_name)
                     if ext == '.npy':
-                        if modalities and modality not in modalities:
-                            continue
-                        self.data[modality] = np.load(os.path.join(path, file_name), mmap_mode=mmap_mode)
+                        if 'train' in file_name_:
+                            modality = file_name_.replace('_train', '')
+                            if modalities and modality not in modalities:
+                                continue
+                            self.train_data[modality] = np.load(os.path.join(path, file_name), mmap_mode=mmap_mode)
+                        elif 'test' in file_name_:
+                            modality = file_name_.replace('_test', '')
+                            if modalities and modality not in modalities:
+                                continue
+                            self.test_data[modality] = np.load(os.path.join(path, file_name), mmap_mode=mmap_mode)
+                        else:
+                            modality = file_name_
+                            if modalities and modality not in modalities:
+                                continue
+                            self.data[modality] = np.load(os.path.join(path, file_name), mmap_mode=mmap_mode)
                         
         
     def profiling(self, scope):

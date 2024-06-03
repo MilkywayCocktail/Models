@@ -4,7 +4,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 import numpy as np
 import os
 import matplotlib.pyplot as plt
-from Loss import MyLoss
+from Loss import MyLossLog
 from misc import timer
 
 
@@ -44,7 +44,7 @@ class ExtraParams:
 
 class EarlyStopping:
 
-    def __init__(self, early_stop_max=7, lr_decay_max=5, verbose=True, delta=0, *args, **kwargs):
+    def __init__(self, early_stop_max=20, lr_decay_max=5, verbose=True, delta=0, *args, **kwargs):
 
         self.early_stop_max = early_stop_max
         self.early_stop_counter = 0
@@ -87,15 +87,20 @@ class EarlyStopping:
 
 class BasicTrainer:
     def __init__(self, name, networks,
-                 lr, epochs, cuda,
+                 epochs, cuda,
                  train_loader, valid_loader, test_loader,
                  notion,
+                 loss_optimizer: dict,
                  *args, **kwargs
                  ):
         self.name = name
-        self.lr = lr
         self.epochs = epochs
-        self.optimizer = torch.optim.Adam
+        self.loss_optimizer = loss_optimizer
+
+        # Please define optimizers in this way
+        # self.optimizer: dict = {'LOSS1': ['optimizer1', lr1],
+        #                        'LOSS2': ['optimizer2', lr2],
+        #                        'LOSS3': '...'}
         self.thread = 'single'
 
         self.dataloader = {'train': train_loader,
@@ -118,13 +123,15 @@ class BasicTrainer:
 
         self.loss_terms = ('loss1', 'loss2', '...')
         self.pred_terms = ('predict1', 'predict2', '...')
-        self.loss = MyLoss(self.name, self.loss_terms, self.pred_terms)
+        self.losslog = MyLossLog(self.name, self.loss_terms, self.pred_terms)
         self.temp_loss = {}
         self.best_val_loss = float("inf")
         self.best_vloss_ep = 0
 
         self.notion = notion
         self.save_path = f'../saved/{notion}/'
+        if not os.path.exists(self.save_path):
+            os.makedirs(self.save_path)
         self.early_stopping = None
 
     @staticmethod
@@ -141,30 +148,40 @@ class BasicTrainer:
             return data.cuda(non_blocking=True)
 
     def current_ep(self):
-        return self.loss.current_epoch
+        return self.losslog.current_epoch
 
     def calculate_loss(self, *inputs):
         # --- Return losses in this way ---
         self.temp_loss = {loss: 0 for loss in self.loss_terms}
         return {pred: None for pred in self.pred_terms}
+    
+    def update(self):
+        for i, loss in enumerate(self.loss_optimizer.keys(), start=1):
+            self.losslog.loss[loss].optimizer.zero_grad()
+            if i != len(self.loss_optimizer):
+                self.temp_loss[loss].backward(retain_graph=True)
+            else:
+                self.temp_loss[loss].backward()
+            self.losslog.loss[loss].optimizer.step()
 
     @timer
-    def train(self, train_module=None, eval_module=None, early_stop=True, lr_decay=True, notion='', *args, **kwargs):
+    def train(self, train_module=None, eval_module=None, early_stop=True, lr_decay=True, *args, **kwargs):
         self.early_stopping = EarlyStopping(*args, **kwargs)
-        if 'tag' not in self.modality:
-            self.modality.add('tag')
+        
         if not train_module:
             train_module = list(self.models.keys())
         params = [{'params': self.models[model].parameters()} for model in train_module]
         if self.extra_params.updatable:
             for param, value in self.extra_params.params.items():
                 params.append({'params': value})
-        optimizer = self.optimizer(params, lr=self.lr)
+                
+        for loss, [optimizer, lr] in self.loss_optimizer.items():
+            self.losslog.loss[loss].optimizer = optimizer(params, lr)
+            self.losslog.loss[loss].lr.append(lr)
 
         # ===============train and validate each epoch==============
         train_range = range(1000) if early_stop else range(self.epochs)
         for epoch, _ in enumerate(train_range, start=1):
-            self.loss(self.lr)
             # =====================train============================
             for model in train_module:
                 self.models[model].train()
@@ -172,16 +189,16 @@ class BasicTrainer:
                 for model in eval_module:
                     self.models[model].eval()
             EPOCH_LOSS = {loss: [] for loss in self.loss_terms}
+
             for idx, data in enumerate(self.dataloader['train'], 0):
                 data_ = {}
                 for key, value in data.items():
                     if key in self.modality:
                         data_[key] = self.data_to_device(value)
 
-                optimizer.zero_grad()
                 PREDS = self.calculate_loss(data_)
-                self.temp_loss['LOSS'].backward()
-                optimizer.step()
+                self.update()
+
                 for key in EPOCH_LOSS.keys():
                     EPOCH_LOSS[key].append(self.temp_loss[key].item())
 
@@ -193,7 +210,7 @@ class BasicTrainer:
 
             for key, value in EPOCH_LOSS.items():
                 EPOCH_LOSS[key] = np.average(value)
-            self.loss.update('train', EPOCH_LOSS)
+            self.losslog('train', EPOCH_LOSS)
             self.extra_params.update()
 
             # =====================valid============================
@@ -227,11 +244,8 @@ class BasicTrainer:
                           f"loss={self.temp_loss['LOSS'].item():.4f}, "
                           f"current best valid loss={self.best_val_loss:.4f}        ", flush=True)
 
-                if not os.path.exists(self.save_path):
-                    os.makedirs(self.save_path)
-
                 with open(f"{self.save_path}{self.name}_trained.txt", 'w') as logfile:
-                    logfile.write(f"{notion}_{self.name}\n"
+                    logfile.write(f"{self.notion}_{self.name}\n"
                                   f"Total epochs = {self.current_ep()}\n"
                                   f"Best : val_loss={self.best_val_loss} @ epoch {self.best_vloss_ep}\n"
                                   f"Modules:\n{list(self.models.values())}\n"
@@ -239,14 +253,13 @@ class BasicTrainer:
 
             self.early_stopping(self.best_val_loss, early_stop, lr_decay)
             if lr_decay and self.early_stopping.decay_flag:
-                self.lr *= 0.5
+                self.losslog.decay(0.5)
+                    
             if early_stop and self.early_stopping.stop_flag:
                 if 'save_model' in kwargs.keys() and kwargs['save_model'] is False:
                     break
                 else:
                     print(f"\033[32mEarly Stopping triggered. Saving @ epoch {epoch}...\033[0m")
-                    if not os.path.exists(self.save_path):
-                        os.makedirs(self.save_path)
                     for model in train_module:
                         torch.save(self.models[model].state_dict(),
                                    f"{self.save_path}{self.name}_{self.models[model]}_best.pth")
@@ -254,7 +267,7 @@ class BasicTrainer:
             print('')
             for key in EPOCH_LOSS.keys():
                 EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
-            self.loss.update('valid', EPOCH_LOSS)
+            self.losslog('valid', EPOCH_LOSS)
 
         if self.thread == 'multi':
             dist.destroy_process_group()
@@ -262,15 +275,14 @@ class BasicTrainer:
 
     @timer
     def test(self, test_module=None, loader: str = 'test', *args, **kwargs):
-        if 'tag' not in self.modality:
-            self.modality.add('tag')
+
         if not test_module:
             test_module = list(self.models.keys())
         for model in test_module:
             self.models[model].eval()
 
         EPOCH_LOSS = {loss: [] for loss in self.loss_terms}
-        self.loss.reset('test', 'pred', dataset=loader)
+        self.losslog.reset('test', 'pred', dataset=loader)
 
         for idx, data in enumerate(self.dataloader[loader], 0):
             data_ = {}
@@ -288,53 +300,46 @@ class BasicTrainer:
                     for key in EPOCH_LOSS.keys():
                         EPOCH_LOSS[key].append(self.temp_loss[key].item())
 
-                    self.loss.update('pred', PREDS)
+                    self.losslog('pred', PREDS)
 
             if idx % 5 == 0:
                 print(f"\r{self.name} test: sample={idx}/{len(self.dataloader[loader])}, "
                       f"loss={self.temp_loss['LOSS'].item():.4f}    ", end='', flush=True)
 
-        self.loss.update('test', EPOCH_LOSS)
+        self.losslog('test', EPOCH_LOSS)
         for key in EPOCH_LOSS.keys():
             EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
 
         print(f"\nTest finished. Average loss={EPOCH_LOSS}")
 
-    def plot_train_loss(self, title=None, double_y=False, plot_terms='all', autosave=False, notion='', **kwargs):
-        save_path = f'../saved/{notion}/'
-
-        fig, filename = self.loss.plot_train(title, plot_terms, double_y)
-
+    def plot_train_loss(self, title=None, double_y=False, plot_terms='all', autosave=False, **kwargs):
+        fig = self.losslog.plot_train(title, plot_terms, double_y)
         if autosave:
-            if not os.path.exists(save_path):
-                os.makedirs(save_path)
-            fig.savefig(f"{save_path}{notion}_{filename}")
+            for filename, fig in fig.items():
+                fig.savefig(f"{self.save_path}{filename}")
 
-    def plot_test(self, select_inds=None, select_num=8, autosave=False, notion='', **kwargs):
+    def plot_test(self, select_inds=None, select_num=8, autosave=False, **kwargs):
         # According to actual usages
-        self.loss.generate_indices(select_inds, select_num)
+        self.losslog.generate_indices(select_inds, select_num)
         pass
 
-    def save(self, notion=''):
+    def save(self):
         print("Saving models...")
-        save_path = f'../saved/{notion}/'
-        if not os.path.exists(save_path):
-            os.makedirs(save_path)
         for model in self.models:
             print(f"Saving {model}...")
             torch.save(self.models[model].state_dict(),
-                       f"{save_path}{notion}_{self.name}_{self.models[model]}@ep{self.current_ep()}.pth")
+                       f"{self.save_path}{self.name}_{self.models[model]}@ep{self.current_ep()}.pth")
         print("All saved!")
 
     def schedule(self, autosave=True, *args, **kwargs):
         # Training, testing and saving
         model = self.train(autosave=autosave, notion=self.notion, *args, **kwargs)
-        self.plot_train_loss(autosave=autosave, notion=self.notion)
+        self.plot_train_loss(autosave=autosave)
         self.test(loader='train')
-        self.plot_test(select_num=8, autosave=autosave, notion=self.notion)
+        self.plot_test(select_num=8, autosave=autosave)
         self.test(loader='test')
-        self.plot_test(select_num=8, autosave=autosave, notion=self.notion)
-        self.loss.save('pred', notion=self.notion)
+        self.plot_test(select_num=8, autosave=autosave)
+        self.losslog.save('pred', self.save_path)
         print(f'\n\033[32m{self.name} schedule Completed!\033[0m')
         return model
 
