@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import os
 from Trainer import BasicTrainer
 from Model import *
-from Loss import MyLoss, MyLossBBX
+from Loss import MyLossLog, MyLossBBX
 
 version = 'V07D1'
 
@@ -231,15 +231,15 @@ class TeacherTrainer(BasicTrainer):
         super(TeacherTrainer, self).__init__(*args, **kwargs)
 
         self.img_mode = 'cimg'
-        self.modality = {self.img_mode, 'tag', 'ind'}
+        self.modality = {self.img_mode, 'tag'}
 
         self.beta = beta
         self.recon_lossfunc = recon_lossfunc
         self.mask = mask
 
         self.loss_terms = ('LOSS', 'KL', 'RECON')
-        self.pred_terms = ('GT', 'PRED', 'LAT', 'TAG', 'IND')
-        self.loss = MyLoss(name=self.name,
+        self.pred_terms = ('GT', 'PRED', 'LAT', 'TAG')
+        self.losslog = MyLossLog(name=self.name,
                            loss_terms=self.loss_terms,
                            pred_terms=self.pred_terms)
 
@@ -262,25 +262,21 @@ class TeacherTrainer(BasicTrainer):
         return {'GT': img,
                 'PRED': output,
                 'LAT': torch.cat((mu, logvar), -1),
-                'IND': data['ind'],
                 'TAG': data['tag']
                 }
 
     def plot_test(self, select_ind=None, select_num=8, autosave=False, notion='', **kwargs):
-        save_path = f'../saved/{notion}/'
-        figs = []
-        self.loss.generate_indices(select_ind, select_num)
+        figs: dict = {}
+        self.losslog.generate_indices(select_ind, select_num)
 
-        figs.append(self.loss.plot_predict(plot_terms=('GT', 'PRED')))
-        figs.append(self.loss.plot_latent(plot_terms={'LAT'}))
+        figs.update(self.losslog.plot_predict(plot_terms=('GT', 'PRED')))
+        figs.update(self.losslog.plot_latent(plot_terms={'LAT'}))
         # figs.append(self.loss.plot_test(plot_terms='all'))
         # figs.append(self.loss.plot_tsne(plot_terms=('GT', 'LAT', 'PRED')))
 
         if autosave:
-            if not os.path.exists(save_path):
-                os.makedirs(save_path)
-            for fig, filename in figs:
-                fig.savefig(f"{save_path}{notion}_{filename}")
+            for filename, fig in figs.items():
+                fig.savefig(f"{self.save_path}{notion}_{filename}")
 
 
 # Student is Mask + Center + Depth
@@ -305,11 +301,11 @@ class StudentTrainer(BasicTrainer):
                            'T_LATENT', 'S_LATENT',
                            'GT_BBX', 'S_BBX',
                            'GT_DPT', 'S_DPT',
-                           'IND', 'TAG')
-        self.loss = MyLossBBX(name=self.name,
+                           'TAG')
+        self.losslog = MyLossBBX(name=self.name,
                               loss_terms=self.loss_terms,
                               pred_terms=self.pred_terms,
-                              depth=True)
+                              depth='S_DPT')
 
         self.latent_weight = 1.
         self.img_weight = 0
@@ -363,26 +359,22 @@ class StudentTrainer(BasicTrainer):
                 'S_BBX': s_ctr,
                 'GT_DPT': data['depth'],
                 'S_DPT': s_depth,
-                'IND': data['ind'],
                 'TAG': data['tag']}
 
     def plot_test(self, select_ind=None, select_num=8, autosave=False, notion='', **kwargs):
-        save_path = f'../saved/{notion}/'
-        figs = []
-        self.loss.generate_indices(select_ind, select_num)
+        figs: dict = {}
+        self.losslog.generate_indices(select_ind, select_num)
 
-        figs.append(self.loss.plot_predict(plot_terms=('GT', 'T_PRED', 'S_PRED')))
-        figs.append(self.loss.plot_latent(plot_terms=('T_LATENT', 'S_LATENT')))
-        figs.append(self.loss.plot_bbx())
-        figs.append(self.loss.plot_test(plot_terms='all'))
-        figs.append(self.loss.plot_test_cdf(plot_terms='all'))
+        figs.update(self.losslog.plot_predict(plot_terms=('GT', 'T_PRED', 'S_PRED')))
+        figs.update(self.losslog.plot_latent(plot_terms=('T_LATENT', 'S_LATENT')))
+        figs.update(self.losslog.plot_bbx())
+        figs.update(self.losslog.plot_test(plot_terms='all'))
+        figs.update(self.losslog.plot_test_cdf(plot_terms='all'))
         #figs.append(self.loss.plot_tsne(plot_terms=('GT', 'T_LATENT', 'S_LATENT')))
 
         if autosave:
-            if not os.path.exists(save_path):
-                os.makedirs(save_path)
-            for fig, filename in figs:
-                fig.savefig(f"{save_path}{notion}_{filename}")
+            for filename, fig in figs.items():
+                fig.savefig(f"{self.save_path}{notion}_{filename}")
 
 
 if __name__ == '__main__':

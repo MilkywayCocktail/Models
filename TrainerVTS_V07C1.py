@@ -331,6 +331,7 @@ class StudentTrainer(BasicTrainer):
         with torch.no_grad():
             t_z, t_mu, t_logvar = self.models['imgen'](img)
             t_image = self.models['imgde'](t_z)
+            # COMMENT: This image_loss is non functioning
             image_loss = self.recon_lossfunc(s_image, img)
 
         center_loss = self.center_loss(s_ctr, torch.squeeze(data['center']))

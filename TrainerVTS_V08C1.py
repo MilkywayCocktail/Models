@@ -23,8 +23,8 @@ version = 'V08C1'
 # ImageDecoder: in = 1 * latent_dim,
 #               out = 128 * 128
 # CSIEncoder: in = [6 * 30 * m], [2 * 30 * m]
-#               out = [z:latent_dim, mu:latent_dim, logvar:latent_dim]
-# DepthDecoder: in = 128,
+#               out = [out: 128, z:latent_dim, mu:latent_dim, logvar:latent_dim]
+# CenterDecoder: in = 128,
 #               out = [center:2, depth:1]
 # -------------------------------------------------------------------------- #
 ##############################################################################
@@ -265,10 +265,9 @@ class TeacherTrainer(BasicTrainer):
                 'TAG': data['tag']
                 }
 
-    def plot_test(self, select_ind=None, select_num=8, autosave=False, notion='', **kwargs):
-        save_path = f'../saved/{notion}/'
+    def plot_test(self, select_ind=None, select_num=8, autosave=False, **kwargs):
         figs: dict = {}
-        self.loss.generate_indices(select_ind, select_num)
+        self.losslog.generate_indices(select_ind, select_num)
 
         figs.update(self.losslog.plot_predict(plot_terms=('GT', 'PRED')))
         figs.update(self.losslog.plot_latent(plot_terms={'LAT'}))
@@ -277,7 +276,7 @@ class TeacherTrainer(BasicTrainer):
 
         if autosave:
             for filename, fig in figs.items():
-                fig.savefig(f"{save_path}{filename}")
+                fig.savefig(f"{self.save_path}{filename}")
 
 
 # Student is Mask + Center + Depth
@@ -286,6 +285,7 @@ class StudentTrainer(BasicTrainer):
                  alpha=0.8,
                  mask=True,
                  recon_lossfunc=nn.MSELoss(),
+                 with_img_loss=False,
                  *args, **kwargs):
         super(StudentTrainer, self).__init__(*args, **kwargs)
 
@@ -294,6 +294,7 @@ class StudentTrainer(BasicTrainer):
 
         self.alpha = alpha
         self.recon_lossfunc = recon_lossfunc
+        self.with_img_loss = with_img_loss
         self.depth_loss = nn.MSELoss()
         self.center_loss = nn.MSELoss()
         self.mask = mask
@@ -345,13 +346,20 @@ class StudentTrainer(BasicTrainer):
             t_z, t_mu, t_logvar = self.models['imgen'](img)
             t_image = self.models['imgde'](t_z)
 
-        image_loss = self.img_loss(s_image, s_ctr, s_depth, data['rimg'])
         center_loss = self.center_loss(s_ctr, torch.squeeze(data['center']))
         depth_loss = self.depth_loss(s_depth, torch.squeeze(data['depth']))
         latent_loss, mu_loss, logvar_loss = self.kd_loss(s_mu, s_logvar, t_mu, t_logvar)
 
-        loss = image_loss * self.img_weight + \
+        if self.with_img_loss:
+            image_loss = self.img_loss(s_image, s_ctr, s_depth, data['rimg'])
+            loss = image_loss * self.img_weight + \
                center_loss * self.center_weight + \
+               depth_loss * self.depth_weight + \
+               latent_loss * self.latent_weight
+        else:
+            with torch.no_grad():
+                image_loss = self.img_loss(s_image, s_ctr, s_depth, data['rimg'])
+            loss = center_loss * self.center_weight + \
                depth_loss * self.depth_weight + \
                latent_loss * self.latent_weight
 
@@ -372,8 +380,7 @@ class StudentTrainer(BasicTrainer):
                 'S_DPT': s_depth,
                 'TAG': data['tag']}
 
-    def plot_test(self, select_ind=None, select_num=8, autosave=False, notion='', **kwargs):
-        save_path = f'../saved/{notion}/'
+    def plot_test(self, select_ind=None, select_num=8, autosave=False, **kwargs):
         figs: dict = {}
         self.losslog.generate_indices(select_ind, select_num)
 
@@ -386,7 +393,7 @@ class StudentTrainer(BasicTrainer):
 
         if autosave:
             for filename, fig in figs.items():
-                fig.savefig(f"{save_path}{filename}")
+                fig.savefig(f"{self.save_path}{filename}")
 
 
 if __name__ == '__main__':

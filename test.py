@@ -39,5 +39,11 @@ class My:
 
         self.hello = hello
 
-
-print(np.squeeze(np.array([[[1]]])))
+class New:
+    def __init__():
+        self.name = 1
+        self.age = 2
+        
+cl = New()
+for attr in ('name', 'age'):
+    print(getattr(cl, a1))

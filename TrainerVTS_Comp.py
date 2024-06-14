@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import os
 from Trainer import BasicTrainer
 from Model import *
-from Loss import MyLoss, MyLossBBX
+from Loss import MyLossLog, MyLossBBX
 
 version = 'V06C1Comp'
 
@@ -152,7 +152,7 @@ class TeacherTrainer(BasicTrainer):
         super(TeacherTrainer, self).__init__(*args, **kwargs)
 
         self.img_mode = 'rimg'
-        self.modality = {self.img_mode, 'tag', 'ind'}
+        self.modality = {self.img_mode, 'tag'}
 
         self.beta = beta
         self.recon_lossfunc = recon_lossfunc
@@ -160,7 +160,7 @@ class TeacherTrainer(BasicTrainer):
 
         self.loss_terms = ('LOSS', 'KL', 'RECON')
         self.pred_terms = ('GT', 'PRED', 'LAT', 'TAG')
-        self.loss = MyLoss(name=self.name,
+        self.losslog = MyLossLog(name=self.name,
                            loss_terms=self.loss_terms,
                            pred_terms=self.pred_terms)
 
@@ -187,20 +187,17 @@ class TeacherTrainer(BasicTrainer):
                 }
 
     def plot_test(self, select_ind=None, select_num=8, autosave=False, notion='', **kwargs):
-        save_path = f'../saved/{notion}/'
-        figs = []
-        self.loss.generate_indices(select_ind, select_num)
+        figs: dict = {}
+        self.losslog.generate_indices(select_ind, select_num)
 
-        figs.append(self.loss.plot_predict(plot_terms=('GT', 'PRED')))
-        figs.append(self.loss.plot_latent(plot_terms={'LAT'}))
-        figs.append(self.loss.plot_test(plot_terms='all'))
-        # figs.append(self.loss.plot_tsne(plot_terms=('GT', 'LAT', 'PRED')))
+        figs.update(self.losslog.plot_predict(plot_terms=('GT', 'PRED')))
+        figs.update(self.losslog.plot_latent(plot_terms={'LAT'}))
+        figs.update(self.losslog.plot_test(plot_terms='all'))
+        # figs.update(self.losslog.plot_tsne(plot_terms=('GT', 'LAT', 'PRED')))
 
         if autosave:
-            if not os.path.exists(save_path):
-                os.makedirs(save_path)
-            for fig, filename in figs:
-                fig.savefig(f"{save_path}{notion}_{filename}")
+            for filename, fig in figs.items():
+                fig.savefig(f"{self.save_path}{filename}")
 
 
 class StudentTrainer(BasicTrainer):
@@ -212,7 +209,7 @@ class StudentTrainer(BasicTrainer):
         super(StudentTrainer, self).__init__(*args, **kwargs)
 
         self.img_mode = 'rimg'
-        self.modality = {self.img_mode, 'csi', 'tag', 'ind'}
+        self.modality = {self.img_mode, 'csi', 'tag'}
 
         self.alpha = alpha
         self.recon_lossfunc = recon_lossfunc
@@ -220,7 +217,7 @@ class StudentTrainer(BasicTrainer):
 
         self.loss_terms = ('LOSS', 'MU', 'LOGVAR', 'IMG')
         self.pred_terms = ('GT', 'T_PRED', 'S_PRED', 'T_LATENT', 'S_LATENT', 'TAG')
-        self.loss = MyLoss(name=self.name,
+        self.losslog = MyLossLog(name=self.name,
                            loss_terms=self.loss_terms,
                            pred_terms=self.pred_terms)
 
@@ -255,20 +252,17 @@ class StudentTrainer(BasicTrainer):
                 'TAG': data['tag']}
 
     def plot_test(self, select_ind=None, select_num=8, autosave=False, notion='', **kwargs):
-        save_path = f'../saved/{notion}/'
-        figs = []
-        self.loss.generate_indices(select_ind, select_num)
+        figs: dict = {}
+        self.losslog.generate_indices(select_ind, select_num)
 
-        figs.append(self.loss.plot_predict(plot_terms=('GT', 'T_PRED', 'S_PRED')))
-        figs.append(self.loss.plot_latent(plot_terms=('T_LATENT', 'S_LATENT')))
-        figs.append(self.loss.plot_test(plot_terms='all'))
-        # figs.append(self.loss.plot_tsne(plot_terms=('GT', 'T_LATENT', 'S_LATENT')))
+        figs.update(self.losslog.plot_predict(plot_terms=('GT', 'T_PRED', 'S_PRED')))
+        figs.update(self.losslog.plot_latent(plot_terms=('T_LATENT', 'S_LATENT')))
+        figs.update(self.losslog.plot_test(plot_terms='all'))
+        # figs.update(self.losslog.plot_tsne(plot_terms=('GT', 'T_LATENT', 'S_LATENT')))
 
         if autosave:
-            if not os.path.exists(save_path):
-                os.makedirs(save_path)
-            for fig, filename in figs:
-                fig.savefig(f"{save_path}{notion}_{filename}")
+            for filename, fig in figs.items():
+                fig.savefig(f"{self.save_path}{filename}")
 
 
 class StudentTrainerBBX(StudentTrainer):
@@ -317,7 +311,7 @@ class StudentTrainerBBX(StudentTrainer):
             if not os.path.exists(save_path):
                 os.makedirs(save_path)
             for fig, filename in figs:
-                fig.savefig(f"{save_path}{notion}_{filename}")
+                fig.savefig(f"{self.save_path}{filename}")
 
 
 class StudentTrainer2(StudentTrainer):

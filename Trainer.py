@@ -89,8 +89,8 @@ class BasicTrainer:
     def __init__(self, name, networks,
                  epochs, cuda,
                  train_loader, valid_loader, test_loader,
-                 notion,
                  loss_optimizer: dict,
+                 notion = None,
                  *args, **kwargs
                  ):
         self.name = name
@@ -176,8 +176,7 @@ class BasicTrainer:
                 params.append({'params': value})
                 
         for loss, [optimizer, lr] in self.loss_optimizer.items():
-            self.losslog.loss[loss].optimizer = optimizer(params, lr)
-            self.losslog.loss[loss].lr.append(lr)
+            self.losslog.loss[loss].set_optimizer(optimizer, lr, params)
 
         # ===============train and validate each epoch==============
         train_range = range(1000) if early_stop else range(self.epochs)
@@ -256,6 +255,7 @@ class BasicTrainer:
                 self.losslog.decay(0.5)
                     
             if early_stop and self.early_stopping.stop_flag:
+                self.losslog.in_training = False
                 if 'save_model' in kwargs.keys() and kwargs['save_model'] is False:
                     break
                 else:
@@ -339,7 +339,7 @@ class BasicTrainer:
         self.plot_test(select_num=8, autosave=autosave)
         self.test(loader='test')
         self.plot_test(select_num=8, autosave=autosave)
-        self.losslog.save('pred', self.save_path)
+        self.losslog.save('preds', self.save_path)
         print(f'\n\033[32m{self.name} schedule Completed!\033[0m')
         return model
 

@@ -4,9 +4,8 @@ from torchinfo import summary
 import numpy as np
 import os
 from Trainer import BasicTrainer
-from Loss import MyLoss
+from Loss import MyLossLog
 from Model import *
-from TrainerVTS_V06C1 import ImageDecoder
 
 ##############################################################################
 # -------------------------------------------------------------------------- #
@@ -255,7 +254,42 @@ class ImageEncoder(BasicImageEncoder):
         z = self.fc(out.view(-1, 4 * 4 * 512))
 
         return z
+    
+class ImageDecoder(BasicImageDecoder):
+    def __init__(self, *args, **kwargs):
+        super(ImageDecoder, self).__init__(*args, **kwargs)
 
+        channels = [512, 256, 256, 128, 128, 1]
+        block = []
+        for i in range(len(channels) - 1):
+            block.extend([nn.ConvTranspose2d(channels[i], channels[i+1], 4, 2, 1),
+                          batchnorm_layer(channels[i+1], self.batchnorm),
+                          nn.LeakyReLU(inplace=True)])
+        # Replace the last LeakyReLU
+        block.pop()
+        self.cnn = nn.Sequential(*block, self.active_func)
+
+        # 512 * 4 * 4
+        # 256 * 8 * 8
+        # 256 * 16 * 16
+        # 128 * 32 * 32
+        # 128 * 64 * 64
+        # 1 * 128 * 128
+
+        self.fclayers = nn.Sequential(
+            nn.Linear(self.latent_dim, 1024),
+            nn.ReLU(),
+            nn.Linear(1024, 8192),
+            nn.ReLU()
+        )
+
+    def __str__(self):
+        return f"IMGDE{version}"
+
+    def forward(self, x):
+        out = self.fclayers(x)
+        out = self.cnn(out.view(-1, 512, 4, 4))
+        return out.view(-1, 1, 128, 128)
 
 class CSIEncoder(BasicCSIEncoder):
     def __init__(self, out_length, *args, **kwargs):
@@ -311,7 +345,7 @@ class CompTrainer(BasicTrainer):
         self.loss_terms = {'LOSS'}
         self.pred_terms = ('GT', 'PRED', 'TAG') if mode == 'wi2vi' else ('GT', 'PRED', 'LAT', 'TAG')
 
-        self.loss = MyLoss(name=self.name,
+        self.losslog = MyLossLog(name=self.name,
                            loss_terms=self.loss_terms,
                            pred_terms=self.pred_terms)
 
@@ -367,24 +401,21 @@ class CompTrainer(BasicTrainer):
                     'TAG': data['tag']}
 
     def plot_test(self, select_ind=None, select_num=8, autosave=False, notion='', **kwargs):
-        save_path = f'../saved/{notion}/'
-        figs = []
-        self.loss.generate_indices(select_ind, select_num)
+        figs: dict = {}
+        self.losslog.generate_indices(select_ind, select_num)
 
-        figs.append(self.loss.plot_predict(plot_terms=('GT', 'PRED')))
-        figs.append(self.loss.plot_test(plot_terms='all'))
-        figs.append(self.loss.plot_test_cdf(plot_terms='all'))
+        figs.update(self.losslog.plot_predict(plot_terms=('GT', 'PRED')))
+        figs.update(self.losslog.plot_test(plot_terms='all'))
+        figs.update(self.losslog.plot_test_cdf(plot_terms='all'))
         if self.mode in ('ae', 'vae', 'ae_t'):
-            figs.append(self.loss.plot_latent(plot_terms={'LAT'}))
-            # figs.append(self.loss.plot_tsne(plot_terms=('GT', 'LAT', 'PRED')))
+            figs.update(self.losslog.plot_latent(plot_terms={'LAT'}))
+            # figs.update(self.loss.plot_tsne(plot_terms=('GT', 'LAT', 'PRED')))
         # else:
-            # figs.append(self.loss.plot_tsne(plot_terms=('GT', 'PRED')))
+            # figs.update(self.loss.plot_tsne(plot_terms=('GT', 'PRED')))
 
         if autosave:
-            if not os.path.exists(save_path):
-                os.makedirs(save_path)
-            for fig, filename in figs:
-                fig.savefig(f"{save_path}{notion}_{filename}")
+            for filename, fig in figs.items():
+                fig.savefig(f"{self.save_path}{filename}")
 
 
 class CompTrainerAEStudent(BasicTrainer):
@@ -399,7 +430,7 @@ class CompTrainerAEStudent(BasicTrainer):
         self.kd_loss = nn.MSELoss()
         self.loss_terms = ('LOSS', 'IMG')
         self.pred_terms = ('GT', 'T_PRED', 'S_PRED', 'T_LATENT', 'S_LATENT', 'TAG')
-        self.loss = MyLoss(name=self.name,
+        self.losslog = MyLossLog(name=self.name,
                            loss_terms=self.loss_terms,
                            pred_terms=self.pred_terms)
 
@@ -427,20 +458,18 @@ class CompTrainerAEStudent(BasicTrainer):
 
     def plot_test(self, select_ind=None, select_num=8, autosave=False, notion='', **kwargs):
         save_path = f'../saved/{notion}/'
-        figs = []
-        self.loss.generate_indices(select_ind, select_num)
+        figs: dict = {}
+        self.losslog.generate_indices(select_ind, select_num)
 
-        figs.append(self.loss.plot_predict(plot_terms=('GT', 'T_PRED', 'S_PRED')))
-        figs.append(self.loss.plot_latent(plot_terms=('T_LATENT', 'S_LATENT'), ylim=None))
-        figs.append(self.loss.plot_test(plot_terms='all'))
-        figs.append(self.loss.plot_test_cdf(plot_terms='all'))
-        # figs.append(self.loss.plot_tsne(plot_terms=('GT', 'T_LATENT', 'S_LATENT')))
+        figs.update(self.losslog.plot_predict(plot_terms=('GT', 'T_PRED', 'S_PRED')))
+        figs.update(self.losslog.plot_latent(plot_terms=('T_LATENT', 'S_LATENT'), ylim=None))
+        #figs.update(self.losslog.plot_test(plot_terms='all'))
+        figs.update(self.losslog.plot_test_cdf(plot_terms='all'))
+        # figs.update(self.losslog.plot_tsne(plot_terms=('GT', 'T_LATENT', 'S_LATENT')))
 
         if autosave:
-            if not os.path.exists(save_path):
-                os.makedirs(save_path)
-            for fig, filename in figs:
-                fig.savefig(f"{save_path}{notion}_{filename}")
+            for filename, fig in figs.items():
+                fig.savefig(f"{self.save_path}{filename}")
 
 
 if __name__ == "__main__":

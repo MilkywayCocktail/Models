@@ -182,7 +182,7 @@ class MyDataset(Data.Dataset):
         :return: all modalities
         """
 
-        ret = {key: self.__transform__(value[index]) if key in ('rimg', 'cimg') else value[index]
+        ret = {key: self.__transform__(value[index]) if key in ('rimg', 'cimg') else torch.from_numpy(value[index])
                for key, value in self.data.items()
                }
 
