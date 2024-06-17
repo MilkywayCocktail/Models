@@ -34,16 +34,10 @@ def wrap_with_attributes(cls):
 class My:
     def __init__(self, x):
         self.x = x
+
+        @wrap_with_attributes(self)
         def hello():
             print("Hello!")
 
         self.hello = hello
-
-class New:
-    def __init__():
-        self.name = 1
-        self.age = 2
         
-cl = New()
-for attr in ('name', 'age'):
-    print(getattr(cl, a1))
