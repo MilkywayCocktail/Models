@@ -44,7 +44,9 @@ class ExtraParams:
 
 class EarlyStopping:
 
-    def __init__(self, early_stop_max=20, lr_decay_max=5, verbose=True, delta=0, *args, **kwargs):
+    def __init__(self, min_epoch=200, early_stop_max=20, lr_decay_max=5, verbose=True, delta=0, *args, **kwargs):
+
+        self.min_epoch = min_epoch
 
         self.early_stop_max = early_stop_max
         self.early_stop_counter = 0
@@ -62,6 +64,9 @@ class EarlyStopping:
     def __call__(self, val_loss, early_stop=True, lr_decay=True):
         self.total_epochs += 1
         self.decay_flag = False
+        if self.min_epoch !=0 and self.total_epochs < self.min_epoch:
+            return
+        
         if early_stop:
             if val_loss >= self.best_valid_loss:
                 self.early_stop_counter += 1
@@ -205,7 +210,7 @@ class BasicTrainer:
                     print(f"{self.name} train: epoch={epoch}/{train_range[-1]}, "
                           f"batch={idx}/{len(self.dataloader['train'])}, "
                           f"loss={self.temp_loss['LOSS'].item():.4f}, "
-                          f"current best valid loss={self.best_val_loss:.4f}    ", flush=True)
+                          f"current best valid loss={self.best_val_loss:.4f} @ epoch {self.best_vloss_ep}    ", flush=True)
 
             for key, value in EPOCH_LOSS.items():
                 EPOCH_LOSS[key] = np.average(value)
@@ -241,7 +246,7 @@ class BasicTrainer:
                     print(f"{self.name} valid: epoch={epoch}/{train_range[-1]}, "
                           f"batch={idx}/{len(self.dataloader['valid'])}, "
                           f"loss={self.temp_loss['LOSS'].item():.4f}, "
-                          f"current best valid loss={self.best_val_loss:.4f}        ", flush=True)
+                          f"current best valid loss={self.best_val_loss:.4f} @ epoch {self.best_vloss_ep}        ", flush=True)
 
                 with open(f"{self.save_path}{self.name}_trained.txt", 'w') as logfile:
                     logfile.write(f"{self.notion}_{self.name}\n"
