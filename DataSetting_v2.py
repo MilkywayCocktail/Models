@@ -182,7 +182,7 @@ class MyDataset(Data.Dataset):
         :return: all modalities
         """
 
-        ret = {key: self.__transform__(value[index]) if key in ('rimg', 'cimg') else torch.from_numpy(value[index])
+        ret = {key: self.__transform__(value[index].copy()) if key in ('rimg', 'cimg') else torch.from_numpy(value[index].copy())
                for key, value in self.data.items()
                }
 
@@ -201,6 +201,8 @@ class DataSplitter:
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.distributed = distributed
+        
+        # Untested
         if self.distributed:
             os.environ['MASTER_ADDR'] = 'localhost'
             os.environ['MASTER_PORT'] = '5550'

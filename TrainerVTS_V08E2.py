@@ -15,7 +15,7 @@ version = 'V08E1'
 # -------------------------------------------------------------------------- #
 # Version V08E1
 # Teacher learns and estimates cropped images
-# Student learns (6, 30, m) CSIs and (4) filtered PhaseDiffs
+# Student learns (6, 30, m) CSIs and (62) filtered PhaseDiffs
 # A new branch for learning median-filtered PhaseDiff
 # Student adopts whole image loss
 # Student adopts 1 / size as the weight of image loss
@@ -26,7 +26,7 @@ version = 'V08E1'
 #               out = [z:latent_dim, mu:latent_dim, logvar:latent_dim]
 # ImageDecoder: in = 1 * latent_dim,
 #               out = 128 * 128
-# CSIEncoder: in = [6 * 30 * m], [4]
+# CSIEncoder: in = [6 * 30 * m], [62]
 #               out = [out:256, z:latent_dim, mu:latent_dim, logvar:latent_dim]
 # CenterSDecoder: in = 256,
 #               out = [center:2, depth:1]
@@ -177,6 +177,7 @@ class CSIEncoder(BasicCSIEncoder):
         self.csi_feature_length = 128
         self.pd_feature_length = 128
         self.feature_length = 1536
+        self.pd_length = 62
 
         # 6 * 30 * 100
         # 128 * 28 * 98
@@ -198,12 +199,13 @@ class CSIEncoder(BasicCSIEncoder):
         self.lstm = nn.LSTM(self.lstm_feature_length, self.csi_feature_length, 2, batch_first=True, dropout=0.1)
         
         self.fc_feature = nn.Sequential(
-            nn.Linear(256, self.feature_length),
+            nn.Linear(self.csi_feature_length + self.pd_feature_length, 
+                      self.feature_length),
             nn.ReLU()
         )
         
         self.fc_pd = nn.Sequential(
-            nn.Linear(4, self.pd_feature_length),
+            nn.Linear(self.pd_length, self.pd_feature_length),
             nn.ReLU()
         )
 
@@ -222,7 +224,7 @@ class CSIEncoder(BasicCSIEncoder):
 
     def forward(self, csi, pd):
         fea_csi = self.cnn(csi)
-        fea_pd = self.fc_pd(pd.view(-1, 4))
+        fea_pd = self.fc_pd(pd)
         features, (final_hidden_state, final_cell_state) = self.lstm.forward(
             fea_csi.view(-1, 512 * 7, self.lstm_steps).transpose(1, 2))
         # 256-dim output

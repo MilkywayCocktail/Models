@@ -1,18 +1,22 @@
 import torch
 import torch.nn.functional as F
-import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
 import numpy as np
 import cv2
-from misc import plot_settings
-from PIL import Image
-from scipy import signal
-import cupy as cp
-import cupyx.scipy.ndimage as cnd
-import cupyx.scipy.signal as cps
 import os
 import pandas as pd
 from tqdm.notebook import tqdm
+
+import cupy as cp
+import cupyx.scipy.ndimage as cnd
+import cupyx.scipy.signal as cps
+
+import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
+from misc import plot_settings
+from PIL import Image
+from scipy import signal
+
+from skimage.metrics import structural_similarity as ssim
 
 class Estimates:
     def __init__(self, name, path=None, modality={'GT', 'PRED', 'S_PRED', 'GT_BBX', 'S_BBX', 'GT_CTR', 'S_CTR', 'GT_DPT', 'S_DPT', 'TAG'}):
@@ -104,10 +108,10 @@ class ResultCalculator(Estimates):
         self.center = {'vanilla': np.zeros((_len, 2), dtype=int),
                        'postprocessed': np.zeros((_len, 2), dtype=int)}
         
-        res = pd.DataFrame(np.zeros((_len, 5), dtype=float),
-                           columns=['mse', 'matched_mae', 'dev_x', 'dev_y', 'deviation'])
-        segres = pd.DataFrame(np.zeros((_seglen, 5), dtype=float),
-                              columns=['mse', 'matched_mae', 
+        res = pd.DataFrame(np.zeros((_len, 6), dtype=float),
+                           columns=['mse', 'matched_mae', 'ssim', 'dev_x', 'dev_y', 'deviation'])
+        segres = pd.DataFrame(np.zeros((_seglen, 6), dtype=float),
+                              columns=['mse', 'matched_mae', 'ssim',
                                        'dev_x', 'dev_y', 'deviation'])
         segments = pd.DataFrame(np.zeros((_seglen, 3)), dtype=int, columns=['take', 'group', 'segment'])
         
@@ -186,6 +190,8 @@ class ResultCalculator(Estimates):
                                                 (self.image_size[1], self.image_size[0]))
             self.result.loc[pred_ind, (source, 'mse')] = F.mse_loss(torch.from_numpy(self.resized[source][pred_ind]), 
                                                                     torch.from_numpy(self.gt[gt_ind])).numpy()
+            self.result.loc[pred_ind, (source, 'ssim')] = ssim(self.gt[gt_ind].squeeze(), self.resized[source][pred_ind].squeeze())
+            
             self.center[source][pred_ind] = self.find_center(self.resized[source][pred_ind])
                                 
         if self.result.loc[:, (source, 'mse')].isnull().values.any():
