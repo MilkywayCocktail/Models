@@ -245,8 +245,11 @@ class MyLossLog:
     def plot_predict(self, plot_terms, title=None):
         if title:
             title = f"{title} @ep{self.current_epoch}"
+            filename = f"{title}_{self.dataset}SET@ep{self.current_epoch}.jpg"
         else:
             title = f"{self.name} Image Predicts on {self.dataset} @ep{self.current_epoch}"
+            filename = f"{self.name}_PRED_{self.dataset}SET@ep{self.current_epoch}.jpg"
+            
         samples = np.array(self.preds['TAG']).astype(int)[self.select_inds]
 
         fig = self.__plot_settings__()
@@ -262,7 +265,7 @@ class MyLossLog:
                 axes[j].set_title(f"{'-'.join(map(str, map(int, samples[j])))}", fontweight="bold")
             subfigs[i].colorbar(img, ax=axes, shrink=0.8)
         plt.show()
-        filename = f"{self.name}_PRED_{self.dataset}SET@ep{self.current_epoch}.jpg"
+        
         return {filename: fig}
 
     def plot_latent(self, plot_terms, title=None, ylim: tuple = (-1, 1)):
@@ -382,6 +385,10 @@ class MyLossCTR(MyLossLog):
     def __init__(self, depth=False, *args, **kwargs):
         super(MyLossCTR, self).__init__(*args, **kwargs)
         self.depth = depth
+        self.gt_ctr = 'GT_CTR'
+        self.pred_ctr = 'S_CTR'
+        self.gt_dpt = 'GT_DPT'
+        self.pred_dpt = 'S_DPT'
 
     def plot_center(self, title=None):
         if title:
@@ -398,19 +405,19 @@ class MyLossCTR(MyLossLog):
             axes[j].set_xlim([0, 226])
             axes[j].set_ylim([0, 128])
             axes[j].set_title(f"{'-'.join(map(str, map(int, samples[j])))}", fontweight="bold")
-            x1, y1 = self.preds['GT_CTR'][ind]
+            x1, y1 = self.preds[self.gt_ctr][ind]
             x1 = int(x1 * 226)
             y1 = int(y1 * 128)
             axes[j].scatter(x1, y1, c='blue', marker=(5, 1), alpha=0.5, linewidths=5, label='GT_CTR')
             if self.depth:
-                axes[j].annotate(f"GT_DPT={self.preds['GT_DPT'][ind]:.2f}",
+                axes[j].annotate(f"GT_DPT={self.preds[self.gt_dpt][ind]:.2f}",
                                  (48, 20),
                                  fontsize=20, color='blue')
-                axes[j].annotate(f"Pred_DPT={self.preds['S_DPT'][ind]:.2f}",
+                axes[j].annotate(f"Pred_DPT={self.preds[self.pred_dpt][ind]:.2f}",
                                  (48, 10),
                                  fontsize=20, color='orange')
 
-            x2, y2 = self.preds['S_CTR'][ind]
+            x2, y2 = self.preds[self.pred_ctr][ind]
             x2 = int(x2 * 226)
             y2 = int(y2 * 128)
             axes[j].scatter(x2, y2, c='orange', marker=(5, 1), alpha=0.5, linewidths=5, label='S_CTR')

@@ -18,6 +18,8 @@ from scipy import signal
 
 from skimage.metrics import structural_similarity as ssim
 
+criteria = ['mse', 'matched_mae', 'matched_mae(m)', 'average_depth', 'dev_x', 'dev_y', 'deviation']
+
 class Estimates:
     def __init__(self, name, path=None, modality={'GT', 'PRED', 'S_PRED', 'GT_BBX', 'S_BBX', 'GT_CTR', 'S_CTR', 'GT_DPT', 'S_DPT', 'TAG'}):
         self.name = name
@@ -108,11 +110,10 @@ class ResultCalculator(Estimates):
         self.center = {'vanilla': np.zeros((_len, 2), dtype=int),
                        'postprocessed': np.zeros((_len, 2), dtype=int)}
         
-        res = pd.DataFrame(np.zeros((_len, 6), dtype=float),
-                           columns=['mse', 'matched_mae', 'ssim', 'dev_x', 'dev_y', 'deviation'])
-        segres = pd.DataFrame(np.zeros((_seglen, 6), dtype=float),
-                              columns=['mse', 'matched_mae', 'ssim',
-                                       'dev_x', 'dev_y', 'deviation'])
+        res = pd.DataFrame(np.zeros((_len, len(criteria)), dtype=float),
+                           columns=criteria)
+        segres = pd.DataFrame(np.zeros((_seglen, len(criteria)), dtype=float),
+                              columns=criteria)
         segments = pd.DataFrame(np.zeros((_seglen, 3)), dtype=int, columns=['take', 'group', 'segment'])
         
         self.result = pd.concat({'vanilla': res, 'postprocessed': res}, axis=1)
@@ -158,10 +159,10 @@ class ResultCalculator(Estimates):
             np.save(f'{save_path}{self.name}_matched-pp', self.matched['postprocessed'])
             np.save(f'{save_path}{self.name}_center', self.center['vanilla'])
             np.save(f'{save_path}{self.name}_center-pp', self.center['postprocessed'])
-            self.tags.to_csv(f'{self.name}_tags.csv', index=True)
-            self.seg_tags.to_csv(f'{self.name}_seg-tags.csv', index=False)
-        self.result.to_csv(f'{self.name}_result.csv', index=False)
-        self.seg_result.to_csv(f'{self.name}_seg_result.csv', index=False)
+            self.tags.to_csv(f'{save_path}{self.name}_tags.csv', index=True)
+            self.seg_tags.to_csv(f'{save_path}{self.name}_seg-tags.csv', index=False)
+        self.result.to_csv(f'{save_path}{self.name}_result.csv', index=False)
+        self.seg_result.to_csv(f'{save_path}{self.name}_seg_result.csv', index=False)
         print('Done!')
         
     @staticmethod
@@ -190,7 +191,7 @@ class ResultCalculator(Estimates):
                                                 (self.image_size[1], self.image_size[0]))
             self.result.loc[pred_ind, (source, 'mse')] = F.mse_loss(torch.from_numpy(self.resized[source][pred_ind]), 
                                                                     torch.from_numpy(self.gt[gt_ind])).numpy()
-            self.result.loc[pred_ind, (source, 'ssim')] = ssim(self.gt[gt_ind].squeeze(), self.resized[source][pred_ind].squeeze())
+            # self.result.loc[pred_ind, (source, 'ssim')] = ssim(self.gt[gt_ind].squeeze(), self.resized[source][pred_ind].squeeze())
             
             self.center[source][pred_ind] = self.find_center(self.resized[source][pred_ind])
                                 
@@ -238,12 +239,18 @@ class ResultCalculator(Estimates):
             im = _im.resize((int(self.image_size[1]*scale), int(self.image_size[0]*scale)),Image.BILINEAR)
             im = np.array(im).astype(float)
             
+            im_depth = im.sum() / (im != 0).sum()
+            # im = np.where(im > 0, 1., 0.)
+            
             gt_ind = self.gt_tags.loc[(self.gt_tags['take']==take) & (self.gt_tags['sample']==sample)].index.values[0]
             gt = np.squeeze(self.gt[gt_ind])
             
             _gt = Image.fromarray((gt * 255).astype(np.uint8))
             gt = _gt.resize((int(self.image_size[1]*scale), int(self.image_size[0]*scale)),Image.BILINEAR)
             gt = np.array(gt).astype(float)
+            
+            gt_depth = gt.sum() / (gt != 0).sum()
+            # gt = np.where(gt > 0, 1., 0.)
         
             # tmp = signal.correlate2d(gt, im, mode="full") 
             # Slow, use cupy version
@@ -260,8 +267,11 @@ class ResultCalculator(Estimates):
             gt_re = np.array(gt_re).astype(float) / 255.
             
             self.matched[source][pred_ind] = im_re
-            self.result.loc[pred_ind, (source, ['matched_mae', 'dev_x', 'dev_y', 'deviation'])] = [
-                np.mean(np.abs(gt_re - im_re)), x, y, np.sqrt(x**2+y**2)]
+            self.result.loc[pred_ind, (source, ['matched_mae', 'matched_mae(m)', 'average_depth', 'dev_x', 'dev_y', 'deviation'])] = [
+                np.mean(np.abs(gt_re - im_re)), 
+                np.mean(np.abs(np.where(gt_re > 0, 1., 0.) - np.where(im_re > 0, 1., 0.))), 
+                np.abs(gt_depth - im_depth),
+                x, y, np.sqrt(x**2+y**2)]
 
         print("Done!")
         
@@ -325,6 +335,8 @@ class ZeroEstimates(ResultCalculator):
         for (ind, take, group, segment, sample) in self.tags.itertuples():
             self.result.loc[ind, (source, 'mse')] = F.mse_loss(torch.from_numpy(self.resized[source][ind]), 
                                                                torch.from_numpy(self.gt[ind])).numpy()
+            self.result.loc[pred_ind, (source, 'ssim')] = ssim(self.gt[gt_ind].squeeze(),
+                                                               self.resized[source][pred_ind].squeeze())
     
     def matching_mae(self, *args, **kwargs):
         print(f"{self.name} calculating 2D correlation...", end='')
@@ -385,7 +397,9 @@ class BBXResultCalculator(ResultCalculator):
                         self.resized[source][pred_ind, y0:y0+h0, x0:x0+w0] = subject1
                         self.result.loc[pred_ind, (source, 'mse')] = self.loss(torch.from_numpy(self.resized[source][pred_ind]), 
                                                                                torch.from_numpy(self.gt[gt_ind])).numpy()
-
+                        self.result.loc[pred_ind, (source, 'ssim')] = ssim(self.gt[gt_ind].squeeze(),
+                                                               self.resized[source][pred_ind].squeeze())
+    
                     except Exception as e:
                         print(e)
                         print(x0, y0, w0, h0)
@@ -505,7 +519,9 @@ class CenterResultCalculator(ResultCalculator):
                 self.center[source][pred_ind] = self.find_center(self.resized[source][pred_ind])
                 self.result.loc[pred_ind, (source, 'mse')] = F.mse_loss(torch.from_numpy(self.resized[source][pred_ind]), 
                                                                         torch.from_numpy(self.gt[gt_ind])).numpy()
-
+                self.result.loc[pred_ind, (source, 'ssim')] = ssim(self.gt[gt_ind].squeeze(),
+                                                               self.resized[source][pred_ind].squeeze())
+    
             except Exception as e:
                 print(e)
                 print(x, y)
@@ -726,7 +742,6 @@ class ResultVisualize:
             
             if len(selected) >= self.nsamples:
                 selected = selected[:self.nsamples]
-            self.seg_selected = selected
 
         subfigs = fig.subfigures(nrows=len(scope) + 1, ncols=1)
 
@@ -836,7 +851,7 @@ class ResultProcess:
             
     def average_table(self, scope='all'):
         scope = list(self.subjects.keys()) if scope=='all' else scope
-        keys = ['mse', 'matched_mae', 'dev_x', 'dev_y', 'deviation']
+        keys = criteria
         vanilla_sample = pd.DataFrame(columns=keys)
         vanilla_segment = pd.DataFrame(columns=keys)
         postprocessed_sample = pd.DataFrame(columns=keys)

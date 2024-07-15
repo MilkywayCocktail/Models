@@ -91,10 +91,11 @@ class EarlyStopping:
 
 
 class BasicTrainer:
-    def __init__(self, name, networks,
+    def __init__(self, name, 
                  epochs, cuda,
                  train_loader, valid_loader, test_loader,
                  loss_optimizer: dict,
+                 networks = None,
                  notion = None,
                  *args, **kwargs
                  ):
@@ -115,14 +116,16 @@ class BasicTrainer:
         if isinstance(cuda, int):
             self.device = torch.device(f"cuda:{cuda}" if torch.cuda.is_available() else "cpu")
             self.extra_params = ExtraParams(self.device)
-            self.models = {network.name: network.to(self.device) for network in networks
-                           }
+            if networks:
+                self.models = {network.name: network.to(self.device) for network in networks
+                            }
         elif isinstance(cuda, list) or isinstance(cuda, tuple) or isinstance(cuda, set):
             self.thread = 'multi'
             self.ddp_setup(cuda=cuda)
             self.extra_params = ExtraParams(self.device)
-            self.models = {network.name: DDP(network.cuda()) for network in networks
-                           }
+            if networks:
+                self.models = {network.name: DDP(network.cuda()) for network in networks
+                            }
 
         self.modality = {'modality1', 'modality2', '...'}
 
@@ -182,11 +185,14 @@ class BasicTrainer:
                 
         for loss, [optimizer, lr] in self.loss_optimizer.items():
             self.losslog.loss[loss].set_optimizer(optimizer, lr, params)
+            
+        print(f"=========={self.notion} Training starting==========")
 
         # ===============train and validate each epoch==============
         train_range = range(1000) if early_stop else range(self.epochs)
         for epoch, _ in enumerate(train_range, start=1):
             # =====================train============================
+            print('')
             for model in train_module:
                 self.models[model].train()
             if eval_module:
@@ -207,10 +213,10 @@ class BasicTrainer:
                     EPOCH_LOSS[key].append(self.temp_loss[key].item())
 
                 if idx % 5 == 0:
-                    print(f"{self.name} train: epoch={epoch}/{train_range[-1]}, "
+                    print(f"\r{self.name} train: epoch={epoch}/{train_range[-1]}, "
                           f"batch={idx}/{len(self.dataloader['train'])}, "
                           f"loss={self.temp_loss['LOSS'].item():.4f}, "
-                          f"current best valid loss={self.best_val_loss:.4f} @ epoch {self.best_vloss_ep}    ", flush=True)
+                          f"current best valid loss={self.best_val_loss:.4f} @ epoch {self.best_vloss_ep}    ", flush=True, end='')
 
             for key, value in EPOCH_LOSS.items():
                 EPOCH_LOSS[key] = np.average(value)
@@ -243,10 +249,10 @@ class BasicTrainer:
                     self.best_vloss_ep = self.current_ep()
 
                 if idx % 5 == 0:
-                    print(f"{self.name} valid: epoch={epoch}/{train_range[-1]}, "
+                    print(f"\r{self.name} valid: epoch={epoch}/{train_range[-1]}, "
                           f"batch={idx}/{len(self.dataloader['valid'])}, "
                           f"loss={self.temp_loss['LOSS'].item():.4f}, "
-                          f"current best valid loss={self.best_val_loss:.4f} @ epoch {self.best_vloss_ep}        ", flush=True)
+                          f"current best valid loss={self.best_val_loss:.4f} @ epoch {self.best_vloss_ep}        ", flush=True, end='')
 
                 with open(f"{self.save_path}{self.name}_trained.txt", 'w') as logfile:
                     logfile.write(f"{self.notion}_{self.name}\n"
@@ -267,7 +273,7 @@ class BasicTrainer:
                     print(f"\033[32mEarly Stopping triggered. Saving @ epoch {epoch}...\033[0m")
                     for model in train_module:
                         torch.save(self.models[model].state_dict(),
-                                   f"{self.save_path}{self.name}_{self.models[model]}_best.pth")
+                                   f"{self.save_path}{self.name}_{model}_best.pth")
                     break
             print('')
             for key in EPOCH_LOSS.keys():
@@ -288,6 +294,8 @@ class BasicTrainer:
 
         EPOCH_LOSS = {loss: [] for loss in self.loss_terms}
         self.losslog.reset('test', 'pred', dataset=loader)
+        
+        print(f"=========={self.notion} Test starting==========\n")
 
         for idx, data in enumerate(self.dataloader[loader], 0):
             data_ = {}
@@ -330,10 +338,10 @@ class BasicTrainer:
 
     def save(self):
         print("Saving models...")
-        for model in self.models:
-            print(f"Saving {model}...")
-            torch.save(self.models[model].state_dict(),
-                       f"{self.save_path}{self.name}_{self.models[model]}@ep{self.current_ep()}.pth")
+        for modelname, model in self.models.items():
+            print(f"Saving {modelname}...")
+            torch.save(model.state_dict(),
+                       f"{self.save_path}{self.name}_{modelname}@ep{self.current_ep()}.pth")
         print("All saved!")
 
     def schedule(self, autosave=True, *args, **kwargs):
