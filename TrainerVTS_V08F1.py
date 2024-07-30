@@ -391,8 +391,8 @@ class StudentTrainer(BasicTrainer):
             t_cimage = self.models['cimgde'](t_z)
             t_rimage = self.models['rimgde'](t_z)
 
-        center_loss = self.center_loss(s_ctr, torch.squeeze(data['center']))
-        depth_loss = self.depth_loss(s_depth, torch.squeeze(data['depth']))
+        center_loss = self.recon_lossfunc(s_ctr, torch.squeeze(data['center']))
+        depth_loss = self.recon_lossfunc(s_depth, torch.squeeze(data['depth']))
         latent_loss, mu_loss, logvar_loss = self.kd_loss(s_mu, s_logvar, t_mu, t_logvar)
         feature_loss = self.feature_loss(s_feature, t_feature)
 

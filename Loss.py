@@ -244,7 +244,7 @@ class MyLossLog:
 
     def plot_predict(self, plot_terms, title=None):
         if title:
-            title = f"{title} @ep{self.current_epoch}"
+            title = f"{title} on {self.dataset} @ep{self.current_epoch}"
             filename = f"{title}_{self.dataset}SET@ep{self.current_epoch}.jpg"
         else:
             title = f"{self.name} Image Predicts on {self.dataset} @ep{self.current_epoch}"
@@ -270,7 +270,7 @@ class MyLossLog:
 
     def plot_latent(self, plot_terms, title=None, ylim: tuple = (-1, 1)):
         if title:
-            title = f"{title} @ep{self.current_epoch}"
+            title = f"{title} on {self.dataset} @ep{self.current_epoch}"
         else:
             title = f"{self.name} Latent Predicts on {self.dataset} @ep{self.current_epoch}"
         samples = np.array(self.preds['TAG']).astype(int)[self.select_inds]
@@ -334,7 +334,7 @@ class MyLossBBX(MyLossLog):
 
     def plot_bbx(self, title=None):
         if title:
-            title = f"{title} @ep{self.current_epoch}"
+            title = f"{title} on {self.dataset} @ep{self.current_epoch}"
         else:
             title = f"{self.name} Bounding Box Predicts on {self.dataset} @ep{self.current_epoch}"
         samples = np.array(self.preds['TAG']).astype(int)[self.select_inds]
@@ -385,14 +385,13 @@ class MyLossCTR(MyLossLog):
     def __init__(self, depth=False, *args, **kwargs):
         super(MyLossCTR, self).__init__(*args, **kwargs)
         self.depth = depth
-        self.gt_ctr = 'GT_CTR'
-        self.pred_ctr = 'S_CTR'
-        self.gt_dpt = 'GT_DPT'
-        self.pred_dpt = 'S_DPT'
+        self.ctr = ['GT_CTR', 'S_CTR']
+        self.dpt = ['GT_DPT', 'S_DPT']
+        self.color = ['blue', 'orange', 'green']
 
     def plot_center(self, title=None):
         if title:
-            title = f"{title} @ep{self.current_epoch}"
+            title = f"{title} on {self.dataset} @ep{self.current_epoch}"
         else:
             title = f"{self.name} Center Predicts on {self.dataset} @ep{self.current_epoch}"
         samples = np.array(self.preds['TAG']).astype(int)[self.select_inds]
@@ -402,29 +401,25 @@ class MyLossCTR(MyLossLog):
         axes = fig.subplots(nrows=2, ncols=np.ceil(self.select_num / 2).astype(int))
         axes = axes.flatten()
         for j, ind in enumerate(self.select_inds):
+            
             axes[j].set_xlim([0, 226])
             axes[j].set_ylim([0, 128])
             axes[j].set_title(f"{'-'.join(map(str, map(int, samples[j])))}", fontweight="bold")
-            x1, y1 = self.preds[self.gt_ctr][ind]
-            x1 = int(x1 * 226)
-            y1 = int(y1 * 128)
-            axes[j].scatter(x1, y1, c='blue', marker=(5, 1), alpha=0.5, linewidths=5, label='GT_CTR')
-            if self.depth:
-                axes[j].annotate(f"GT_DPT={self.preds[self.gt_dpt][ind]:.2f}",
-                                 (48, 20),
-                                 fontsize=20, color='blue')
-                axes[j].annotate(f"Pred_DPT={self.preds[self.pred_dpt][ind]:.2f}",
-                                 (48, 10),
-                                 fontsize=20, color='orange')
+            
+            for i, (ctr, dpt) in enumerate(zip(self.ctr, self.dpt)):
+                x, y = self.preds[ctr][ind]
+                x = int(x * 226)
+                y = int(y * 128)
+                axes[j].scatter(x, y, c=self.color[i], marker=(5, 1), alpha=0.5, linewidths=5, label=ctr)
+                
+                if self.depth:
+                    axes[j].annotate(f"{dpt}={self.preds[dpt][ind]:.2f}",
+                                    (48, 30 - 10 * i),
+                                    fontsize=20, color=self.color[i])
 
-            x2, y2 = self.preds[self.pred_ctr][ind]
-            x2 = int(x2 * 226)
-            y2 = int(y2 * 128)
-            axes[j].scatter(x2, y2, c='orange', marker=(5, 1), alpha=0.5, linewidths=5, label='S_CTR')
-
-            axes[j].axis('off')
-            axes[j].add_patch(Rectangle((0, 0), 226, 128, facecolor="#F0FFFF",
-                                        transform=axes[j].transAxes, zorder=-1))
+                axes[j].axis('off')
+                axes[j].add_patch(Rectangle((0, 0), 226, 128, facecolor="#F0FFFF",
+                                            transform=axes[j].transAxes, zorder=-1))
 
         axes[0].legend()
         plt.show()

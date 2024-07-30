@@ -21,7 +21,7 @@ from skimage.metrics import structural_similarity as ssim
 criteria = ['mse', 'matched_mae', 'matched_mae(m)', 'average_depth', 'dev_x', 'dev_y', 'deviation']
 
 class Estimates:
-    def __init__(self, name, path=None, modality={'GT', 'PRED', 'S_PRED', 'GT_BBX', 'S_BBX', 'GT_CTR', 'S_CTR', 'GT_DPT', 'S_DPT', 'TAG'}):
+    def __init__(self, name, path=None, modality={'GT', 'PRED', 'S_PRED', 'SR_PRED', 'GT_BBX', 'S_BBX', 'GT_CTR', 'S_CTR', 'GT_DPT', 'S_DPT', 'TAG'}):
         self.name = name
         self.path = path
         self.preds: dict = {}
@@ -96,7 +96,13 @@ class ResultCalculator(Estimates):
         self.gt = gt
         self.gt_tags, self.gt_seg_tags = gt_tag
         if self.preds:
-            self.img_pred = self.preds['S_PRED'] if 'S_PRED' in self.preds.keys() else self.preds['PRED']
+            if 'S_PRED' in self.preds.keys():
+                self.img_pred = self.preds['S_PRED']
+            elif 'SR_PRED' in self.preds.keys():
+                self.img_pred = self.preds['SR_PRED']
+            else:
+                self.img_pred = self.preds['PRED']
+
         self.image_size = (128, 226)  # in rows * columns
         self.postprocessed = False
         

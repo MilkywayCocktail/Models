@@ -71,12 +71,12 @@ class EarlyStopping:
             if val_loss >= self.best_valid_loss:
                 self.early_stop_counter += 1
                 if self.verbose:
-                    print(f"\033[32mEarly Stopping reporting: {self.early_stop_counter} out of {self.early_stop_max}\033[0m")
+                    print(f"\n\033[32mEarly Stopping reporting: {self.early_stop_counter} out of {self.early_stop_max}\033[0m")
                 if self.early_stop_counter >= self.early_stop_max:
                     if lr_decay:
                         self.lr_decay_counter += 1
                         if self.verbose:
-                            print(f"\033[32mLr decay reporting: {self.lr_decay_counter} out of {self.lr_decay_max}. "
+                            print(f"\n\033[32mLr decay reporting: {self.lr_decay_counter} out of {self.lr_decay_max}. "
                                 f"Decay rate = {0.5 ** self.lr_decay_counter}\033[0m")
                         if self.lr_decay_counter >= self.lr_decay_max:
                             self.stop_flag = True
@@ -275,7 +275,7 @@ class BasicTrainer:
                         torch.save(self.models[model].state_dict(),
                                    f"{self.save_path}{self.name}_{model}_best.pth")
                     break
-            print('')
+                
             for key in EPOCH_LOSS.keys():
                 EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
             self.losslog('valid', EPOCH_LOSS)

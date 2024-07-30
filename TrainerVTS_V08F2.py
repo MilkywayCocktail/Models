@@ -262,6 +262,8 @@ class TeacherTrainer(BasicTrainer):
                            loss_terms=self.loss_terms,
                            pred_terms=self.pred_terms,
                            depth=True)
+        self.losslog.pred_ctr = 'CTR_PRED'
+        self.losslog.pred_dpt = 'DPT_PRED'
         
         self.models = {'imgen': ImageEncoder(latent_dim=128).to(self.device),
                        'cimgde': ImageDecoder(latent_dim=128).to(self.device),
@@ -353,8 +355,8 @@ class StudentTrainer(BasicTrainer):
                               loss_terms=self.loss_terms,
                               pred_terms=self.pred_terms,
                               depth=True)
-        self.losslog.pred_ctr = 'T_CTR'
-        self.losslog.pred_dpt = 'T_DPT'
+        self.losslog.pred_ctr = 'S_CTR'
+        self.losslog.pred_dpt = 'S_DPT'
         
         self.models = {
             'imgen' : ImageEncoder(latent_dim=128).to(self.device),
@@ -403,7 +405,7 @@ class StudentTrainer(BasicTrainer):
         cimg = torch.where(data['cimg'] > 0, 1., 0.)
         rimg = data['rimg']
         s_feature, s_z, s_mu, s_logvar = self.models['csien'](csi=data['csi'], pd=data['pd'])
-        s_ctr, s_depth = self.models['ctrde'](s_feature)
+        s_center, s_depth = self.models['ctrde'](s_feature)
 
         # Enable / Disable grad from img_loss
         with torch.no_grad():
@@ -412,20 +414,20 @@ class StudentTrainer(BasicTrainer):
             t_z, t_mu, t_logvar, t_feature = self.models['imgen'](rimg)
             t_cimage = self.models['cimgde'](t_z)
             t_rimage = self.models['rimgde'](t_z)
-            t_ctr, t_depth = self.models['ctrde'](t_feature)
+            t_center, t_depth = self.models['ctrde'](t_feature)
 
         latent_loss, mu_loss, logvar_loss = self.kd_loss(s_mu, s_logvar, t_mu, t_logvar)
         feature_loss = self.feature_loss(s_feature, t_feature)
 
         if self.with_img_loss:
-            image_loss = self.recon_lossfunc(s_rimage, r_img)
+            image_loss = self.recon_lossfunc(s_rimage, rimg)
             loss = image_loss * self.img_weight + \
                latent_loss * self.latent_weight + \
                    feature_loss * self.feature_weight
         else:
             with torch.no_grad():
-                image_loss = self.recon_lossfunc(s_rimage, r_img)
-            loss = center_loss * self.center_weight + \
+                image_loss = self.recon_lossfunc(s_rimage, rimg)
+            loss = latent_loss * self.latent_weight + \
                    feature_loss * self.feature_weight
 
         self.temp_loss = {'LOSS': loss,
@@ -444,8 +446,10 @@ class StudentTrainer(BasicTrainer):
                 'TC_PRED': t_cimage,
                 'SC_PRED': s_cimage,
                 'GT_CTR': data['center'],
-                'T_CTR': t_ctr,
+                'S_CTR': s_center,
+                'T_CTR': t_center,
                 'GT_DPT': data['depth'],
+                'S_DPT': s_depth,
                 'T_DPT': t_depth,
                 'TAG': data['tag']}
 
