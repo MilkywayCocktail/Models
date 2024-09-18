@@ -113,6 +113,8 @@ class MyLossLog:
             os.makedirs(save_path)
         if save_term == 'preds':
             for key, value in self.preds.items():
+                if 'GT' in key:
+                    continue
                 print(f"Saving {save_term}: {key}...")
                 np.save(f"{save_path}{self.name}_{save_term}_{key}.npy", value)
         else:
@@ -387,7 +389,7 @@ class MyLossCTR(MyLossLog):
         self.depth = depth
         self.ctr = ['GT_CTR', 'S_CTR']
         self.dpt = ['GT_DPT', 'S_DPT']
-        self.color = ['blue', 'orange', 'green']
+        self.color = ['blue', 'orange', 'green', 'pink']
 
     def plot_center(self, title=None):
         if title:
@@ -406,20 +408,21 @@ class MyLossCTR(MyLossLog):
             axes[j].set_ylim([0, 128])
             axes[j].set_title(f"{'-'.join(map(str, map(int, samples[j])))}", fontweight="bold")
             
-            for i, (ctr, dpt) in enumerate(zip(self.ctr, self.dpt)):
+            for ci, ctr in enumerate(self.ctr):
                 x, y = self.preds[ctr][ind]
                 x = int(x * 226)
                 y = int(y * 128)
-                axes[j].scatter(x, y, c=self.color[i], marker=(5, 1), alpha=0.5, linewidths=5, label=ctr)
+                axes[j].scatter(x, y, c=self.color[ci], marker=(5, 1), alpha=0.5, linewidths=5, label=ctr)
                 
-                if self.depth:
+            if self.depth:
+                for di, dpt in enumerate(self.dpt):
                     axes[j].annotate(f"{dpt}={self.preds[dpt][ind]:.2f}",
-                                    (48, 30 - 10 * i),
-                                    fontsize=20, color=self.color[i])
+                                    (48, 30 - 10 * di),
+                                    fontsize=20, color=self.color[di])
 
-                axes[j].axis('off')
-                axes[j].add_patch(Rectangle((0, 0), 226, 128, facecolor="#F0FFFF",
-                                            transform=axes[j].transAxes, zorder=-1))
+            axes[j].axis('off')
+            axes[j].add_patch(Rectangle((0, 0), 226, 128, facecolor="#F0FFFF",
+                                        transform=axes[j].transAxes, zorder=-1))
 
         axes[0].legend()
         plt.show()

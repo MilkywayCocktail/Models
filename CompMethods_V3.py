@@ -169,12 +169,19 @@ class Wi2Vi(nn.Module):
 class AutoEncoder(nn.Module):
     name = 'ae'
 
-    def __init__(self, latent_dim=16, middle_dim = 512 * 7 * 7, 
+    def __init__(self, latent_dim=16, middle_dim = 512 * 7 * 7, mode='ae',
                  active_func=nn.Sigmoid()):
         super(AutoEncoder, self).__init__()
         self.latent_dim = latent_dim
         self.active_func = active_func
         self.middle_dim = middle_dim
+        
+        if mode == 'vae':
+            self.name = 'vae'
+            
+        self.out_dim = latent_dim
+        if mode == 'vae':
+            self.out_dim *= 2
 
         self.EnCNN = nn.Sequential(
             nn.Conv2d(6, 128, 5, 1, 1),
@@ -188,7 +195,7 @@ class AutoEncoder(nn.Module):
         self.EnFC = nn.Sequential(
             nn.Linear(self.middle_dim, 1024),
             nn.ReLU(),
-            nn.Linear(1024, self.latent_dim),
+            nn.Linear(1024, self.out_dim),
             nn.ReLU()
         )
 
@@ -215,18 +222,30 @@ class AutoEncoder(nn.Module):
         return f"AutoEncoder{self.latent_dim}"
 
     def forward(self, x):
-        x = self.EnCNN(x)
-        z = self.EnFC(x.view(-1, self.middle_dim))
-        out = self.DeFC(z)
-        out = self.DeCNN(out.view(-1, 128, 4, 4))
-        return z, out
+        if self.name == 'ae':
+            x = self.EnCNN(x)
+            z = self.EnFC(x.view(-1, self.middle_dim))
+            
+            out = self.DeFC(z)
+            out = self.DeCNN(out.view(-1, 128, 4, 4))
+            return z, out
+        elif self.name == 'vae':
+            x = self.EnCNN(x)
+            x = self.EnFC(x.view(-1, self.middle_dim))
+            
+            mu, logvar = x.view(-1, self.out_dim).chunk(2, dim=-1)
+            z = reparameterize(mu, logvar)
+            
+            out = self.DeFC(z)
+            out = self.DeCNN(out.view(-1, 128, 4, 4))
+            return mu, logvar, out
 
 
 class ImageEncoder(BasicImageEncoder):
-    def __init__(self, vae=False, *args, **kwargs):
+    def __init__(self, mode='ae', *args, **kwargs):
         super(ImageEncoder, self).__init__(*args, **kwargs)
 
-        self.vae = vae
+        self.mode = mode
         channels = [1, 128, 128, 256, 256, 512]
         block = []
         for i in range(len(channels) - 1):
@@ -242,20 +261,21 @@ class ImageEncoder(BasicImageEncoder):
         # 256 * 8 * 8
         # 512 * 4 * 4
 
-        self.fc = nn.Sequential(
-            nn.Linear(512 * 4 * 4, 4096),
-            nn.ReLU(),
-            nn.Linear(4096, self.latent_dim),
-            # self.active_func
-        )
-        
-        self.fc_mu = nn.Sequential(
-            nn.Linear(512 * 4 * 4, self.latent_dim)
-        )
-
-        self.fc_logvar = nn.Sequential(
-            nn.Linear(512 * 4 * 4, self.latent_dim)
-        )
+        if self.mode == 'vae':
+            self.fc = nn.Sequential(
+                nn.Linear(512 * 4 * 4, 4096),
+                nn.ReLU(),
+                nn.Linear(4096, 2 * self.latent_dim),
+                # self.active_func
+            )
+            
+        elif self.mode == 'ae':
+            self.fc = nn.Sequential(
+                nn.Linear(512 * 4 * 4, 4096),
+                nn.ReLU(),
+                nn.Linear(4096, self.latent_dim),
+                # self.active_func
+            )
 
     def __str__(self):
         return f"IMGEN{version}"
@@ -263,18 +283,14 @@ class ImageEncoder(BasicImageEncoder):
     def forward(self, x):
         out = self.cnn(x)
         out = out.view(-1, 4 * 4 * 512)
-        if self.vae:
-            mu = self.fc_mu(out)
-            logvar = self.fc_logvar(out)
-            z = reparameterize(mu, logvar)
-
-            return z, mu, logvar
-
-        else:
+        
+        if self.mode == 'ae':
             z = self.fc(out)
-
             return z
-
+        elif self.mode == 'vae':
+            mu, logvar = out.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
+            z = reparameterize(mu, logvar)
+            return z, mu, logvar
         
     
 class ImageDecoder(BasicImageDecoder):
@@ -313,11 +329,13 @@ class ImageDecoder(BasicImageDecoder):
         out = self.cnn(out.view(-1, 512, 4, 4))
         return out.view(-1, 1, 128, 128)
 
+
 class CSIEncoder(BasicCSIEncoder):
     def __init__(self, mode='vae', middle_dim = 512 * 7 * 7, *args, **kwargs):
         super(CSIEncoder, self).__init__(*args, **kwargs)
         self.mode = mode
         self.middle_dim = middle_dim
+        
         self.cnn = nn.Sequential(
             nn.Conv2d(6, 128, 5, 1, 1),
             batchnorm_layer(128, self.batchnorm),
@@ -330,49 +348,53 @@ class CSIEncoder(BasicCSIEncoder):
             nn.LeakyReLU(inplace=True),
         )
         
-        self.lstm = nn.LSTM(512 * 7, self.middle_dim, 2, batch_first=True, dropout=0.1)
+        self.lstm = nn.LSTM(512, self.middle_dim, 2, batch_first=True, dropout=0.1) if self.mode in ('tsvae', 'tsae') else None
         
-        self.fclayers = nn.Sequential(
-            nn.Linear(self.middle_dim, 1024),
-            nn.ReLU(),
-            nn.Linear(1024, self.latent_dim)
-            # nn.ReLU()
-        )
+        if self.mode == 'vae' or self.mode == 'tsvae':
+            self.fclayers = nn.Sequential(
+                nn.Linear(self.middle_dim, 1024),
+                nn.ReLU(),
+                nn.Linear(1024, 2 * self.latent_dim)
+                # nn.ReLU()
+            )
+            
+        elif self.mode == 'ae' or self.mode == 'tsae':
+            self.fclayers = nn.Sequential(
+                nn.Linear(self.middle_dim, 1024),
+                nn.ReLU(),
+                nn.Linear(1024, self.latent_dim)
+                # nn.ReLU()
+            )
         
-        self.fc_mu = nn.Sequential(
-            nn.Linear(self.middle_dim, 1024),
-            nn.ReLU(),
-            nn.Linear(1024, self.latent_dim)
-        )
-
-        self.fc_logvar = nn.Sequential(
-            nn.Linear(self.middle_dim, 1024),
-            nn.ReLU(),
-            nn.Linear(1024, self.latent_dim)
-        )
-
     def __str__(self):
         return f"CSIEN{version}"
 
     def forward(self, x):
         out = self.cnn(x)
         if self.mode == 'vae':
-            out = out.view(-1, self.middle_dim)
-            mu = self.fc_mu(out)
-            logvar = self.fc_logvar(out)
+            out = self.fclayers(out.view(-1, self.middle_dim))
+            mu, logvar = out.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
             z = reparameterize(mu, logvar)
             return z, mu, logvar
+            #return out
+        
         elif self.mode == 'ae':
-            out = out.view(-1, self.middle_dim)
-            z = self.fclayers(out)
+            z = self.fclayers(out.view(-1, self.middle_dim))
             return z
-        else:
+        
+        elif self.mode == 'tsae':
             features, (final_hidden_state, final_cell_state) = self.lstm.forward(
                 out.view(-1, 512 * 7, 75).transpose(1, 2))
-            mu = self.fc_mu(features[:, -1, :])
-            logvar = self.fc_logvar(features[:, -1, :])
+            z = self.fclayers(out)
+            return z
+        
+        elif self.mode == 'tsvae':
+            features, (final_hidden_state, final_cell_state) = self.lstm.forward(
+                out.view(-1, 512 * 7, 75).transpose(1, 2))
+            mu, logvar = out.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
             z = reparameterize(mu, logvar)
             return z, mu, logvar
+
 
 class CompTrainer(BasicTrainer):
     def __init__(self, mode='wi2vi',
@@ -565,6 +587,7 @@ class CompStudentTrainer(BasicTrainer):
 if __name__ == "__main__":
     #m1 = Wi2Vi()
     #summary(m1, input_size=(6, 30, 30))
-    m2 = AutoEncoder()
-    summary(m2, input_size=(6, 30, 30))
+
+    m2 = CSIEncoder(middle_dim=512*7*75, latent_dim=128).to(torch.device('cuda:1'))
+    summary(m2, input_size=(6, 30, 300))
 

@@ -13,6 +13,12 @@ import pickle
 
 from tqdm.notebook import tqdm
 
+remov = [('0709A10', 1, 8),
+         ('0709A10', 1, 9),
+         ('0709A53', 6, 6),
+         ('0709A53', 6, 7)]
+
+
 class Raw:
     """
     Store raw data and avoid being changed
@@ -73,8 +79,8 @@ class MyDataset(Dataset):
     def __init__(self,
                  data,
                  label,
-                 single_pd=True,
                  csi_len=300,
+                 single_pd=True,
                  *args, **kwargs):
 
         self.data = data
@@ -97,7 +103,7 @@ class MyDataset(Dataset):
 
     def __getitem__(self, index):
         """
-        On-the-fly: select samples. LAZY preprocess!
+        On-the-fly: select windowed CSI (and pd)
         """
         # Tag codes
         ret: dict = {}
@@ -106,24 +112,36 @@ class MyDataset(Dataset):
         ret['tag']['subject'] = self.subject_code[ret['tag']['subject']]
         ret['tag'] = ret['tag'].to_numpy().astype(int)
 
+        bag = self.label.iloc[index]['bag']
+        img_ind = int(self.label.iloc[index]['img_inds'])
+        csi = self.label.iloc[index]['csi']
+        csi_ind = int(self.label.iloc[index]['csi_inds'])
+        pd_ind = int(self.label.iloc[index]['csi_inds'])
+
+
         for modality, value in self.data.items():
             if modality in ('rimg', 'cimg', 'bbx', 'ctr', 'dpt'):
-                bag = self.label.iloc[index]['bag']
-                ind = int(self.label.iloc[index]['img_inds'])
-                ret[modality] = np.copy(value[bag][ind])
+                ret[modality] = np.copy(value[bag][img_ind])
                 if modality == 'rimg':
                     ret[modality] = ret[modality][np.newaxis, ...] # Did not make spare axis
 
-            elif modality in ('csi', 'pd'):
-                csi = self.label.iloc[index]['csi']
-                ind = int(self.label.iloc[index]['csi_inds'])
-                if not (self.single_pd and modality == 'pd'):
-                    if self.alignment == 'head':
-                        ind = np.arange(ind, ind + self.csi_len, dtype=int) 
-                    elif self.alignment == 'tail':
-                        ind = np.arange(ind - self.csi_len, ind, dtype=int)
+            elif modality == 'csi':
 
-                ret[modality] = np.copy(value[csi][ind]) # Assume csi is n * 30 * 3
+                if self.alignment == 'head':
+                    csi_ind = np.arange(csi_ind, csi_ind + self.csi_len, dtype=int) 
+                elif self.alignment == 'tail':
+                    csi_ind = np.arange(csi_ind - self.csi_len, csi_ind, dtype=int)
+
+                ret[modality] = np.copy(value[csi][csi_ind]) # Assume csi is n * 30 * 3
+                
+            elif modality == 'pd':
+                if not self.single_pd:
+                    if self.alignment == 'head':
+                        pd_ind = np.arange(pd_ind, pd_ind + self.csi_len, dtype=int) 
+                    elif self.alignment == 'tail':
+                        pd_ind = np.arange(pd_ind - self.csi_len, pd_ind, dtype=int)
+                        
+                ret[modality] = np.copy(value[csi][pd_ind])
                 
         return ret
 
@@ -187,7 +205,7 @@ class CrossValidator:
         self.level = level
         self.subset_ratio = subset_ratio
         
-        self.range = ['A308T'] if self.level == 'day' else list(set(self.labels.loc[:, level].values))
+        self.range = ['A308', 'A308T'] if self.level == 'day' else list(set(self.labels.loc[:, level].values))
         self.current = -1
         self.current_test = None
 
@@ -202,23 +220,27 @@ class CrossValidator:
         
         self.current_test = self.range[self.current]
         print(f"Fetched level {self.level}, {self.current + 1} of {len(self.range)}, current = {self.current_test}")
+                            
+        ran = set(self.range)
+        ran.remove(self.current_test)
 
         if self.level == 'day':
-            train_labels = self.labels[self.labels['env']=='A308']
-            test_labels = self.labels[self.labels['env']=='A308T']
+            train_labels = self.labels[self.labels['env']!=self.current_test]
+            test_labels = self.labels[self.labels['env']==self.current_test]
 
         else:
             # Select one as leave-1-out test
-            self.labels = self.labels[self.labels['env']!='A308T']
             train_labels = self.labels[self.labels[self.level]!=self.current_test]
             test_labels = self.labels[self.labels[self.level]==self.current_test]
-            
+                 
+
         if self.subset_ratio < 1:
-            train_subset_size = int(len(train_labels) * self.subset_ratio)
-            test_subset_size = int(len(test_labels) * self.subset_ratio)
             
-            print(f"Subset train len = {train_subset_size} from {len(train_labels)}\n"
-                  f"Subset test len = {test_subset_size} from {len(test_labels)}"
+            train_subset_size = int(len(train_labels) * self.subset_ratio)
+            test_subset_size = int(len(test_labels) * self.subset_ratio) 
+            
+            print(f" Train set range = {ran}, len = {train_subset_size} from {len(train_labels)}\n"
+                  f" Test set current = {self.current_test}, len = {test_subset_size} from {len(test_labels)}"
                   )
 
             train_subset_indices = torch.randperm(len(train_labels))[:train_subset_size]
@@ -226,8 +248,28 @@ class CrossValidator:
 
             train_labels = train_labels.iloc[train_subset_indices]
             test_labels = test_labels.iloc[test_subset_indices]
+            
+        else:
+            print(f" Train set range = {ran}, len = {train_labels}\n"
+                  f" Test set current = {self.current_test}, len = {test_labels}")
 
         return (train_labels, test_labels, self.current_test)
+    
+
+class Removal:
+    """
+    Remove unpaired segments from dataset.
+    """
+    def __init__(self, conditions):
+        self.conditions = conditions
+        # (csi, group, segment) tuples
+        
+    def __call__(self, labels):
+        for (csi, group, segment) in self.conditions:
+            removal = (labels['csi']==csi) & (labels['group']==group) & (labels['segment']==segment)
+            labels = labels.loc[~removal]
+        return labels
+
 
 class DataOrganizer:
     def __init__(self, name, data_path, level):
@@ -250,6 +292,10 @@ class DataOrganizer:
         self.train_labels = None
         self.test_labels = None
         self.current_test = None
+        
+        self.cross_validator = None
+        
+        self.removal = Removal(remov)
         
     def load(self):
         for dpath in self.data_path:
@@ -280,63 +326,63 @@ class DataOrganizer:
         # self.total_segment_labels['csi_inds'] = self.total_segment_labels['csi_inds'].apply(lambda x: list(map(int, x.strip('[]').split())))
             
     def gen_plan(self, subset_ratio=1, save=False):
-        self.cross_validator = CrossValidator(self.total_segment_labels, self.level, subset_ratio)   
+        if not self.cross_validator:
+            self.cross_validator = CrossValidator(self.total_segment_labels, self.level, subset_ratio)   
         
         if save:
-            with open(f'../dataset/Door_EXP/{self.level}.pkl', 'wb') as f:
-                plan = list(self.cross_validator)
+            print(f'Saving plan {self.level}...')
+            cross_validator = CrossValidator(self.total_segment_labels, self.level, subset_ratio) 
+            with open(f'../dataset/Door_EXP/{self.level}_r{subset_ratio}.pkl', 'wb') as f:
+                plan = list(cross_validator)
                 pickle.dump(plan, f)
-            print(f'Saved plan {self.level}!')
+                
+            print('Plan saved!\n')
             
-        else:
-            # Divide train and test
-            self.train_labels, self.test_labels, self.current_test = next(self.cross_validator)
+        # Divide train and test
+        self.train_labels, self.test_labels, self.current_test = next(self.cross_validator)
     
     def load_plan(self, path):
         with open(path, 'rb') as f:
             plan = pickle.load(f)
         self.cross_validator = iter(plan)
-        print(f'Loaded plan {self.cross_validator.level}!')
+        print(f'Loaded plan!')
     
     def gen_loaders(self, mode='s', train_ratio=0.8, batch_size=64, csi_len=300, single_pd=True, save_dataset=False):
-        if self.level == 'day':
-            print('Different day validation:\n train = A308, test = A308T')
-        else:
-            print(f'Different {self.level} validation:\n'
-                  f'train = {set(self.train_labels.loc[:, self.level].values)},\n'
-                  f'test = {self.current_test}\n'
-                )   
 
-        # Store tags in dataset
-                        
-        if save_dataset:
-            pass
+        print(f'Generating loaders for {mode}: level = {self.level}, current test = {self.current_test}')
+        data = self.data.copy()
         
-        #self.dataset = Subset(self.dataset, self.subset_indices)
-
-        print(f'Generating loaders for {mode}...')
         if mode == 't':
-            data = self.data.copy()
             data.pop('csi')
             data.pop('pd')
-            dataset = MyDataset(data, self.train_labels, csi_len, single_pd)
-            test_dataset = MyDataset(data, self.test_labels, csi_len, single_pd)
-        elif mode =='s':
-            print(self.data.keys())
-            dataset = MyDataset(self.data, self.train_labels)
-            test_dataset = MyDataset(self.data, self.test_labels)
+
+        else:
+            # if mode == 's'
+            self.train_labels = self.removal(self.train_labels)
+            self.test_labels = self.removal(self.test_labels)
+            
+            if mode == 'c':
+                data = self.data.copy()
+                data.pop('pd')
+                data.pop('cimg')
+                
+        dataset = MyDataset(data, self.train_labels, csi_len, single_pd)
+        test_dataset = MyDataset(data, self.test_labels, csi_len, single_pd)
+            
+        print(f' Train dataset length = {len(dataset)}\n'
+              f' Test dataset length = {len(test_dataset)}')
         
         # Generate loaders
         train_size = int(train_ratio * len(dataset))
         valid_size = len(dataset) - train_size
         train_set, valid_set = random_split(dataset, [train_size, valid_size])
         train_loader = DataLoader(train_set, 
-                                  batch_size=self.batch_size, 
+                                  batch_size=batch_size, 
                                   num_workers=14,
                                   drop_last=True, 
                                   pin_memory=True)
         valid_loader = DataLoader(valid_set, 
-                                    batch_size=self.batch_size, 
+                                    batch_size=batch_size, 
                                     num_workers=14,
                                     drop_last=True, 
                                     pin_memory=True)
@@ -345,9 +391,9 @@ class DataOrganizer:
                                     num_workers=14,
                                     pin_memory=True)
         
-        print(f" exported train loader of len {len(train_loader)}, batch size = {self.batch_size}\n"
-              f" exported valid loader of len {len(valid_loader)}, batch size = {self.batch_size}\n"
-              f" exported test loader of len {len(test_loader)}, batch size = 1\n")
+        print(f" Exported train loader of len {len(train_loader)}, batch size = {batch_size}\n"
+              f" Exported valid loader of len {len(valid_loader)}, batch size = {batch_size}\n"
+              f" Exported test loader of len {len(test_loader)}, batch size = 1\n")
         
         return train_loader, valid_loader, test_loader, self.current_test
     

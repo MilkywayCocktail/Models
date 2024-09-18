@@ -784,6 +784,7 @@ class ResultVisualize:
                     ax.plot([st[0], ed[0]], [st[1], ed[1]], color='red', linewidth=2)
         plt.show()
         self.count += 1
+        
         return {filename: fig}
     
 class ResultProcess:
