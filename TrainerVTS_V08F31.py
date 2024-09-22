@@ -339,7 +339,7 @@ class StudentTrainer(BasicTrainer):
         self.modality = {'cimg', 'rimg', 'csi', 'center', 'depth', 'pd', 'tag', 'ctr', 'dpt'}
 
         self.alpha = alpha
-        self.bce = nn.BCELoss()
+        self.bceloss = nn.BCELoss(reduction='sum')
         self.recon_lossfunc = recon_lossfunc
 
         self.loss_terms = ('LOSS', 'LATENT', 'MU', 'LOGVAR', 'FEATURE', 'IMG', 'CTR', 'DPT')
@@ -406,7 +406,7 @@ class StudentTrainer(BasicTrainer):
        
         center_loss = self.recon_lossfunc(s_center, torch.squeeze(data['center']))
         depth_loss = self.recon_lossfunc(s_depth, torch.squeeze(data['depth']))
-        image_loss = self.bceloss(s_cimage, cimg)
+        image_loss = self.bceloss(s_cimage, cimg) / s_cimage.shape[0]
         
         loss = feature_loss * self.feature_weight +\
             latent_loss * self.latent_weight +\

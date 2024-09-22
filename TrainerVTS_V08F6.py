@@ -263,7 +263,7 @@ class TeacherTrainer(BasicTrainer):
                            pred_terms=self.pred_terms,
                            depth=True)
         self.losslog.ctr = ['GT_CTR', 'CTR_PRED']
-        self.losslog.dpt = ['GT_DPT', 'DPT_PRED', 'DPT_POST']
+        self.losslog.dpt = ['GT_DPT', 'DPT_PRED']
         
         self.models = {'imgen': ImageEncoder(latent_dim=128).to(self.device),
                        'cimgde': ImageDecoder(latent_dim=128).to(self.device),
@@ -376,7 +376,7 @@ class StudentTrainer(BasicTrainer):
                 }
 
         self.latent_weight = 0.1
-        self.img_weight = 1.
+        self.img_weight = 1.e-3
         self.center_weight = 1.
         self.depth_weight = 1.
         self.feature_weight = 1.
@@ -410,15 +410,14 @@ class StudentTrainer(BasicTrainer):
        
         center_loss = self.center_loss(s_center, torch.squeeze(data['center']))
         depth_loss = self.depth_loss(s_depth, torch.squeeze(data['depth']))
-        image_loss = self.rimg_loss(s_rimage, rimg)
+        image_loss = self.rimg_loss(s_rimage, rimg) / s_rimage.shape[0]
         
         loss = feature_loss * self.feature_weight +\
             latent_loss * self.latent_weight +\
-            image_loss * self.img_weight +\
-            center_loss * self.center_weight
+            image_loss * self.img_weight
         
         if self.with_depth_loss:
-            loss += depth_loss
+            loss += depth_loss + center_loss
 
         self.temp_loss = {'LOSS': loss,
                           'LATENT': latent_loss,

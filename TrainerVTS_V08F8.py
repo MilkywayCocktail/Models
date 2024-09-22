@@ -350,7 +350,7 @@ class StudentTrainer(BasicTrainer):
         self.feature_loss = nn.MSELoss()
         self.cimg_loss = cimg_loss
 
-        self.loss_terms = ('LOSS', 'LATENT', 'MU', 'LOGVAR', 'FEATURE', 'CIMG', 'CTR', 'DPT')
+        self.loss_terms = ('LOSS', 'MU', 'LOGVAR', 'FEATURE', 'CIMG', 'CTR', 'DPT', 'REG')
         self.pred_terms = ('C_GT', 'R_GT',
                            'TR_PRED', 'SR_PRED',
                            'TC_PRED', 'SC_PRED',
@@ -380,6 +380,9 @@ class StudentTrainer(BasicTrainer):
         self.center_weight = 1.
         self.depth_weight = 1.
         self.feature_weight = 1.
+        
+        self.l1_lambda = 0.01
+        self.l2_lambda = 0.01
 
     def kd_loss(self, mu_s, logvar_s, mu_t, logvar_t):
         mu_loss = self.mse(mu_s, mu_t) / mu_s.shape[0]
@@ -412,21 +415,33 @@ class StudentTrainer(BasicTrainer):
         depth_loss = self.depth_loss(s_depth, torch.squeeze(data['depth']))
         image_loss = self.cimg_loss(s_cimage, cimg)
         
+        # L2 Regularization (Weight Decay)
+        l2_reg = torch.tensor(0., device=self.device)
+        for param in self.models['csien'].parameters():
+            l2_reg += torch.norm(param, 2)
+
+        # L1 Regularization
+        l1_reg = torch.tensor(0., device=self.device)
+        for param in self.models['csien'].parameters():
+            l1_reg += torch.norm(param, 1)
+        
         loss = feature_loss * self.feature_weight +\
             latent_loss * self.latent_weight +\
-            image_loss * self.img_weight
+            image_loss * self.img_weight +\
+                l2_reg * self.l2_lambda + l1_reg * self.l1_lambda
         
         if self.with_depth_loss:
             loss += depth_loss + center_loss
 
         self.temp_loss = {'LOSS': loss,
-                          'LATENT': latent_loss * self.latent_weight,
+                        #  'LATENT': latent_loss * self.latent_weight,
                           'MU': mu_loss * self.alpha,
                           'LOGVAR': logvar_loss * (1 - self.alpha),
                           'FEATURE': feature_loss * self.feature_weight,
                           'CIMG': image_loss * self.img_weight,
                           'CTR': center_loss * self.center_weight,
-                          'DPT': depth_loss * self.depth_weight
+                          'DPT': depth_loss * self.depth_weight,
+                          'REG': l2_reg * self.l2_lambda + l1_reg * self.l1_lambda
                           }
         
         return {'R_GT': rimg,

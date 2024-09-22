@@ -244,7 +244,7 @@ class TeacherTrainer(BasicTrainer):
                  *args, **kwargs):
         super(TeacherTrainer, self).__init__(*args, **kwargs)
 
-        self.modality = {'rimg', 'cimg', 'center', 'depth', 'tag'}
+        self.modality = {'rimg', 'cimg', 'center', 'depth', 'tag', 'ctr', 'dpt'}
 
         self.beta = beta
         self.recon_lossfunc = recon_lossfunc
@@ -262,8 +262,8 @@ class TeacherTrainer(BasicTrainer):
                            loss_terms=self.loss_terms,
                            pred_terms=self.pred_terms,
                            depth=True)
-        self.losslog.pred_ctr = 'CTR_PRED'
-        self.losslog.pred_dpt = 'DPT_PRED'
+        self.losslog.ctr = ['GT_CTR', 'CTR_PRED']
+        self.losslog.dpt = ['GT_DPT', 'DPT_PRED']
         
         self.models = {'imgen': ImageEncoder(latent_dim=128).to(self.device),
                        'cimgde': ImageDecoder(latent_dim=128).to(self.device),
@@ -337,7 +337,7 @@ class StudentTrainer(BasicTrainer):
                  *args, **kwargs):
         super(StudentTrainer, self).__init__(*args, **kwargs)
 
-        self.modality = {'cimg', 'rimg', 'csi', 'center', 'depth', 'pd', 'tag'}
+        self.modality = {'cimg', 'rimg', 'csi', 'center', 'depth', 'pd', 'tag', 'ctr', 'dpt'}
 
         self.alpha = alpha
         self.recon_lossfunc = recon_lossfunc
@@ -427,7 +427,7 @@ class StudentTrainer(BasicTrainer):
         depth_loss = self.recon_lossfunc(s_depth, torch.squeeze(data['depth']))
         image_loss = self.recon_lossfunc(s_rimage, rimg)
         if self.with_cimg_loss:
-            image_loss += self.recon_lossfunc(s_cimage, cimg)      
+            image_loss += self.recon_lossfunc(s_cimage, cimg)
         
         loss = feature_loss * self.feature_weight +\
             latent_loss * self.latent_weight +\

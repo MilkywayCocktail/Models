@@ -387,7 +387,7 @@ class StudentTrainer(BasicTrainer):
 
     def kd_loss(self, mu_s, logvar_s, mu_t, logvar_t):
         # kl_loss = -0.5 * torch.sum(1 + logvar_s - mu_s.pow(2) - logvar_s.exp())
-        kl_loss = self.kld(self.softmax(mu_s), mu_t) / mu_s.shape[0]
+        kl_loss = self.kld(self.softmax(mu_s), self.softmax(mu_t)) / mu_s.shape[0]
         mu_loss = self.mse(mu_s, mu_t) / mu_s.shape[0]
         logvar_loss = self.mse(logvar_s, logvar_t) / logvar_s.shape[0]
         latent_loss = self.alpha * mu_loss + (1 - self.alpha) * logvar_loss + self.beta * kl_loss
