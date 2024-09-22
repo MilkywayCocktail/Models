@@ -169,20 +169,13 @@ class Wi2Vi(nn.Module):
 class AutoEncoder(nn.Module):
     name = 'ae'
 
-    def __init__(self, latent_dim=16, middle_dim = 512 * 7 * 7, mode='ae',
+    def __init__(self, latent_dim=16, middle_dim = 512 * 7 * 7, 
                  active_func=nn.Sigmoid()):
         super(AutoEncoder, self).__init__()
         self.latent_dim = latent_dim
         self.active_func = active_func
         self.middle_dim = middle_dim
         
-        if mode == 'vae':
-            self.name = 'vae'
-            
-        self.out_dim = latent_dim
-        if mode == 'vae':
-            self.out_dim *= 2
-
         self.EnCNN = nn.Sequential(
             nn.Conv2d(6, 128, 5, 1, 1),
             nn.LeakyReLU(inplace=True),
@@ -222,23 +215,13 @@ class AutoEncoder(nn.Module):
         return f"AutoEncoder{self.latent_dim}"
 
     def forward(self, x):
-        if self.name == 'ae':
-            x = self.EnCNN(x)
-            z = self.EnFC(x.view(-1, self.middle_dim))
-            
-            out = self.DeFC(z)
-            out = self.DeCNN(out.view(-1, 128, 4, 4))
-            return z, out
-        elif self.name == 'vae':
-            x = self.EnCNN(x)
-            x = self.EnFC(x.view(-1, self.middle_dim))
-            
-            mu, logvar = x.view(-1, self.out_dim).chunk(2, dim=-1)
-            z = reparameterize(mu, logvar)
-            
-            out = self.DeFC(z)
-            out = self.DeCNN(out.view(-1, 128, 4, 4))
-            return mu, logvar, out
+
+        x = self.EnCNN(x)
+        z = self.EnFC(x.view(-1, self.middle_dim))
+        
+        out = self.DeFC(z)
+        out = self.DeCNN(out.view(-1, 128, 4, 4))
+        return z, out
 
 
 class ImageEncoder(BasicImageEncoder):

@@ -325,14 +325,14 @@ class DataOrganizer:
                      
         # self.total_segment_labels['csi_inds'] = self.total_segment_labels['csi_inds'].apply(lambda x: list(map(int, x.strip('[]').split())))
             
-    def gen_plan(self, subset_ratio=1, save=False):
+    def gen_plan(self, subset_ratio=1, save=False, notion=''):
         if not self.cross_validator:
             self.cross_validator = CrossValidator(self.total_segment_labels, self.level, subset_ratio)   
         
         if save:
-            print(f'Saving plan {self.level}...')
+            print(f'Saving plan {self.level} @ {subset_ratio}...')
             cross_validator = CrossValidator(self.total_segment_labels, self.level, subset_ratio) 
-            with open(f'../dataset/Door_EXP/{self.level}_r{subset_ratio}.pkl', 'wb') as f:
+            with open(f'../dataset/Door_EXP/{self.level}_r{subset_ratio}_{notion}.pkl', 'wb') as f:
                 plan = list(cross_validator)
                 pickle.dump(plan, f)
                 
@@ -347,7 +347,7 @@ class DataOrganizer:
         self.cross_validator = iter(plan)
         print(f'Loaded plan!')
     
-    def gen_loaders(self, mode='s', train_ratio=0.8, batch_size=64, csi_len=300, single_pd=True, save_dataset=False):
+    def gen_loaders(self, mode='s', train_ratio=0.8, batch_size=64, csi_len=300, single_pd=True, num_workers=14, save_dataset=False):
 
         print(f'Generating loaders for {mode}: level = {self.level}, current test = {self.current_test}')
         data = self.data.copy()
@@ -378,17 +378,17 @@ class DataOrganizer:
         train_set, valid_set = random_split(dataset, [train_size, valid_size])
         train_loader = DataLoader(train_set, 
                                   batch_size=batch_size, 
-                                  num_workers=14,
+                                  num_workers=num_workers,
                                   drop_last=True, 
                                   pin_memory=True)
         valid_loader = DataLoader(valid_set, 
                                     batch_size=batch_size, 
-                                    num_workers=14,
+                                    num_workers=num_workers,
                                     drop_last=True, 
                                     pin_memory=True)
         test_loader = DataLoader(test_dataset, 
-                                    batch_size=1, 
-                                    num_workers=14,
+                                    batch_size=batch_size, 
+                                    num_workers=num_workers,
                                     pin_memory=True)
         
         print(f" Exported train loader of len {len(train_loader)}, batch size = {batch_size}\n"

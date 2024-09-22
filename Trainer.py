@@ -1,12 +1,17 @@
 import torch
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.cuda.amp import autocast, GradScaler
+
 import numpy as np
 import os
 import matplotlib.pyplot as plt
+from tqdm.notebook import tqdm
+
 from Loss import MyLossLog
 from misc import timer
-from tqdm.notebook import tqdm
+import time
+
 
 class ExtraParams:
     def __init__(self, device):
@@ -104,6 +109,7 @@ class BasicTrainer:
         self.name = name
         self.epochs = epochs
         self.loss_optimizer = loss_optimizer
+        self.scaler = GradScaler()
 
         # Please define optimizers in this way
         # self.optimizer: dict = {'LOSS1': ['optimizer1', lr1],
@@ -165,6 +171,7 @@ class BasicTrainer:
             return data.cuda(non_blocking=True)
         
     def data_preprocess(self, data):
+        # Use 16-bit type to save memory and speed up
         if self.preprocess:
             data = self.preprocess(data, self.modality)
 
@@ -185,11 +192,15 @@ class BasicTrainer:
     def update(self):
         for i, loss in enumerate(self.loss_optimizer.keys(), start=1):
             self.losslog.loss[loss].optimizer.zero_grad()
-            if i != len(self.loss_optimizer):
-                self.temp_loss[loss].backward(retain_graph=True)
-            else:
-                self.temp_loss[loss].backward()
-            self.losslog.loss[loss].optimizer.step()
+            # if i != len(self.loss_optimizer):
+            #     self.temp_loss[loss].backward(retain_graph=True)
+            # else:
+            #     self.temp_loss[loss].backward()
+                
+            self.scaler.scale(self.temp_loss[loss]).backward()
+            
+            self.scaler.step(self.losslog.loss[loss].optimizer)
+            self.scaler.update()
 
     @timer
     def train(self, train_module=None, eval_module=None, early_stop=True, lr_decay=True, subsample_fraction=1, *args, **kwargs):
@@ -215,7 +226,7 @@ class BasicTrainer:
             self.valid_sampled_batches = np.random.choice(len(self.dataloader['valid']), self.valid_batches, replace=False)
             
         print(f"=========={self.notion} {self.name} Training starting==========")
-
+        start = time.time()
         # ===============train and validate each epoch==============
         self.epochs = 1000 if early_stop else self.epochs
         
@@ -238,7 +249,11 @@ class BasicTrainer:
                         if self.train_sampled_batches is not None and idx not in self.train_sampled_batches:
                             continue
                         data_ = self.data_preprocess(data)
-                        PREDS = self.calculate_loss(data_)
+                        
+                        # Use autocast for mixed precision training
+                        with autocast():
+                            PREDS = self.calculate_loss(data_)
+                            
                         self.update()
 
                         for key in EPOCH_LOSS.keys():
@@ -285,6 +300,9 @@ class BasicTrainer:
                         PREDS = self.calculate_loss(data_)
                     for key in EPOCH_LOSS.keys():
                         EPOCH_LOSS[key].append(self.temp_loss[key].item())
+                        
+                    if epoch % 10 == 0:
+                        self.losslog('pred', PREDS)
 
                     val_loss = np.average(EPOCH_LOSS['LOSS'])
                     if 0 < val_loss < self.best_val_loss:
@@ -304,17 +322,21 @@ class BasicTrainer:
 
                 with open(f"{self.save_path}{self.name}_trained.txt", 'w') as logfile:
                     logfile.write(f"{self.notion}_{self.name}\n"
+                                  f"Start time = {start}\n"
                                 f"Total epochs = {self.current_ep()}\n"
                                 f"Best : val_loss={self.best_val_loss} @ epoch {self.best_vloss_ep}\n"
                                 f"Final validation losses:\n"
                                 f"{[self.temp_loss[key].item() for key in self.loss_terms]}"
                                 )
                     
+            # Check output every 10 epochs
+            if epoch % 10 == 0:
+                self.plot_test(autosave=False)
+                self.losslog.reset('pred', dataset='VALID')
+                    
             # Save checkpoint every 50 epochs
             if epoch % 50 == 0:
-                for model in train_module:
-                    torch.save(self.models[model].state_dict(),
-                               f"{self.save_path}{self.name}_{model}_best.pth")
+                self.save()
 
             self.early_stopping(self.best_val_loss, early_stop, lr_decay)
             if lr_decay and self.early_stopping.decay_flag:
@@ -325,14 +347,16 @@ class BasicTrainer:
                 if 'save_model' in kwargs.keys() and kwargs['save_model'] is False:
                     break
                 else:
+                    end = time.time()
                     print(f"\033[32mEarly Stopping triggered. Saving @ epoch {epoch}...\033[0m")
                     for model in train_module:
                         torch.save(self.models[model].state_dict(),
                                    f"{self.save_path}{self.name}_{model}_best.pth")
                         
                     with open(f"{self.save_path}{self.name}_trained.txt", 'a') as logfile:
-                        logfile.write(f"\nModules:\n{list(self.models.values())}\n")
-                    
+                        logfile.write(f"End time = {end}\n"
+                                      f"Total training time = {end - start}\n"
+                                      f"\nModules:\n{list(self.models.values())}\n")
                     break
                 
             for key in EPOCH_LOSS.keys():
@@ -344,7 +368,7 @@ class BasicTrainer:
         return self.models
 
     @timer
-    def test(self, test_module=None, loader: str = 'test', subsample_fraction=1, *args, **kwargs):
+    def test(self, test_module=None, single_test=False, loader: str = 'test', subsample_fraction=1, *args, **kwargs):
 
         if not test_module:
             test_module = list(self.models.keys())
@@ -378,14 +402,20 @@ class BasicTrainer:
                 data_ = self.data_preprocess(data)
 
                 with torch.no_grad():
-                    for sample in range(len(list(data_.values())[0])):
-                        data_i = {key: data_[key][sample][np.newaxis, ...] for key in data_.keys()}
-                        PREDS = self.calculate_loss(data_i)
+                    if single_test:
+                        for sample in range(len(list(data_.values())[0])):
+                            data_i = {key: data_[key][sample][np.newaxis, ...] for key in data_.keys()}
+                            PREDS = self.calculate_loss(data_i)
 
+                            for key in EPOCH_LOSS.keys():
+                                EPOCH_LOSS[key].append(self.temp_loss[key].item())
+                    else:
+                        PREDS = self.calculate_loss(data_)
+                        
                         for key in EPOCH_LOSS.keys():
-                            EPOCH_LOSS[key].append(self.temp_loss[key].item())
-
-                        self.losslog('pred', PREDS)
+                            EPOCH_LOSS[key].append(np.average(self.temp_loss[key].item()))
+                            
+                    self.losslog('pred', PREDS)
                         
                 _tqdm.set_postfix({'batch': f"{idx}/{test_batches}",
                                    'loss': f"{self.temp_loss['LOSS'].item():.4f}"})
@@ -416,8 +446,12 @@ class BasicTrainer:
         print("Saving models...")
         for modelname, model in self.models.items():
             print(f"Saving {modelname}...")
-            torch.save(model.state_dict(),
-                       f"{self.save_path}{self.name}_{modelname}@ep{self.current_ep()}.pth")
+            torch.save({
+                'epoch': self.current_ep(),
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': self.loss_optimizer['LOSS'][0],
+                }, f"{self.save_path}{self.name}_{modelname}_checkpoint.pth")
+        
         print("All saved!")
 
     def schedule(self, autosave=True, *args, **kwargs):

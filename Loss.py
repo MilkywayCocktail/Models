@@ -3,7 +3,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from matplotlib import cm
-from sklearn.manifold import TSNE
 import os
 from misc import plot_settings
 
@@ -92,7 +91,9 @@ class MyLossLog:
                 self.loss[key](mode, np.squeeze(losses[key]))
         elif mode == 'pred':
             for key in losses.keys():
-                self.preds[key].append(losses[key].cpu().detach().numpy().squeeze())
+                lss = losses[key].cpu().detach().numpy().squeeze()
+                for ls in lss:
+                    self.preds[key].append(ls)
                 
     def reset(self, *modes, dataset: str = 'TRAIN'):
         for mode in modes:
@@ -300,6 +301,7 @@ class MyLossLog:
 
     # TODO: pred unit
     def plot_tsne(self, plot_terms, title=None):
+        from sklearn.manifold import TSNE
         # plt.style.use('dark_background')
         if title:
             title = f"{title} @ep{self.current_epoch}"

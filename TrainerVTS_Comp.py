@@ -106,9 +106,10 @@ class ImageDecoder(BasicImageDecoder):
 
 
 class CSIEncoder(BasicCSIEncoder):
-    def __init__(self, out_length, *args, **kwargs):
+    def __init__(self, out_length, middle_dim=512 * 7 * 7, *args, **kwargs):
         super(CSIEncoder, self).__init__(*args, **kwargs)
         self.out_length = out_length
+        self.middle_dim = middle_dim
         self.cnn = nn.Sequential(
             nn.Conv2d(6, 128, 5, 1, 1),
             batchnorm_layer(128, self.batchnorm),
@@ -121,7 +122,7 @@ class CSIEncoder(BasicCSIEncoder):
             nn.LeakyReLU(inplace=True),
         )
         self.fclayers = nn.Sequential(
-            nn.Linear(512 * 7 * 7, 1024),
+            nn.Linear(self.middle_dim, 1024),
             nn.ReLU(),
             nn.Linear(1024, self.out_length)
             # nn.ReLU()
@@ -132,7 +133,7 @@ class CSIEncoder(BasicCSIEncoder):
 
     def forward(self, x):
         out = self.cnn(x)
-        out = self.fclayers(out.view(-1, 512 * 7 * 7))
+        out = self.fclayers(out.view(-1, self.middle_dim))
 
         if self.out_length == 2 * self.latent_dim:
             mu, logvar = out.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
