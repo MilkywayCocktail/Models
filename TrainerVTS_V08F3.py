@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.init as init
-from torchvision.ops import complete_box_iou_loss
+# from torchvision.ops import complete_box_iou_loss
 import numpy as np
 import matplotlib.pyplot as plt
 import os
@@ -345,7 +345,7 @@ class StudentTrainer(BasicTrainer):
 
         self.loss_terms = ('LOSS', 'LATENT', 'MU', 'LOGVAR', 'FEATURE', 'IMG', 'CTR', 'DPT')
         self.pred_terms = ('C_GT', 'R_GT',
-                           'TR_PRED', 'SR_PRED',
+                           'TR_PRED', 'R_PRED',
                            'TC_PRED', 'SC_PRED',
                            'T_LATENT', 'S_LATENT',
                            'GT_CTR', 'GT_DPT', 
@@ -450,7 +450,7 @@ class StudentTrainer(BasicTrainer):
                 'T_LATENT': torch.cat((t_mu, t_logvar), -1),
                 'S_LATENT': torch.cat((s_mu, s_logvar), -1),
                 'TR_PRED': t_rimage,
-                'SR_PRED': s_rimage,
+                'R_PRED': s_rimage,
                 'TC_PRED': t_cimage,
                 'SC_PRED': s_cimage,
                 'GT_CTR': data['center'],
@@ -465,7 +465,7 @@ class StudentTrainer(BasicTrainer):
         figs: dict = {}
         self.losslog.generate_indices(select_ind, select_num)
 
-        figs.update(self.losslog.plot_predict(plot_terms=('R_GT', 'TR_PRED', 'SR_PRED'), title='RIMG_PRED'))
+        figs.update(self.losslog.plot_predict(plot_terms=('R_GT', 'TR_PRED', 'R_PRED'), title='RIMG_PRED'))
         figs.update(self.losslog.plot_predict(plot_terms=('C_GT', 'TC_PRED', 'SC_PRED'), title='CIMG_PRED'))
         figs.update(self.losslog.plot_latent(plot_terms=('T_LATENT', 'S_LATENT')))
         figs.update(self.losslog.plot_center())

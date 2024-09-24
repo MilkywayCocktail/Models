@@ -111,6 +111,9 @@ class MyDataset(Dataset):
         ret['tag']['env'] = self.env_code[ret['tag']['env']]
         ret['tag']['subject'] = self.subject_code[ret['tag']['subject']]
         ret['tag'] = ret['tag'].to_numpy().astype(int)
+        
+        # return the absolute index of sample
+        ret['abs_ind'] = self.label.index[index].to_numpy()
 
         bag = self.label.iloc[index]['bag']
         img_ind = int(self.label.iloc[index]['img_inds'])
@@ -289,6 +292,8 @@ class DataOrganizer:
         
         # Put all labels into one DataFrame
         self.total_segment_labels = pd.DataFrame(columns=['env', 'subject', 'bag', 'csi', 'group', 'segment', 'timestamp', 'img_inds', 'csi_inds'])
+        self.train_indicies = None
+        self.test_indicies = None        
         self.train_labels = None
         self.test_labels = None
         self.current_test = None

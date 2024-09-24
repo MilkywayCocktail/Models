@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.init as init
-from torchvision.ops import complete_box_iou_loss
+# from torchvision.ops import complete_box_iou_loss
 import numpy as np
 import matplotlib.pyplot as plt
 import os

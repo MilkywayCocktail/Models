@@ -331,6 +331,7 @@ class BasicTrainer:
                     
             # Check output every 10 epochs
             if epoch % 10 == 0:
+                self.plot_train_loss(autosave=False)
                 self.plot_test(autosave=False)
                 self.losslog.reset('pred', dataset='VALID')
                     
