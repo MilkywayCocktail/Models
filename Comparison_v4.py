@@ -35,19 +35,22 @@ class Tester:
         if save:
             self.trainer.losslog.save('preds', self.save_path)
         
-        self.preds = pd.DataFrame(index=list(range[self.total_length]), columns=['gt', 'preds', 'tags'])
+        self.preds = pd.DataFrame(index=list(range[self.total_length]), columns=['gt', 'pred', 'tag', 'matched', 'center'])
         
         gt = self.trainer.losslog.preds['R_GT']
         preds = self.trainer.losslog.preds[pred]
         tags = self.trainer.losslog.preds['TAG']
-        abs_ind = 
+        abs_ind = self.trainer.losslog.preds['IND']
+        
+        # Store results by absolute indicies
+        for i, ind in enumerate(abs_ind):
+            self.preds.loc[ind, ['gt', 'pred', 'tag']] = [gt[i], preds[i], tags[i]]
 
 
 class ResultCalculator(Tester):
     def __init__(self, *args, **kwargs):
         super(ResultCalculator, self).__init__(*args, **kwargs)
         self.image_size = (128, 128)
-        self.center = None
     
     @staticmethod
     def find_center(img):
@@ -108,30 +111,26 @@ class ResultCalculator(Tester):
         return mse
         
     def evaluate(self, scale=3, cuda=0, find_center=False):
-        self.results = pd.DataFrame(np.zeros((self.len, len(criteria)), dtype=float), columns=criteria)
-        self.matched = pd.DataFrame(
+        self.results = pd.DataFrame(index=list(range[self.total_length]), columns=criteria)
         
-        for data in tqdm(self.trainer.losslog.preds['R_GT'], desc="Evaluating"):
-            ind = data['abs_ind']
-            gt = data['rimg']
-            im = self.preds[ind]
+        for i, gt, pred, *_ in tqdm(self.preds.itertuples(), desc="Evaluating"):
             
-            mse = self.mse(im, gt)
-            im_re, average_depth, matched_mae, matched_mae_mask, distance = self.matched_mae(im, gt, scale, cuda)
+            mse = self.mse(pred, gt)
+            im_re, average_depth, matched_mae, matched_mae_mask, distance = self.matched_mae(pred, gt, scale, cuda)
             
-            self.results.iloc[ind, ['mse', 'matched_mae', 'matched_mae_mask', 'average_depth', 'distance', 'x', 'y']] = mse, 
+            self.results.loc[i, ['mse', 'matched_mae', 'matched_mae_mask', 'average_depth', 'distance', 'x', 'y']] = mse, 
             matched_mae, matched_mae_mask, average_depth, distance
-            self.matched[ind] = im_re
+            self.preds.loc[i, 'matched'] = im_re
             
     def plot_example(self, selected=None, matched=False, source='vanilla'):
         fig = plot_settings()
         fig.suptitle(f"{self.name} Depth Image Estimates")
         filename = f"{self.name}_Depth_Image.jpg"
 
-        plot_terms = {'Ground Truth': self.gt,
-                      'Estimates': self.preds}
+        plot_terms = {'Ground Truth': self.preds['gt'],
+                      'Estimates': self.preds['pred']}
         if matched:
-            plot_terms['Matched Estimates'] = self.matched
+            plot_terms['Matched Estimates'] = self.preds['matched']
             filename = f"{self.name}_Depth_Image_Matched.jpg"
         subfigs = fig.subfigures(nrows=len(list(plot_terms.keys())), ncols=1)
 
@@ -147,7 +146,7 @@ class ResultCalculator(Tester):
                 ax.imshow(zoom(value[ind].squeeze(), zoom_factors), vmin=0, vmax=1)
                 
                 if key == 'Matched Estimates':
-                    st = self.center[ind][0], 
+                    st = self.preds.loc[ind, 'center'], 
                     ed = [st[0] + self.result.loc[ind, 'x'], 
                           st[1] + self.result.loc[ind, 'y']]
                     ax.plot([st[0], ed[0]], [st[1], ed[1]], color='red', linewidth=2)
@@ -170,8 +169,9 @@ class ResultProcess:
         self.box_count = 0
         self.cdf_count = 0
         self.nsamples = 12
+        self.figs: dict = {}
         
-    def train(self):
+    def test(self):
         for sub, trainer in self.subjects.items():
             trainer.test()
             
@@ -221,8 +221,7 @@ class ResultProcess:
                     ax.plot([st[0], ed[0]], [st[1], ed[1]], color='red', linewidth=2)
         plt.show()
         self.vis_count += 1
-        
-        return {filename: fig}
+        self.figs[filename] = fig
     
     def gathercdf(self, scope='all', item='mse'):
         scope = list(self.subjects.keys()) if scope=='all' else scope
@@ -262,6 +261,35 @@ class ResultProcess:
         plt.grid()
         plt.legend()
         plt.show()
-        self.count += 1
+        self.cdf_count += 1
+        self.figs[filename] = fig
+    
+    def gatherbox(self, scope='all', item='mse'):
+        scope = list(self.subjects.keys()) if scope=='all' else scope
+        fig = plot_settings((2*(len(scope) + 1) if len(scope)>9 else 20, 10))
+ 
+        filename = f"Comparison_BoxPlot_{item.upper()}_{self.box_count}.jpg"
+        fig.suptitle(f'Test Box Plot - {item.upper()}', fontweight="bold")
+        
+        for i, sub in enumerate(scope):
+            _sub = self.subjects[sub]
+            plt.boxplot(_sub.results[item].values, 
+                        labels=[sub], positions=[i+1], vert=True, showmeans=True,
+                        patch_artist=True, boxprops={'facecolor': 'lightblue'})
+        plt.setp(plt.gca().get_xticklabels(), rotation=30, horizontalalignment='right')    
+        plt.yscale('log', base=2)
+        plt.show()
+        self.box_count += 1
+        self.figs[filename] = fig
+    
+    def average_table(self, scope='all'):
+        scope = list(self.subjects.keys()) if scope=='all' else scope
+        keys = criteria
+        comparison_table = pd.DataFrame(columns=keys)
+                
+        for sub in scope:
+            for key in keys:
+                comparison_table.loc[sub, key] = np.mean(self.subjects[sub].results[key].values)
 
-        return {filename: fig}        
+        self.table = comparison_table
+        print(comparison_table)

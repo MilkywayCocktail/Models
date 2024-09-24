@@ -244,7 +244,7 @@ class TeacherTrainer(BasicTrainer):
                  *args, **kwargs):
         super(TeacherTrainer, self).__init__(*args, **kwargs)
 
-        self.modality = {'rimg', 'cimg', 'center', 'depth', 'tag', 'ctr', 'dpt'}
+        self.modality = {'rimg', 'cimg', 'center', 'depth', 'tag', 'ctr', 'dpt', 'ind'}
 
         self.beta = beta
         self.recon_lossfunc = recon_lossfunc
@@ -254,7 +254,7 @@ class TeacherTrainer(BasicTrainer):
                            'GT_DPT', 'GT_CTR', 
                            'R_PRED', 'C_PRED', 
                            'DPT_PRED', 'CTR_PRED', 
-                           'LAT', 'TAG')
+                           'LAT', 'TAG', 'IND')
         self.depth_loss = nn.MSELoss()
         self.center_loss = nn.MSELoss()
         
@@ -310,7 +310,8 @@ class TeacherTrainer(BasicTrainer):
                 'GT_DPT': data['depth'],
                 'DPT_PRED': depth,
                 'LAT': torch.cat((mu, logvar), -1),
-                'TAG': data['tag']
+                'TAG': data['tag'],
+                'IND': data['ind']
                 }
 
     def plot_test(self, select_ind=None, select_num=8, autosave=False, **kwargs):
@@ -337,7 +338,7 @@ class StudentTrainer(BasicTrainer):
                  *args, **kwargs):
         super(StudentTrainer, self).__init__(*args, **kwargs)
 
-        self.modality = {'cimg', 'rimg', 'csi', 'center', 'depth', 'pd', 'tag', 'ctr', 'dpt'}
+        self.modality = {'cimg', 'rimg', 'csi', 'center', 'depth', 'pd', 'tag', 'ctr', 'dpt', 'ind'}
 
         self.alpha = alpha
         self.recon_lossfunc = recon_lossfunc
@@ -351,7 +352,7 @@ class StudentTrainer(BasicTrainer):
                            'GT_CTR', 'GT_DPT', 
                            'T_CTR', 'T_DPT',
                            'S_CTR', 'S_DPT',
-                           'TAG')
+                           'TAG', 'IND')
         self.losslog = MyLossCTR(name=self.name,
                               loss_terms=self.loss_terms,
                               pred_terms=self.pred_terms,
@@ -459,7 +460,8 @@ class StudentTrainer(BasicTrainer):
                 'GT_DPT': data['depth'],
                 'S_DPT': s_depth,
                 'T_DPT': t_depth,
-                'TAG': data['tag']}
+                'TAG': data['tag'],
+                'IND': data['ind']}
 
     def plot_test(self, select_ind=None, select_num=8, autosave=False, **kwargs):
         figs: dict = {}

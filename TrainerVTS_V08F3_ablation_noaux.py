@@ -143,32 +143,6 @@ class ImageDecoder(BasicImageDecoder):
         return out.view(-1, 1, 128, 128)
 
 
-class CenterDecoder(nn.Module):
-    name = 'ctrde'
-
-    def __init__(self):
-        super(CenterDecoder, self).__init__()
-        self.feature_length = 1536
-
-        self.fc = nn.Sequential(
-            nn.Linear(self.feature_length, 64),
-            nn.ReLU(),
-            nn.Linear(64, 3),
-            nn.Sigmoid()
-        )
-
-        init.xavier_normal_(self.fc[-2].weight)
-
-    def __str__(self):
-        return f"CTRDE{version}"
-
-    def forward(self, x):
-        out = self.fc(x.view(-1, self.feature_length))
-        center = out[..., :2]
-        depth = out[..., -1]
-        return center, depth
-
-
 class CSIEncoder(BasicCSIEncoder):
     def __init__(self, lstm_steps=steps, lstm_feature_length=feature_length, *args, **kwargs):
         super(CSIEncoder, self).__init__(lstm_feature_length=lstm_feature_length, *args, **kwargs)
@@ -244,31 +218,22 @@ class TeacherTrainer(BasicTrainer):
                  *args, **kwargs):
         super(TeacherTrainer, self).__init__(*args, **kwargs)
 
-        self.modality = {'rimg', 'cimg', 'center', 'depth', 'tag', 'ctr', 'dpt'}
+        self.modality = {'rimg', 'tag', 'ind'}
 
         self.beta = beta
         self.recon_lossfunc = recon_lossfunc
 
-        self.loss_terms = ('LOSS', 'KL', 'R_RECON', 'C_RECON', 'CTR', 'DPT')
-        self.pred_terms = ('R_GT', 'C_GT', 
-                           'GT_DPT', 'GT_CTR', 
-                           'R_PRED', 'C_PRED', 
-                           'DPT_PRED', 'CTR_PRED', 
-                           'LAT', 'TAG')
-        self.depth_loss = nn.MSELoss()
-        self.center_loss = nn.MSELoss()
+        self.loss_terms = ('LOSS', 'KL', 'R_RECON',)
+        self.pred_terms = ('R_GT',
+                           'R_PRED',
+                           'LAT', 'TAG', 'IND')
         
-        self.losslog = MyLossCTR(name=self.name,
+        self.losslog = MyLossLog(name=self.name,
                            loss_terms=self.loss_terms,
-                           pred_terms=self.pred_terms,
-                           depth=True)
-        self.losslog.ctr = ['GT_CTR', 'CTR_PRED']
-        self.losslog.dpt = ['GT_DPT', 'DPT_PRED']
+                           pred_terms=self.pred_terms)
         
         self.models = {'imgen': ImageEncoder(latent_dim=128).to(self.device),
-                       'cimgde': ImageDecoder(latent_dim=128).to(self.device),
-                       'rimgde': ImageDecoder(latent_dim=128).to(self.device),
-                       'ctrde': CenterDecoder().to(self.device)
+                       'rimgde': ImageDecoder(latent_dim=128).to(self.device)
                        }
         
     def kl_loss(self, mu, logvar):
@@ -276,52 +241,34 @@ class TeacherTrainer(BasicTrainer):
         return kl_loss
 
     def calculate_loss(self, data):
-        cimg = torch.where(data['cimg'] > 0, 1., 0.)
         rimg = data['rimg']
         
         z, mu, logvar, feature = self.models['imgen'](rimg)
         rimg_re = self.models['rimgde'](z)
-        cimg_re = self.models['cimgde'](z)
         kl_loss = self.kl_loss(mu, logvar)
         r_recon_loss = self.recon_lossfunc(rimg_re, rimg) / rimg_re.shape[0]
-        c_recon_loss = self.recon_lossfunc(cimg_re, cimg) / cimg_re.shape[0]
-        vae_loss = kl_loss * self.beta + r_recon_loss + c_recon_loss
+        vae_loss = kl_loss * self.beta + r_recon_loss
         
-        ctr, depth = self.models['ctrde'](feature)
-        center_loss = self.center_loss(ctr, torch.squeeze(data['center']))
-        depth_loss = self.depth_loss(depth, torch.squeeze(data['depth']))
-        
-        loss = vae_loss + center_loss + depth_loss
+        loss = vae_loss
 
         self.temp_loss = {'LOSS': loss,
                           'KL': kl_loss,
-                          'R_RECON': r_recon_loss,
-                          'C_RECON': c_recon_loss,
-                          'CTR': center_loss, 
-                          'DPT': depth_loss
+                          'R_RECON': r_recon_loss
                           }
         
         return {'R_GT': rimg,
-                'C_GT': cimg,
                 'R_PRED': rimg_re,
-                'C_PRED': cimg_re,
-                'GT_CTR': data['center'],
-                'CTR_PRED': ctr,
-                'GT_DPT': data['depth'],
-                'DPT_PRED': depth,
                 'LAT': torch.cat((mu, logvar), -1),
-                'TAG': data['tag']
+                'TAG': data['tag'],
+                'IND': data['ind']
                 }
 
     def plot_test(self, select_ind=None, select_num=8, autosave=False, **kwargs):
         figs: dict = {}
         self.losslog.generate_indices(select_ind, select_num)
 
-        figs.update(self.losslog.plot_predict(plot_terms=('R_GT', 'R_PRED', 'C_GT', 'C_PRED')))
+        figs.update(self.losslog.plot_predict(plot_terms=('R_GT', 'R_PRED')))
         figs.update(self.losslog.plot_latent(plot_terms={'LAT'}))
-        figs.update(self.losslog.plot_center())
-        # figs.update(self.loss.plot_test(plot_terms='all'))
-        # figs.update(self.loss.plot_tsne(plot_terms=('GT', 'LAT', 'PRED')))
 
         if autosave:
             for filename, fig in figs.items():
@@ -336,16 +283,16 @@ class StudentTrainer(BasicTrainer):
                  *args, **kwargs):
         super(StudentTrainer, self).__init__(*args, **kwargs)
 
-        self.modality = {'rimg', 'csi', 'pd', 'tag'}
+        self.modality = {'rimg', 'csi', 'pd', 'tag', 'ind'}
 
         self.alpha = alpha
         self.recon_lossfunc = recon_lossfunc
 
         self.loss_terms = ('LOSS', 'LATENT', 'MU', 'LOGVAR', 'FEATURE')
         self.pred_terms = ('R_GT',
-                           'TR_PRED', 'SR_PRED',
+                           'TR_PRED', 'R_PRED',
                            'T_LATENT', 'S_LATENT',
-                           'TAG')
+                           'TAG', 'IND')
         self.losslog = MyLossCTR(name=self.name,
                               loss_terms=self.loss_terms,
                               pred_terms=self.pred_terms,
@@ -358,9 +305,6 @@ class StudentTrainer(BasicTrainer):
             }
 
         self.latent_weight = 0.1
-        self.img_weight = 1.
-        self.center_weight = 1.
-        self.depth_weight = 1.
         self.feature_weight = 1.
 
     def kd_loss(self, mu_s, logvar_s, mu_t, logvar_t):
@@ -403,16 +347,17 @@ class StudentTrainer(BasicTrainer):
                 'T_LATENT': torch.cat((t_mu, t_logvar), -1),
                 'S_LATENT': torch.cat((s_mu, s_logvar), -1),
                 'TR_PRED': t_rimage,
-                'SR_PRED': s_rimage,
-                'TAG': data['tag']}
+                'R_PRED': s_rimage,
+                'TAG': data['tag'],
+                'IND': data['ind']}
 
     def plot_test(self, select_ind=None, select_num=8, autosave=False, **kwargs):
         figs: dict = {}
         self.losslog.generate_indices(select_ind, select_num)
 
-        figs.update(self.losslog.plot_predict(plot_terms=('R_GT', 'TR_PRED', 'SR_PRED'), title='RIMG_PRED'))
+        figs.update(self.losslog.plot_predict(plot_terms=('R_GT', 'TR_PRED', 'R_PRED'), title='RIMG_PRED'))
         figs.update(self.losslog.plot_latent(plot_terms=('T_LATENT', 'S_LATENT')))
-        figs.update(self.losslog.plot_test_cdf(plot_terms='all'))
+        # figs.update(self.losslog.plot_test_cdf(plot_terms='all'))
 
         if autosave:
             for filename, fig in figs.items():

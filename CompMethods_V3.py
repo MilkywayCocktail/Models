@@ -393,7 +393,7 @@ class CompTrainer(BasicTrainer):
         self.recon_lossfunc = nn.BCELoss(reduction='sum') if self.mask else nn.MSELoss(reduction='sum')
         self.mse = nn.MSELoss(reduction='sum')
         self.loss_terms = {'LOSS'}
-        self.pred_terms = ('R_GT', 'R_PRED', 'TAG') if mode == 'wi2vi' else ('R_GT', 'R_PRED', 'LAT', 'TAG')
+        self.pred_terms = ('R_GT', 'R_PRED', 'TAG', 'IND') if mode == 'wi2vi' else ('R_GT', 'R_PRED', 'LAT', 'TAG', 'IND')
 
         self.losslog = MyLossLog(name=self.name,
                            loss_terms=self.loss_terms,
@@ -414,7 +414,8 @@ class CompTrainer(BasicTrainer):
             self.temp_loss = {'LOSS': loss}
             return {'R_GT': img,
                     'R_PRED': output,
-                    'TAG': data['tag']}
+                    'TAG': data['tag'],
+                    'IND': data['ind']}
 
         elif self.mode == 'ae':
             latent, output = self.models['ae'](data['csi'])
@@ -423,7 +424,8 @@ class CompTrainer(BasicTrainer):
             return {'R_GT': img,
                     'R_PRED': output,
                     'LAT': latent,
-                    'TAG': data['tag']}
+                    'TAG': data['tag'],
+                    'IND': data['ind']}
 
         elif self.mode == 'vae':
             z, mu, logvar = self.models['csien'](data['csi'])
@@ -437,7 +439,8 @@ class CompTrainer(BasicTrainer):
             return {'R_GT': img,
                     'R_PRED': output,
                     'LAT': torch.cat((mu, logvar), -1),
-                    'TAG': data['tag']
+                    'TAG': data['tag'],
+                    'IND': data['ind']
                     }
 
         elif self.mode == 'ae_t':
@@ -448,7 +451,8 @@ class CompTrainer(BasicTrainer):
             return {'R_GT': img,
                     'R_PRED': output,
                     'LAT': z,
-                    'TAG': data['tag']}
+                    'TAG': data['tag'],
+                    'IND': data['ind']}
         
         elif self.mode == 'vae_t':
             z, mu, logvar = self.models['imgen'](img)
@@ -459,10 +463,11 @@ class CompTrainer(BasicTrainer):
                             'KL': kl_loss,
                             'RECON': recon_loss
                             }
-            return {'GT': img,
-                    'PRED': output,
+            return {'R_GT': img,
+                    'R_PRED': output,
                     'LAT': torch.cat((mu, logvar), -1),
-                    'TAG': data['tag']
+                    'TAG': data['tag'],
+                    'IND': data['ind']
                     }
 
 
@@ -470,7 +475,7 @@ class CompTrainer(BasicTrainer):
         figs: dict = {}
         self.losslog.generate_indices(select_ind, select_num)
 
-        figs.update(self.losslog.plot_predict(plot_terms=('GT', 'PRED')))
+        figs.update(self.losslog.plot_predict(plot_terms=('R_GT', 'R_PRED')))
         figs.update(self.losslog.plot_test(plot_terms='all'))
         figs.update(self.losslog.plot_test_cdf(plot_terms='all'))
         if self.mode in ('ae', 'vae', 'ae_t'):
@@ -489,14 +494,14 @@ class CompStudentTrainer(BasicTrainer):
         super(CompStudentTrainer, self).__init__(*args, **kwargs)
 
         self.mask = mask
-        self.modality = {'csi', 'rimg', 'tag'}
+        self.modality = {'csi', 'rimg', 'tag', 'ind'}
 
         self.mode = mode
         self.alpha = alpha
         self.recon_lossfunc = nn.BCELoss(reduction='sum') if self.mask else nn.MSELoss(reduction='sum')
         self.mse = nn.MSELoss(reduction='sum')
         self.loss_terms = ('LOSS', 'IMG')
-        self.pred_terms = ('R_GT', 'T_PRED', 'R_PRED', 'T_LATENT', 'S_LATENT', 'TAG')
+        self.pred_terms = ('R_GT', 'T_PRED', 'R_PRED', 'T_LATENT', 'S_LATENT', 'TAG', 'IND')
         self.losslog = MyLossLog(name=self.name,
                            loss_terms=self.loss_terms,
                            pred_terms=self.pred_terms)
@@ -527,7 +532,8 @@ class CompStudentTrainer(BasicTrainer):
                     'S_LATENT': s_z,
                     'T_PRED': t_output,
                     'R_PRED': s_output,
-                    'TAG': data['tag']}
+                    'TAG': data['tag'],
+                    'IND': data['ind']}
             
         elif self.mode == 'vae':
             s_z, s_mu, s_logvar = self.models['csien'](data['csi'])
@@ -549,14 +555,15 @@ class CompStudentTrainer(BasicTrainer):
                     'S_LATENT': torch.cat((s_mu, s_logvar), -1),
                     'T_PRED': t_output,
                     'R_PRED': s_output,
-                    'TAG': data['tag']}
+                    'TAG': data['tag'],
+                    'IND': data['ind']}
         
 
     def plot_test(self, select_ind=None, select_num=8, autosave=False, notion='', **kwargs):
         figs: dict = {}
         self.losslog.generate_indices(select_ind, select_num)
 
-        figs.update(self.losslog.plot_predict(plot_terms=('GT', 'T_PRED', 'R_PRED'), title='RIMG_PRED'))
+        figs.update(self.losslog.plot_predict(plot_terms=('R_GT', 'T_PRED', 'R_PRED'), title='RIMG_PRED'))
         figs.update(self.losslog.plot_latent(plot_terms=('T_LATENT', 'S_LATENT'), ylim=None))
         figs.update(self.losslog.plot_test(plot_terms='all'))
         figs.update(self.losslog.plot_test_cdf(plot_terms='all'))

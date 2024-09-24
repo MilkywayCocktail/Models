@@ -113,7 +113,7 @@ class MyDataset(Dataset):
         ret['tag'] = ret['tag'].to_numpy().astype(int)
         
         # return the absolute index of sample
-        ret['abs_ind'] = self.label.index[index].to_numpy()
+        ret['ind'] = self.label.index[index]
 
         bag = self.label.iloc[index]['bag']
         img_ind = int(self.label.iloc[index]['img_inds'])

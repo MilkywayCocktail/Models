@@ -102,7 +102,7 @@ class BasicTrainer:
                  loss_optimizer: dict,
                  networks = None,
                  preprocess = None,
-                 modality = {'csi', 'rimg', 'tag'},
+                 modality = {'csi', 'rimg', 'tag', 'ind'},
                  notion = None,
                  *args, **kwargs
                  ):
