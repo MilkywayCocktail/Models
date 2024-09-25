@@ -188,7 +188,7 @@ class AutoEncoder(nn.Module):
         self.EnFC = nn.Sequential(
             nn.Linear(self.middle_dim, 1024),
             nn.ReLU(),
-            nn.Linear(1024, self.out_dim),
+            nn.Linear(1024, self.latent_dim),
             nn.ReLU()
         )
 
@@ -390,7 +390,7 @@ class CompTrainer(BasicTrainer):
         self.mode = mode
         self.mask = mask
         self.beta = kwargs['beta'] if 'beta' in kwargs.keys() else 0.5
-        self.recon_lossfunc = nn.BCELoss(reduction='sum') if self.mask else nn.MSELoss(reduction='sum')
+        self.recon_lossfunc = nn.BCEWithLogitsLoss(reduction='sum') if self.mode=='ae' else nn.MSELoss(reduction='sum')
         self.mse = nn.MSELoss(reduction='sum')
         self.loss_terms = {'LOSS'}
         self.pred_terms = ('R_GT', 'R_PRED', 'TAG', 'IND') if mode == 'wi2vi' else ('R_GT', 'R_PRED', 'LAT', 'TAG', 'IND')
@@ -410,7 +410,7 @@ class CompTrainer(BasicTrainer):
 
         if self.mode == 'wi2vi':
             output = self.models['wi2vi'](data['csi'])
-            loss = self.recon_lossfunc(output, img)
+            loss = self.recon_lossfunc(output, img) / output.shape[0]
             self.temp_loss = {'LOSS': loss}
             return {'R_GT': img,
                     'R_PRED': output,
@@ -419,7 +419,7 @@ class CompTrainer(BasicTrainer):
 
         elif self.mode == 'ae':
             latent, output = self.models['ae'](data['csi'])
-            loss = self.recon_lossfunc(output, img)
+            loss = self.recon_lossfunc(output, img) / output.shape[0]
             self.temp_loss = {'LOSS': loss}
             return {'R_GT': img,
                     'R_PRED': output,
@@ -446,7 +446,7 @@ class CompTrainer(BasicTrainer):
         elif self.mode == 'ae_t':
             z = self.models['imgen'](img)
             output = self.models['imgde'](z)
-            loss = self.recon_lossfunc(output, img)
+            loss = self.recon_lossfunc(output, img) / output.shape[0]
             self.temp_loss = {'LOSS': loss}
             return {'R_GT': img,
                     'R_PRED': output,

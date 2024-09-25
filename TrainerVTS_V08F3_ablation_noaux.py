@@ -214,7 +214,7 @@ class CSIEncoder(BasicCSIEncoder):
 class TeacherTrainer(BasicTrainer):
     def __init__(self,
                  beta=0.5,
-                 recon_lossfunc=nn.BCELoss(reduction='sum'),
+                 recon_lossfunc=nn.BCEWithLogitsLoss(reduction='sum'),
                  *args, **kwargs):
         super(TeacherTrainer, self).__init__(*args, **kwargs)
 

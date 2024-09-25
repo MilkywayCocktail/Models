@@ -398,7 +398,7 @@ class DataOrganizer:
         
         print(f" Exported train loader of len {len(train_loader)}, batch size = {batch_size}\n"
               f" Exported valid loader of len {len(valid_loader)}, batch size = {batch_size}\n"
-              f" Exported test loader of len {len(test_loader)}, batch size = 1\n")
+              f" Exported test loader of len {len(test_loader)}, batch size = {batch_size}\n")
         
         return train_loader, valid_loader, test_loader, self.current_test
     
