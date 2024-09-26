@@ -107,10 +107,10 @@ class MyDataset(Dataset):
         """
         # Tag codes
         ret: dict = {}
-        ret['tag'] =  self.label.iloc[index][['env', 'subject', 'img_inds']]
-        ret['tag']['env'] = self.env_code[ret['tag']['env']]
-        ret['tag']['subject'] = self.subject_code[ret['tag']['subject']]
-        ret['tag'] = ret['tag'].to_numpy().astype(int)
+        tag =  self.label.iloc[index][['env', 'subject', 'img_inds']]
+        tag['env'] = self.env_code[tag['env']]
+        tag['subject'] = self.subject_code[tag['subject']]
+        ret['tag'] = tag.to_numpy().astype(int)
         
         # return the absolute index of sample
         ret['ind'] = self.label.index[index]
@@ -253,8 +253,8 @@ class CrossValidator:
             test_labels = test_labels.iloc[test_subset_indices]
             
         else:
-            print(f" Train set range = {ran}, len = {train_labels}\n"
-                  f" Test set current = {self.current_test}, len = {test_labels}")
+            print(f" Train set range = {ran}, len = {len(train_labels)}\n"
+                  f" Test set current = {self.current_test}, len = {len(test_labels)}")
 
         return (train_labels, test_labels, self.current_test)
     

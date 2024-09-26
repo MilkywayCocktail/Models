@@ -210,6 +210,9 @@ class AutoEncoder(nn.Module):
             nn.ConvTranspose2d(128, 1, kernel_size=4, stride=2, padding=1),
             self.active_func
         )
+        
+        # Apply Xavier Initialization
+        self.apply(self._init_weights)
 
     def __str__(self):
         return f"AutoEncoder{self.latent_dim}"
@@ -222,6 +225,12 @@ class AutoEncoder(nn.Module):
         out = self.DeFC(z)
         out = self.DeCNN(out.view(-1, 128, 4, 4))
         return z, out
+
+    def _init_weights(self, m):
+        if isinstance(m, nn.Linear):
+            torch.nn.init.xavier_uniform_(m.weight)
+            if m.bias is not None:
+                m.bias.data.fill_(0.0)
 
 
 class ImageEncoder(BasicImageEncoder):
@@ -259,6 +268,9 @@ class ImageEncoder(BasicImageEncoder):
                 nn.Linear(4096, self.latent_dim),
                 # self.active_func
             )
+            
+        # Apply Xavier Initialization
+        self.apply(self._init_weights)
 
     def __str__(self):
         return f"IMGEN{version}"
@@ -274,6 +286,12 @@ class ImageEncoder(BasicImageEncoder):
             mu, logvar = out.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
             z = reparameterize(mu, logvar)
             return z, mu, logvar
+        
+    def _init_weights(self, m):
+        if isinstance(m, nn.Linear):
+            torch.nn.init.xavier_uniform_(m.weight)
+            if m.bias is not None:
+                m.bias.data.fill_(0.0)
         
     
 class ImageDecoder(BasicImageDecoder):

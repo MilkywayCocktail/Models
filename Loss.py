@@ -5,6 +5,7 @@ from matplotlib.patches import Rectangle
 from matplotlib import cm
 import os
 from misc import plot_settings
+from sklearn.manifold import TSNE
 
 """
 These definitions are not for loss functions.\n
