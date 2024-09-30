@@ -326,7 +326,7 @@ class BasicTrainer:
                                 f"Total epochs = {self.current_ep()}\n"
                                 f"Best : val_loss={self.best_val_loss} @ epoch {self.best_vloss_ep}\n"
                                 f"Final validation losses:\n"
-                                f"{[self.temp_loss[key].item() for key in self.loss_terms]}"
+                                f"{[self.temp_loss[key].item() for key in self.loss_terms]}\n"
                                 )
                     
             # Check output every 10 epochs
