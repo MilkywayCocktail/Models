@@ -34,7 +34,7 @@ version = 'V08F3_notx'
 ##############################################################################
 
 feature_length = 512 * 7
-steps = 25
+steps = 75
 
 class ImageDecoder(BasicImageDecoder):
     def __init__(self, *args, **kwargs):
@@ -285,6 +285,6 @@ class AbTrainer(BasicTrainer):
 
 
 if __name__ == '__main__':
-    # cc = ImageEncoder(latent_dim=128).to(torch.device('cuda:7'))
-    # summary(cc, input_size=(1, 128, 128))
-    pass
+    cc = CSIEncoder(latent_dim=128).to(torch.device('cuda:6'))
+    summary(cc, input_size=((64, 6, 30, 300), (64, 62)))
+    
