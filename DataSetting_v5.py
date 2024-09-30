@@ -166,8 +166,10 @@ class Preprocess:
         """
         
         # Adjust key name
-        data['center'] = data['ctr']
-        data['depth'] = data['dpt']
+        if 'ctr' in data.keys():
+            data['center'] = data['ctr']
+        if 'dpt' in data.keys():
+            data['depth'] = data['dpt']
         
         #  Transform images
         if self.new_size and 'rimg' in modalities:
