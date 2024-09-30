@@ -183,8 +183,7 @@ class AbTrainer(BasicTrainer):
     def __init__(self,
                  alpha=0.8,
                  recon_lossfunc=nn.MSELoss(),
-                 with_cimg_loss=False,
-                 lstm_steps=7,
+                 lstm_steps=75,
                  *args, **kwargs):
         super(AbTrainer, self).__init__(*args, **kwargs)
 
@@ -192,9 +191,10 @@ class AbTrainer(BasicTrainer):
 
         self.alpha = alpha
         self.recon_lossfunc = recon_lossfunc
-        self.with_cimg_loss = with_cimg_loss
+        self.mse = nn.MSELoss(reduction='sum')
+        self.img_loss = nn.BCEWithLogitsLoss(reduction='sum')
 
-        self.loss_terms = ('LOSS', 'KL', 'IMG', 'CTR', 'DPT')
+        self.loss_terms = ('LOSS', 'KL', 'RIMG', 'CIMG', 'CTR', 'DPT')
         self.pred_terms = ('C_GT', 'R_GT',
                            'R_PRED',
                            'C_PRED',
@@ -240,19 +240,20 @@ class AbTrainer(BasicTrainer):
         kl_loss = self.kl_loss(mu, logvar)
         center_loss = self.recon_lossfunc(center, torch.squeeze(data['center']))
         depth_loss = self.recon_lossfunc(depth, torch.squeeze(data['depth']))
-        image_loss = self.recon_lossfunc(rimage, rimg)
-        if self.with_cimg_loss:
-            image_loss += self.recon_lossfunc(cimage, cimg)
+        rimage_loss = self.mse(rimage, rimg) / rimage.shape[0]
+        cimage_loss = self.img_loss(cimage, cimg) / cimage.shape[0]
         
         loss = kl_loss * self.latent_weight +\
-            image_loss * self.img_weight +\
+            rimage_loss * self.img_weight +\
+            cimage_loss * self.img_weight +\
             center_loss * self.center_weight +\
             depth_loss * self.depth_weight
 
 
         self.temp_loss = {'LOSS': loss,
                           'KL': kl_loss,
-                          'IMG': image_loss,
+                          'RIMG': rimage_loss,
+                          'CIMG': cimage_loss,
                           'CTR': center_loss,
                           'DPT': depth_loss
                           }
@@ -264,7 +265,7 @@ class AbTrainer(BasicTrainer):
                 'GT_CTR': data['center'],
                 'CTR': center,
                 'GT_DPT': data['depth'],
-                'DPT': -depth,
+                'DPT': depth,
                 'TAG': data['tag'],
                 'IND': data['ind']}
 
@@ -274,9 +275,9 @@ class AbTrainer(BasicTrainer):
 
         figs.update(self.losslog.plot_predict(plot_terms=('R_GT', 'R_PRED'), title='RIMG_PRED'))
         figs.update(self.losslog.plot_predict(plot_terms=('C_GT', 'C_PRED'), title='CIMG_PRED'))
-        figs.update(self.losslog.plot_latent(plot_terms=('LATENT')))
+        figs.update(self.losslog.plot_latent(plot_terms=({'LATENT'})))
         figs.update(self.losslog.plot_center())
-        figs.update(self.losslog.plot_test_cdf(plot_terms='all'))
+        # figs.update(self.losslog.plot_test_cdf(plot_terms='all'))
         #figs.update(self.losslog.plot_tsne(plot_terms=('GT', 'T_LATENT', 'S_LATENT')))
 
         if autosave:
