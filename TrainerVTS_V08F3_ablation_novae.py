@@ -231,16 +231,16 @@ class CSIEncoder(BasicCSIEncoder):
 class TeacherTrainer(BasicTrainer):
     def __init__(self,
                  beta=0.5,
-                 recon_lossfunc=nn.BCELoss(reduction='sum'),
+                 recon_lossfunc=nn.BCEWithLogitsLoss(reduction='sum'),
                  *args, **kwargs):
         super(TeacherTrainer, self).__init__(*args, **kwargs)
 
-        self.modality = {'rimg', 'cimg', 'center', 'depth', 'tag', 'ctr', 'dpt', 'ind'}
+        self.modality = {'rimg', 'cimg', 'tag', 'ctr', 'dpt', 'ind'}
 
         self.beta = beta
         self.recon_lossfunc = recon_lossfunc
 
-        self.loss_terms = ('LOSS', 'KL', 'R_RECON', 'C_RECON', 'CTR', 'DPT')
+        self.loss_terms = ('LOSS', 'R_RECON', 'C_RECON', 'CTR', 'DPT')
         self.pred_terms = ('R_GT', 'C_GT', 
                            'GT_DPT', 'GT_CTR', 
                            'R_PRED', 'C_PRED', 
@@ -262,6 +262,8 @@ class TeacherTrainer(BasicTrainer):
                        'ctrde': CenterDecoder().to(self.device)
                        }
         
+        self.img_weight = 5.e-5
+        
     def kl_loss(self, mu, logvar):
         kl_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
         return kl_loss
@@ -274,12 +276,12 @@ class TeacherTrainer(BasicTrainer):
         rimg_re = self.models['rimgde'](z)
         cimg_re = self.models['cimgde'](z)
 
-        r_recon_loss = self.recon_lossfunc(rimg_re, rimg) / rimg_re.shape[0]
-        c_recon_loss = self.recon_lossfunc(cimg_re, cimg) / cimg_re.shape[0]
+        r_recon_loss = self.img_weight * self.recon_lossfunc(rimg_re, rimg) / rimg_re.shape[0]
+        c_recon_loss = self.img_weight * self.recon_lossfunc(cimg_re, cimg) / cimg_re.shape[0]
         
         ctr, depth = self.models['ctrde'](feature)
-        center_loss = self.center_loss(ctr, torch.squeeze(data['center']))
-        depth_loss = self.depth_loss(depth, torch.squeeze(data['depth']))
+        center_loss = self.center_loss(ctr, torch.squeeze(data['ctr']))
+        depth_loss = self.depth_loss(depth, torch.squeeze(data['dpt']))
         
         loss = r_recon_loss + c_recon_loss + center_loss + depth_loss
 
@@ -294,9 +296,9 @@ class TeacherTrainer(BasicTrainer):
                 'C_GT': cimg,
                 'R_PRED': rimg_re,
                 'C_PRED': cimg_re,
-                'GT_CTR': data['center'],
+                'GT_CTR': data['ctr'],
                 'CTR_PRED': ctr,
-                'GT_DPT': data['depth'],
+                'GT_DPT': data['dpt'],
                 'DPT_PRED': depth,
                 'LAT': z,
                 'TAG': data['tag'],
