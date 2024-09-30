@@ -283,6 +283,7 @@ class ImageEncoder(BasicImageEncoder):
             z = self.fc(out)
             return z
         elif self.mode == 'vae':
+            out = self.fc(out)
             mu, logvar = out.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
             z = reparameterize(mu, logvar)
             return z, mu, logvar
@@ -349,7 +350,10 @@ class CSIEncoder(BasicCSIEncoder):
             nn.LeakyReLU(inplace=True),
         )
         
-        self.lstm = nn.LSTM(512, self.middle_dim, 2, batch_first=True, dropout=0.1) if self.mode in ('tsvae', 'tsae') else None
+        if self.mode == 'tsae':
+            self.lstm = nn.LSTM(512 * 7, self.latent_dim, 2, batch_first=True, dropout=0.1)
+        elif self.mode == 'tsvae':
+            self.lstm = nn.LSTM(512 * 7, 2 * self.latent_dim, 2, batch_first=True, dropout=0.1)
         
         if self.mode == 'vae' or self.mode == 'tsvae':
             self.fclayers = nn.Sequential(
@@ -386,13 +390,13 @@ class CSIEncoder(BasicCSIEncoder):
         elif self.mode == 'tsae':
             features, (final_hidden_state, final_cell_state) = self.lstm.forward(
                 out.view(-1, 512 * 7, 75).transpose(1, 2))
-            z = self.fclayers(out)
+            z = features[:, -1, :]
             return z
         
         elif self.mode == 'tsvae':
             features, (final_hidden_state, final_cell_state) = self.lstm.forward(
                 out.view(-1, 512 * 7, 75).transpose(1, 2))
-            mu, logvar = out.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
+            mu, logvar = features[:, -1, :].view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
             z = reparameterize(mu, logvar)
             return z, mu, logvar
 
@@ -408,7 +412,7 @@ class CompTrainer(BasicTrainer):
         self.mode = mode
         self.mask = mask
         self.beta = kwargs['beta'] if 'beta' in kwargs.keys() else 0.5
-        self.recon_lossfunc = nn.BCEWithLogitsLoss(reduction='sum') if self.mode=='ae' else nn.MSELoss(reduction='sum')
+        self.image_loss = nn.BCEWithLogitsLoss(reduction='sum') if self.mode=='ae' else nn.MSELoss(reduction='sum')
         self.mse = nn.MSELoss(reduction='sum')
         self.loss_terms = {'LOSS'}
         self.pred_terms = ('R_GT', 'R_PRED', 'TAG', 'IND') if mode == 'wi2vi' else ('R_GT', 'R_PRED', 'LAT', 'TAG', 'IND')
@@ -418,7 +422,7 @@ class CompTrainer(BasicTrainer):
                            pred_terms=self.pred_terms)
 
     def vae_loss(self, pred, gt, mu, logvar):
-        recon_loss = self.mse(pred, gt) / pred.shape[0]
+        recon_loss = self.image_loss(pred, gt) / pred.shape[0]
         kl_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
         loss = recon_loss + kl_loss * self.beta
         return loss, kl_loss, recon_loss
@@ -428,7 +432,7 @@ class CompTrainer(BasicTrainer):
 
         if self.mode == 'wi2vi':
             output = self.models['wi2vi'](data['csi'])
-            loss = self.recon_lossfunc(output, img) / output.shape[0]
+            loss = self.image_loss(output, img) / output.shape[0]
             self.temp_loss = {'LOSS': loss}
             return {'R_GT': img,
                     'R_PRED': output,
@@ -437,7 +441,7 @@ class CompTrainer(BasicTrainer):
 
         elif self.mode == 'ae':
             latent, output = self.models['ae'](data['csi'])
-            loss = self.recon_lossfunc(output, img) / output.shape[0]
+            loss = self.image_loss(output, img) / output.shape[0]
             self.temp_loss = {'LOSS': loss}
             return {'R_GT': img,
                     'R_PRED': output,
@@ -464,7 +468,7 @@ class CompTrainer(BasicTrainer):
         elif self.mode == 'ae_t':
             z = self.models['imgen'](img)
             output = self.models['imgde'](z)
-            loss = self.recon_lossfunc(output, img) / output.shape[0]
+            loss = self.image_loss(output, img) / output.shape[0]
             self.temp_loss = {'LOSS': loss}
             return {'R_GT': img,
                     'R_PRED': output,
@@ -508,7 +512,7 @@ class CompTrainer(BasicTrainer):
 
 
 class CompStudentTrainer(BasicTrainer):
-    def __init__(self, mask=False, mode='ae', alpha=0.8, *args, **kwargs):
+    def __init__(self, mask=False, mode='ae_s', alpha=0.8, *args, **kwargs):
         super(CompStudentTrainer, self).__init__(*args, **kwargs)
 
         self.mask = mask
@@ -516,7 +520,7 @@ class CompStudentTrainer(BasicTrainer):
 
         self.mode = mode
         self.alpha = alpha
-        self.recon_lossfunc = nn.BCELoss(reduction='sum') if self.mask else nn.MSELoss(reduction='sum')
+        self.image_loss = nn.BCELoss(reduction='sum') if self.mask else nn.MSELoss(reduction='sum')
         self.mse = nn.MSELoss(reduction='sum')
         self.loss_terms = ('LOSS', 'IMG')
         self.pred_terms = ('R_GT', 'T_PRED', 'R_PRED', 'T_LATENT', 'S_LATENT', 'TAG', 'IND')
@@ -532,14 +536,14 @@ class CompStudentTrainer(BasicTrainer):
 
     def calculate_loss(self, data):
         img = torch.where(data['rimg'] > 0, 1., 0.) if self.mask else data['rimg']
-        if self.mode == 'ae':
+        if self.mode == 'ae_s':
             s_z = self.models['csien'](data['csi'])
 
             with torch.no_grad():
                 t_z = self.models['imgen'](img)
                 s_output = self.models['imgde'](s_z)
                 t_output = self.models['imgde'](t_z)
-                image_loss = self.recon_lossfunc(s_output, img)
+                image_loss = self.image_loss(s_output, img)
 
             loss = self.mse(s_z, t_z) / s_z.shape[0]
 
@@ -553,14 +557,14 @@ class CompStudentTrainer(BasicTrainer):
                     'TAG': data['tag'],
                     'IND': data['ind']}
             
-        elif self.mode == 'vae':
+        elif self.mode == 'vae_s':
             s_z, s_mu, s_logvar = self.models['csien'](data['csi'])
 
             with torch.no_grad():
                 t_z, t_mu, t_logvar = self.models['imgen'](img)
                 s_output = self.models['imgde'](s_z)
                 t_output = self.models['imgde'](t_z)
-                image_loss = self.recon_lossfunc(s_output, img)
+                image_loss = self.image_loss(s_output, img)
 
             loss, mu_loss, logvar_loss = self.kd_loss(s_mu, s_logvar, t_mu, t_logvar)
 
