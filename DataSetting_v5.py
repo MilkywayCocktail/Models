@@ -107,10 +107,10 @@ class MyDataset(Dataset):
         """
         # Tag codes
         ret: dict = {}
-        ret['tag'] =  self.label.iloc[index][['env', 'subject', 'img_inds']]
-        ret['tag']['env'] = self.env_code[ret['tag']['env']]
-        ret['tag']['subject'] = self.subject_code[ret['tag']['subject']]
-        ret['tag'] = ret['tag'].to_numpy().astype(int)
+        tag =  self.label.iloc[index][['env', 'subject', 'img_inds']]
+        tag['env'] = self.env_code[tag['env']]
+        tag['subject'] = self.subject_code[tag['subject']]
+        ret['tag'] = tag.to_numpy().astype(int)
         
         # return the absolute index of sample
         ret['ind'] = self.label.index[index]
@@ -166,8 +166,10 @@ class Preprocess:
         """
         
         # Adjust key name
-        data['center'] = data['ctr']
-        data['depth'] = data['dpt']
+        if 'ctr' in data.keys():
+            data['center'] = data['ctr']
+        if 'dpt' in data.keys():
+            data['depth'] = data['dpt']
         
         #  Transform images
         if self.new_size and 'rimg' in modalities:
@@ -253,8 +255,8 @@ class CrossValidator:
             test_labels = test_labels.iloc[test_subset_indices]
             
         else:
-            print(f" Train set range = {ran}, len = {train_labels}\n"
-                  f" Test set current = {self.current_test}, len = {test_labels}")
+            print(f" Train set range = {ran}, len = {len(train_labels)}\n"
+                  f" Test set current = {self.current_test}, len = {len(test_labels)}")
 
         return (train_labels, test_labels, self.current_test)
     
@@ -398,7 +400,7 @@ class DataOrganizer:
         
         print(f" Exported train loader of len {len(train_loader)}, batch size = {batch_size}\n"
               f" Exported valid loader of len {len(valid_loader)}, batch size = {batch_size}\n"
-              f" Exported test loader of len {len(test_loader)}, batch size = 1\n")
+              f" Exported test loader of len {len(test_loader)}, batch size = {batch_size}\n")
         
         return train_loader, valid_loader, test_loader, self.current_test
     
