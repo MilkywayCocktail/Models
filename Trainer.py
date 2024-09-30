@@ -326,7 +326,7 @@ class BasicTrainer:
                                 f"Total epochs = {self.current_ep()}\n"
                                 f"Best : val_loss={self.best_val_loss} @ epoch {self.best_vloss_ep}\n"
                                 f"Final validation losses:\n"
-                                f"{[self.temp_loss[key].item() for key in self.loss_terms]}"
+                                f"{[self.temp_loss[key].item() for key in self.loss_terms]}\n"
                                 )
                     
             # Check output every 10 epochs
@@ -352,7 +352,7 @@ class BasicTrainer:
                     print(f"\033[32mEarly Stopping triggered. Saving @ epoch {epoch}...\033[0m")
                     for model in train_module:
                         torch.save(self.models[model].state_dict(),
-                                   f"{self.save_path}{self.name}_{model}_best.pth")
+                                   f"{self.save_path}{self.name}_models_{model}_best.pth")
                         
                     with open(f"{self.save_path}{self.name}_trained.txt", 'a') as logfile:
                         logfile.write(f"End time = {end}\n"
@@ -451,7 +451,7 @@ class BasicTrainer:
                 'epoch': self.current_ep(),
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': self.loss_optimizer['LOSS'][0],
-                }, f"{self.save_path}{self.name}_{modelname}_checkpoint.pth")
+                }, f"{self.save_path}{self.name}_models_{modelname}_checkpoint.pth")
         
         print("All saved!")
 
