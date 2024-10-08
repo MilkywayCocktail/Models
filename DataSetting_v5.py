@@ -294,6 +294,7 @@ class DataOrganizer:
         
         # Put all labels into one DataFrame
         self.total_segment_labels = pd.DataFrame(columns=['env', 'subject', 'bag', 'csi', 'group', 'segment', 'timestamp', 'img_inds', 'csi_inds'])
+        
         self.train_indicies = None
         self.test_indicies = None        
         self.train_labels = None
@@ -313,7 +314,8 @@ class DataOrganizer:
                     file_name_, ext = os.path.splitext(file_name)
                     
                     # Load Label <subject>_matched.csv
-                    if ext == '.csv' and 'matched' in file_name_:
+                    if ext == '.csv' and 'matched' in file_name_ and 'checkpoint' not in file_name_:
+                        sub = file_name_[8:]
                         sub_label = pd.read_csv(os.path.join(path, file_name))
                         self.total_segment_labels = pd.concat([self.total_segment_labels, sub_label], ignore_index=True)
                         print(f'Loaded {file_name} of len {len(sub_label)}')
@@ -332,6 +334,10 @@ class DataOrganizer:
                      
         # self.total_segment_labels['csi_inds'] = self.total_segment_labels['csi_inds'].apply(lambda x: list(map(int, x.strip('[]').split())))
             
+    def regen_plan(self, subset_ratio=1):
+        self.cross_validator = CrossValidator(self.total_segment_labels, self.level, subset_ratio)
+        print("Data iterator reset!")
+    
     def gen_plan(self, subset_ratio=1, save=False, notion=''):
         if not self.cross_validator:
             self.cross_validator = CrossValidator(self.total_segment_labels, self.level, subset_ratio)   
@@ -354,7 +360,7 @@ class DataOrganizer:
         self.cross_validator = iter(plan)
         print(f'Loaded plan!')
     
-    def gen_loaders(self, mode='s', train_ratio=0.8, batch_size=64, csi_len=300, single_pd=True, num_workers=14, save_dataset=False):
+    def gen_loaders(self, mode='s', train_ratio=0.8, batch_size=64, csi_len=300, single_pd=True, num_workers=14, save_dataset=False, shuffle_test=True):
 
         print(f'Generating loaders for {mode}: level = {self.level}, current test = {self.current_test}')
         data = self.data.copy()
@@ -396,7 +402,8 @@ class DataOrganizer:
         test_loader = DataLoader(test_dataset, 
                                     batch_size=batch_size, 
                                     num_workers=num_workers,
-                                    pin_memory=True)
+                                    pin_memory=True,
+                                    shuffle=shuffle_test)
         
         print(f" Exported train loader of len {len(train_loader)}, batch size = {batch_size}\n"
               f" Exported valid loader of len {len(valid_loader)}, batch size = {batch_size}\n"

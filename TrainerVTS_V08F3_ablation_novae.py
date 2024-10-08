@@ -206,10 +206,13 @@ class CSIEncoder(BasicCSIEncoder):
             nn.ReLU()
         )
         
-        self.fc = nn.Sequential(
+        self.fc_feature = nn.Sequential(
             nn.Linear(self.csi_feature_length + self.pd_feature_length, 
                       self.feature_length),
-            nn.ReLU(),
+            nn.ReLU()
+        )
+        
+        self.fc_z = nn.Sequential(
             nn.Linear(self.feature_length, self.latent_dim)
         )
 
@@ -221,9 +224,10 @@ class CSIEncoder(BasicCSIEncoder):
         fea_pd = self.fc_pd(pd)
         features, (final_hidden_state, final_cell_state) = self.lstm.forward(
             fea_csi.view(-1, 512 * 7, self.lstm_steps).transpose(1, 2))
-        # 256-dim output
+        # 256-dim feature
         out = torch.cat((features[:, -1, :].view(-1, self.csi_feature_length), fea_pd.view(-1, self.pd_feature_length)), -1)
-        z = self.fce(out)
+        out = self.fc_feature(out)
+        z = self.fc_z(out)
 
         return z, out
 
@@ -325,7 +329,7 @@ class StudentTrainer(BasicTrainer):
                  alpha=0.8,
                  recon_lossfunc=nn.MSELoss(),
                  with_cimg_loss=False,
-                 lstm_steps=7,
+                 lstm_steps=75,
                  *args, **kwargs):
         super(StudentTrainer, self).__init__(*args, **kwargs)
 
