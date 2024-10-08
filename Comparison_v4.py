@@ -6,17 +6,35 @@ import os
 import pandas as pd
 from tqdm.notebook import tqdm
 
-import cupy as cp
-import cupyx.scipy.ndimage as cnd
-import cupyx.scipy.signal as cps
-
+cp_flag = False
+if torch.cuda.is_available():
+    import cupy as cp
+    import cupyx.scipy.ndimage as cnd
+    import cupyx.scipy.signal as cps
+    cp_flag = True
+else:
+    from scipy import signal
+    
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from misc import plot_settings
 from PIL import Image
 from scipy.ndimage import zoom
 
-criteria = ['mse', 'matched_mae', 'matched_mae_mask', 'average_depth', 'est_depth', 'gt_depth', 'distance', 'x', 'y']
+criteria = ['mse', 'soft_iou', 'matched_iou', 'matched_iou_mask', 'matched_mae', 'matched_mae_mask', 'average_depth_mse', 'est_depth', 'gt_depth', 'hist_mse', 'distance', 'dx', 'dy']
+
+
+def print_result(attribute_name='result'):
+    def decorator(func):
+        def wrapper(obj, *args, **kwargs):
+            # Check if the object has the specified attribute
+            if hasattr(obj, attribute_name):
+                print(f"{attribute_name}: {getattr(obj, attribute_name)}")
+            else:
+                print(f"Attribute '{attribute_name}' not found in the class.")
+            return func(obj, *args, **kwargs)
+        return wrapper
+    return decorator
 
 
 class Tester:
@@ -27,25 +45,24 @@ class Tester:
         self.name = name
         self.trainer = trainer
         self.preds = None
-        self.total_length = total_length  # Same as Labels
+        self.total_length = total_length  # lenth of total matched labels of data organizer
         self.save_path = save_path
         
-    def test(self, save=False, pred='R_PRED'):
-        self.trainer.test(loader='test')
-        if save:
-            self.trainer.losslog.save('preds', self.save_path)
+    def fetch_preds(self, pred='R_PRED'):
         
-        self.preds = pd.DataFrame(index=list(range[self.total_length]), columns=['gt', 'pred', 'tag', 'matched', 'center'])
+        self.preds = pd.DataFrame(index=list(range(self.total_length)), columns=['gt', 'pred', 'tag', 'matched', 'center'])
         
         gt = self.trainer.losslog.preds['R_GT']
-        preds = self.trainer.losslog.preds[pred]
+        r_preds = self.trainer.losslog.preds[pred]
         tags = self.trainer.losslog.preds['TAG']
         abs_ind = self.trainer.losslog.preds['IND']
         
         # Store results by absolute indicies
         for i, ind in enumerate(abs_ind):
-            self.preds.loc[ind, ['gt', 'pred', 'tag']] = [gt[i], preds[i], tags[i]]
+            self.preds.loc[int(ind), ['gt', 'pred', 'tag']] = [gt[i], r_preds[i], tags[i]]
 
+        # Important: remove nan rows
+        self.preds = self.preds.dropna(how='all')
 
 class ResultCalculator(Tester):
     def __init__(self, *args, **kwargs):
@@ -67,60 +84,128 @@ class ResultCalculator(Tester):
             return np.zeros((1, 4))
         
     @staticmethod
-    def matched_mae(im, gt, scale, cuda): 
-        # threshold 0.1 => 36cm
-        im_mask = np.where(im_re > 0.1, 1., 0.)
-        gt_mask = np.where(gt > 0.1, 1., 0.)
+    def iou_loss(pred_mask, true_mask, smooth=1e-6):
+        # Flatten the masks to 1D arrays
+        pred_mask_flat = pred_mask.flatten()
+        true_mask_flat = true_mask.flatten()
+
+        # Calculate the intersection and union
+        intersection = np.sum(pred_mask_flat * true_mask_flat)
+        union = np.sum(pred_mask_flat) + np.sum(true_mask_flat) - intersection
+
+        # Compute IoU
+        iou = (intersection + smooth) / (union + smooth)
         
-        im_depth = im.sum() / im_mask.sum()
-        gt_depth = gt.sum() / gt_mask.sum()
+        return 1 - iou
+    
+    @staticmethod
+    def histogram_matching_loss(pred, gt):
+        # Function to calculate the histogram of depth values
+        def calculate_histogram(depth_map, bins=50):
+            histogram, _ = np.histogram(depth_map, bins=bins, range=(0, 1), density=False)
+            histogram = histogram / np.sum(histogram)
+            return histogram
+        
+        def histogram_mse_loss(hist_pred, hist_gt):
+            return np.mean((hist_pred - hist_gt) ** 2)
+
+        # Calculate histograms for predicted and ground truth depth maps
+        hist_pred = calculate_histogram(pred, bins=50)
+        hist_gt = calculate_histogram(gt, bins=50)
+
+        # Calculate the histogram matching loss (MSE)
+        loss = histogram_mse_loss(hist_pred, hist_gt)
+        return loss
+        
+    def matched_loss(self, im, gt, scale, cuda, mask_threshold=0.1): 
+        # threshold 0.1 => 36cm
+        im_mask = np.where(im > mask_threshold, 1., 0.)
+        gt_mask = np.where(gt > mask_threshold, 1., 0.)
+        
+        im_depth = im.sum() / (im_mask.sum() + 1.e-6)
+        gt_depth = gt.sum() / (gt_mask.sum() + 1.e-6)
         average_depth = np.abs(gt_depth - im_depth)
         
         new_size = int(128*scale), int(128*scale)
         
         _im = Image.fromarray((im * 255).astype(np.uint8))
-        _im = _im.resize(new_size, Image.BILINEAR)
-        _im = np.array(_im).astype(float)
+        small_im = _im.resize(new_size, Image.BILINEAR)
+        small_im = np.array(small_im).astype(float)
         
         _gt = Image.fromarray((gt * 255).astype(np.uint8))
-        _gt = _gt.resize(new_size, Image.BILINEAR)
-        _gt = np.array(_gt).astype(float)
+        small_gt = _gt.resize(new_size, Image.BILINEAR)
+        small_gt = np.array(small_gt).astype(float)
     
-        tmp = cps.correlate2d(cp.array(gt), cp.array(im), mode='full')
-        tmp = cp.asnumpy(tmp)
+        if cp_flag:
+            tmp = cps.correlate2d(cp.array(small_gt), cp.array(small_im), mode='full')
+            tmp = cp.asnumpy(tmp)
+        else:
+            tmp = signal.correlate2d(small_gt, small_im, mode='full')
         
-        y, x = np.unravel_index(np.argmax(tmp), tmp.shape)
-        y = int(y / scale) - 128
-        x = int(x / scale) - 128
+        dy, dx = np.unravel_index(np.argmax(tmp), tmp.shape)
+
+        dy = int(dy / scale) - 128
+        dx = int(dx / scale) - 128
     
-        im_re = im.rotate(0, translate = (x, y))
+        im_re = _im.rotate(0, translate = (dx, dy))
         im_re = np.array(im_re).astype(float) / 255.
         
         matched_mae = np.mean(np.abs(gt - im_re))
+        matched_iou = self.iou_loss(im_re, gt)
         matched_mae_mask = np.mean(np.abs(im_mask - gt_mask))
+        matched_iou_mask = self.iou_loss(im_mask, gt_mask)
         
-        distance = np.sqrt(x**2+y**2)
+        distance = np.sqrt(dx ** 2 + dy ** 2)
 
-        return im_re, average_depth, matched_mae, matched_mae_mask, distance, x, y
+        return {
+            'matched': im_re,
+            'average_depth_mse': average_depth,
+            'est_depth': im_depth,
+            'gt_depth': gt_depth,
+            'matched_mae': matched_mae,
+            'matched_iou': matched_iou,
+            'matched_mae_mask': matched_mae_mask,
+            'matched_iou_mask': matched_iou_mask,
+            'distance': distance / 128,
+            'dx': dx / 128,
+            'dy': dy / 128
+            }
     
-    def mse(self, im, gt, find_center=False):
-        mse = F.mse_loss(torch.from_numpy(im), torch.from_numpy(gt)).numpy()
+    @staticmethod
+    def mse_loss(im, gt, find_center=False):
+        e = np.mean((np.array(gt) - np.array(im)) ** 2)
+
         if find_center:
             center = self.find_center(im)
-            mse = (mse, center)
-        return mse
+            # To be finalized
+        return e
         
-    def evaluate(self, scale=3, cuda=0, find_center=False):
-        self.results = pd.DataFrame(index=list(range[self.total_length]), columns=criteria)
+    def evaluate(self, scale=0.2, cuda=0, find_center=False):
+        self.results = pd.DataFrame(index=list(range(self.total_length)), columns=criteria)
         
-        for i, gt, pred, *_ in tqdm(self.preds.itertuples(), desc="Evaluating"):
+        for i, gt, pred, *_ in tqdm(self.preds.itertuples(), desc="Evaluating", total=len(self.preds)):
             
-            mse = self.mse(pred, gt)
-            im_re, average_depth, matched_mae, matched_mae_mask, distance = self.matched_mae(pred, gt, scale, cuda)
+            #mse = self.mse_loss(pred, gt)
+            #soft_iou = self.iou_loss(pred, gt)
+            hist_mse = self.histogram_matching_loss(pred, gt)
+            #matched_res = self.matched_loss(pred, gt, scale, cuda)
             
-            self.results.loc[i, ['mse', 'matched_mae', 'matched_mae_mask', 'average_depth', 'distance', 'x', 'y']] = mse, 
-            matched_mae, matched_mae_mask, average_depth, distance
-            self.preds.loc[i, 'matched'] = im_re
+            #for key, res in matched_res.items():
+            #    if key != 'matched':
+            #        self.results.loc[i, key] = res
+            #self.results.loc[i, ['mse', 'soft_iou', 'hist_mse']] = mse, soft_iou, hist_mse
+            self.results.loc[i,'hist_mse'] = hist_mse
+
+            #self.preds.loc[i, 'matched'] = matched_res['matched']
+            
+        self.results = self.results.dropna(how='all')
+        self.results.replace(np.inf, 1, inplace=True)  # Some avg_depth may be inf
+    
+    def save(self, name):
+        if not os.path.exists('../results'):
+            os.makedirs('../results')
+        self.results.to_csv(os.path.join('../results', f"{name}.csv"))
+        print("Results saved")
             
     def plot_example(self, selected=None, matched=False, source='vanilla'):
         fig = plot_settings()

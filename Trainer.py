@@ -11,6 +11,7 @@ from tqdm.notebook import tqdm
 from Loss import MyLossLog
 from misc import timer
 import time
+from datetime import timedelta, datetime
 
 
 class ExtraParams:
@@ -107,6 +108,7 @@ class BasicTrainer:
                  *args, **kwargs
                  ):
         self.name = name
+        self.start_ep = 1
         self.epochs = epochs
         self.loss_optimizer = loss_optimizer
         self.scaler = GradScaler()
@@ -183,6 +185,9 @@ class BasicTrainer:
 
     def current_ep(self):
         return self.losslog.current_epoch
+    
+    def current_lr(self):
+        return self.losslog.loss['LOSS'].lr
 
     def calculate_loss(self, *inputs):
         # --- Return losses in this way ---
@@ -227,10 +232,12 @@ class BasicTrainer:
             
         print(f"=========={self.notion} {self.name} Training starting==========")
         start = time.time()
+        start_time = datetime.fromtimestamp(start)
+        
         # ===============train and validate each epoch==============
         self.epochs = 1000 if early_stop else self.epochs
         
-        for epoch in tqdm(range(1, self.epochs)):
+        for epoch in tqdm(range(self.start_ep, self.epochs)):
             # =====================train============================
             try:
                 print('')
@@ -322,7 +329,7 @@ class BasicTrainer:
 
                 with open(f"{self.save_path}{self.name}_trained.txt", 'w') as logfile:
                     logfile.write(f"{self.notion}_{self.name}\n"
-                                  f"Start time = {start}\n"
+                                  f"Start time = {start_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
                                 f"Total epochs = {self.current_ep()}\n"
                                 f"Best : val_loss={self.best_val_loss} @ epoch {self.best_vloss_ep}\n"
                                 f"Final validation losses:\n"
@@ -349,14 +356,15 @@ class BasicTrainer:
                     break
                 else:
                     end = time.time()
-                    print(f"\033[32mEarly Stopping triggered. Saving @ epoch {epoch}...\033[0m")
+                    end_time = datetime.fromtimestamp(start)
+                    print(f"\n\033[32mEarly Stopping triggered. Saving @ epoch {epoch}...\033[0m")
                     for model in train_module:
                         torch.save(self.models[model].state_dict(),
                                    f"{self.save_path}{self.name}_models_{model}_best.pth")
                         
                     with open(f"{self.save_path}{self.name}_trained.txt", 'a') as logfile:
-                        logfile.write(f"End time = {end}\n"
-                                      f"Total training time = {end - start}\n"
+                        logfile.write(f"End time = {end_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
+                                      f"Total training time = {str(timedelta(seconds=end-start))}\n"
                                       f"\nModules:\n{list(self.models.values())}\n")
                     break
                 
@@ -449,11 +457,45 @@ class BasicTrainer:
             print(f"Saving {modelname}...")
             torch.save({
                 'epoch': self.current_ep(),
+                'lr': self.current_lr(),
                 'model_state_dict': model.state_dict(),
-                'optimizer_state_dict': self.loss_optimizer['LOSS'][0],
+                #'optimizer_state_dict': self.loss_optimizer['LOSS'][0].state_dict(),
                 }, f"{self.save_path}{self.name}_models_{modelname}_checkpoint.pth")
         
         print("All saved!")
+        
+    def load(self, path, name='Student', mode='checkpoint', gpu=None):
+        print(f"=========={self.notion} {self.name} Loading==========")
+        paths = os.walk(path)
+        for p, _, file_lst in paths:
+            for file_name in file_lst:
+                file_name_, ext = os.path.splitext(file_name)
+                if ext == '.pth' and name in file_name_ and mode in file_name_:
+                    for model_name, model in self.models.items():
+                        if model_name in file_name_:
+                            # Load model .pth
+                            ep, lr = '', ''
+                            if isinstance(gpu, int):
+                                checkpoint = torch.load(os.path.join(p, file_name), map_location=f"cuda:{gpu}")
+                            else:
+                                checkpoint = torch.load(os.path.join(p, file_name))
+                            if 'model_state_dict' in checkpoint.keys():
+                                model.load_state_dict(checkpoint['model_state_dict'])
+
+                                if 'epoch' in checkpoint:
+                                    self.losslog.current_epoch = checkpoint['epoch']
+                                    ep = f" at epoch {checkpoint['epoch']}"
+                                    self.start_ep = ep
+                                if 'optimizer_state_dict' in checkpoint:
+                                    self.loss_optimizer['LOSS'][0].load_state_dict(checkpoint['optimizer_state_dict'])
+                                if 'lr' in  checkpoint:
+                                    self.loss_optimizer['LOSS'][1] = checkpoint['lr']
+                                    lr = f"lr = {checkpoint['lr']}"
+                            else:
+                                model.load_state_dict(checkpoint)
+                            
+                            print(f"Loaded model {model}{ep}{lr} from {file_name}!")
+
 
     def schedule(self, autosave=True, *args, **kwargs):
         # Training, testing and saving
