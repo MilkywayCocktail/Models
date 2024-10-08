@@ -8,6 +8,7 @@ from tqdm.notebook import tqdm
 
 cp_flag = False
 if torch.cuda.is_available():
+
     import cupy as cp
     import cupyx.scipy.ndimage as cnd
     import cupyx.scipy.signal as cps
@@ -35,6 +36,7 @@ def print_result(attribute_name='result'):
             return func(obj, *args, **kwargs)
         return wrapper
     return decorator
+
 
 
 class Tester:
@@ -197,9 +199,11 @@ class ResultCalculator(Tester):
             self.results.loc[i,'hist_mse'] = hist_mse
 
             #self.preds.loc[i, 'matched'] = matched_res['matched']
+
             
         self.results = self.results.dropna(how='all')
         self.results.replace(np.inf, 1, inplace=True)  # Some avg_depth may be inf
+
     
     def save(self, name):
         if not os.path.exists('../results'):
