@@ -546,6 +546,7 @@ class CompStudentTrainer(BasicTrainer):
                 image_loss = self.image_loss(s_output, img)
 
             loss = self.mse(s_z, t_z) / s_z.shape[0]
+            # LATENT loss = loss
 
             self.temp_loss = {'LOSS': loss,
                             'IMG': image_loss}
