@@ -92,7 +92,9 @@ class MyLossLog:
                 self.loss[key](mode, np.squeeze(losses[key]))
         elif mode == 'pred':
             for key in losses.keys():
+                # PRED_TERMS
                 lss = losses[key].cpu().detach().numpy().squeeze()
+                # Unpack batches
                 for ls in lss:
                     self.preds[key].append(ls)
                 
@@ -115,8 +117,8 @@ class MyLossLog:
             os.makedirs(save_path)
         if save_term == 'preds':
             for key, value in self.preds.items():
-                if 'GT' in key:
-                    continue
+                #if 'GT' in key:
+                #    continue
                 print(f"Saving {save_term}: {key}...")
                 np.save(f"{save_path}{self.name}_{save_term}_{key}.npy", value)
         else:
