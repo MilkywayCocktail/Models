@@ -140,6 +140,9 @@ class BasicTrainer:
         self.modality = modality
         
         self.preprocess = preprocess
+        
+        self.train_module = 'all'
+        self.eval_module = 'all'
 
         self.loss_terms = ('loss1', 'loss2', '...')
         self.pred_terms = ('predict1', 'predict2', '...')
@@ -203,7 +206,6 @@ class BasicTrainer:
             #     self.temp_loss[loss].backward()
                 
             self.scaler.scale(self.temp_loss[loss]).backward()
-            
             self.scaler.step(self.losslog.loss[loss].optimizer)
             self.scaler.update()
 
@@ -211,9 +213,14 @@ class BasicTrainer:
     def train(self, train_module=None, eval_module=None, early_stop=True, lr_decay=True, subsample_fraction=1, *args, **kwargs):
         self.early_stopping = EarlyStopping(*args, **kwargs)
         
-        if not train_module:
-            train_module = list(self.models.keys())
-        params = [{'params': self.models[model].parameters()} for model in train_module]
+        if self.train_module == 'all':
+            self.train_module = list(self.models.keys())
+        if self.eval_module == 'all':
+            self.eval_module = list(self.models.keys())
+        
+        params = [{'params': self.models[model].parameters()} for model in self.train_module]
+        
+        
         if self.extra_params.updatable:
             for param, value in self.extra_params.params.items():
                 params.append({'params': value})
@@ -241,11 +248,11 @@ class BasicTrainer:
             # =====================train============================
             try:
                 print('')
-                for model in train_module:
+                for model in self.train_module:
                     self.models[model].train()
-                if eval_module:
-                    for model in eval_module:
-                        self.models[model].eval()
+                for model in self.eval_module:
+                    self.models[model].eval()
+                    
                 EPOCH_LOSS = {loss: [] for loss in self.loss_terms}
 
                 with tqdm(total=self.train_batches, bar_format=bar_format) as _tqdm:
@@ -286,11 +293,11 @@ class BasicTrainer:
 
             # =====================valid============================
             print('')
-            for model in train_module:
+            for model in self.train_module:
                 self.models[model].eval()
-            if eval_module:
-                for model in eval_module:
-                    self.models[model].eval()
+            for model in self.eval_module:
+                self.models[model].eval()
+                
             EPOCH_LOSS = {loss: [] for loss in self.loss_terms}
 
             with tqdm(total=self.valid_batches, bar_format=bar_format) as _tqdm:
@@ -377,11 +384,9 @@ class BasicTrainer:
         return self.models
 
     @timer
-    def test(self, test_module=None, single_test=False, loader: str = 'test', subsample_fraction=1, *args, **kwargs):
+    def test(self, single_test=False, loader: str = 'test', subsample_fraction=1, *args, **kwargs):
 
-        if not test_module:
-            test_module = list(self.models.keys())
-        for model in test_module:
+        for model in self.models:
             self.models[model].eval()
 
         EPOCH_LOSS = {loss: [] for loss in self.loss_terms}
