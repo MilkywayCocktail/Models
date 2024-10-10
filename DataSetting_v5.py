@@ -109,7 +109,7 @@ class MyDataset(Dataset):
         ret: dict = {}
         tag =  self.label.iloc[index][['env', 'subject', 'img_inds']]
         tag['env'] = self.env_code[tag['env']]
-        tag['subject'] = self.subject_code[tag['subject']]
+        tag['subject'] = self.subject_code[tag['subject']
         ret['tag'] = tag.to_numpy().astype(int)
         
         # return the absolute index of sample
@@ -201,16 +201,23 @@ class Preprocess:
         
         return data
 
+
 class CrossValidator:
     """
     Generate labels for cross validation
     """
-    def __init__(self, labels, level, subset_ratio=1):
+    def __init__(self, labels, level, train=None, test=None, subset_ratio=1):
         self.labels = labels
         self.level = level
         self.subset_ratio = subset_ratio
         
-        self.range = ['A308', 'A308T'] if self.level == 'day' else list(set(self.labels.loc[:, level].values))
+        if train and test:
+            self.train = train
+            self.test = test
+            self.range = {test}
+        else:
+            self.range = ['A308', 'A308T'] if self.level == 'day' else list(set(self.labels.loc[:, level].values))
+        
         self.current = -1
         self.current_test = None
 
@@ -235,8 +242,12 @@ class CrossValidator:
 
         else:
             # Select one as leave-1-out test
-            train_labels = self.labels[self.labels[self.level]!=self.current_test]
-            test_labels = self.labels[self.labels[self.level]==self.current_test]
+            if self.train and self.test:
+                train_labels = self.labels[self.labels[self.level]==self.train]
+                test_labels = self.labels[self.labels[self.level]==self.test]
+            else:              
+                train_labels = self.labels[self.labels[self.level]!=self.current_test]
+                test_labels = self.labels[self.labels[self.level]==self.current_test]
                  
 
         if self.subset_ratio < 1:
@@ -277,7 +288,7 @@ class Removal:
 
 
 class DataOrganizer:
-    def __init__(self, name, data_path, level):
+    def __init__(self, name, data_path, level=None, train=None, test=None):
         self.name = name
         self.data_path = data_path
         # Specify the exact range of envs
@@ -285,6 +296,10 @@ class DataOrganizer:
         self.level = level
         assert level in {'env', 'subject', 'day'}
         print(f'Cross validation plan at {self.level} level')
+        
+        if train and test:
+            self.train = train
+            self.test = test
         
         self.batch_size = 64
         
@@ -335,12 +350,12 @@ class DataOrganizer:
         # self.total_segment_labels['csi_inds'] = self.total_segment_labels['csi_inds'].apply(lambda x: list(map(int, x.strip('[]').split())))
             
     def regen_plan(self, subset_ratio=1):
-        self.cross_validator = CrossValidator(self.total_segment_labels, self.level, subset_ratio)
+        self.cross_validator = CrossValidator(self.total_segment_labels, self.level, self.train, self.test, subset_ratio)
         print("Data iterator reset!")
     
     def gen_plan(self, subset_ratio=1, save=False, notion=''):
         if not self.cross_validator:
-            self.cross_validator = CrossValidator(self.total_segment_labels, self.level, subset_ratio)   
+            self.cross_validator = CrossValidator(self.total_segment_labels, self.level, self.train, self.test, subset_ratio)   
         
         if save:
             print(f'Saving plan {self.level} @ {subset_ratio}...')
@@ -411,3 +426,36 @@ class DataOrganizer:
         
         return train_loader, valid_loader, test_loader, self.current_test
     
+
+class DANN_Loader:
+    def __init__(self, source_loader, target_loader):
+        self.source_loader = source_loader
+        self.target_loader = target_loader
+        self.source_iter = iter(source_loader)
+        self.target_iter = iter(target_loader)
+        self.maximum_iter = len(source_loader)
+        self.current = -1
+        
+    def __iter__(self):
+        return self
+        
+    def __next__(self):
+        self.current += 1
+        if self.current > self.maximum_iter:
+            raise StopIteration
+        else:
+            source_data = next(self.source_iter)
+            target_data = next(self.target_iter)
+            
+        if source_data is None:
+            self.source_iter = iter(self.source_loader)
+            source_data = next(self.source_iter)
+            
+        if target_data is None:
+            self.target_iter = iter(self.target_loader)
+            target_data = next(self.target_iter)
+            
+        return source_data, target_data
+        
+    def __len__(self):
+        return self.maximum_iter
