@@ -201,18 +201,30 @@ class Preprocess:
         
         return data
 
+
 class CrossValidator:
     """
     Generate labels for cross validation
     """
-    def __init__(self, labels, level, subset_ratio=1):
+    def __init__(self, labels, level, train=None, test=None, subset_ratio=1):
         self.labels = labels
         self.level = level
         self.subset_ratio = subset_ratio
+        self.train = train
+        self.test = test
+        # train and test are str
         
-        self.range = ['A308', 'A308T'] if self.level == 'day' else list(set(self.labels.loc[:, level].values))
+        self.iter_range()
         self.current = -1
         self.current_test = None
+        
+    def iter_range(self):
+        # Total range including train and test
+        if self.train and self.test:
+            self.range = [self.train]
+        else:
+            self.range = ['A308', 'A308T'] if self.level == 'day' else list(set(self.labels.loc[:, level].values))
+        
 
     def __iter__(self):
         return self
@@ -223,20 +235,28 @@ class CrossValidator:
         if self.current >= len(self.range):
             raise StopIteration
         
-        self.current_test = self.range[self.current]
-        print(f"Fetched level {self.level}, {self.current + 1} of {len(self.range)}, current = {self.current_test}")
+        train_range = self.range
+        if self.train and self.test:
+            self.current_test = self.test
+        else:
+            self.current_test = self.range[self.current]
+            train_range.remove(self.current_test)  
+             
+        print(f"\033[32mFetched level {self.level}, {self.current + 1} of {len(self.range)}, current test = {self.current_test}\033[0m")
                             
-        ran = set(self.range)
-        ran.remove(self.current_test)
-
+    
         if self.level == 'day':
             train_labels = self.labels[self.labels['env']!=self.current_test]
             test_labels = self.labels[self.labels['env']==self.current_test]
 
         else:
             # Select one as leave-1-out test
-            train_labels = self.labels[self.labels[self.level]!=self.current_test]
-            test_labels = self.labels[self.labels[self.level]==self.current_test]
+            if self.train and self.test:
+                train_labels = self.labels[self.labels[self.level]==self.train]
+                test_labels = self.labels[self.labels[self.level]==self.test]
+            else:              
+                train_labels = self.labels[self.labels[self.level]!=self.current_test]
+                test_labels = self.labels[self.labels[self.level]==self.current_test]
                  
 
         if self.subset_ratio < 1:
@@ -244,7 +264,7 @@ class CrossValidator:
             train_subset_size = int(len(train_labels) * self.subset_ratio)
             test_subset_size = int(len(test_labels) * self.subset_ratio) 
             
-            print(f" Train set range = {ran}, len = {train_subset_size} from {len(train_labels)}\n"
+            print(f" Train set range = {train_range}, len = {train_subset_size} from {len(train_labels)}\n"
                   f" Test set current = {self.current_test}, len = {test_subset_size} from {len(test_labels)}"
                   )
 
@@ -255,10 +275,15 @@ class CrossValidator:
             test_labels = test_labels.iloc[test_subset_indices]
             
         else:
-            print(f" Train set range = {ran}, len = {len(train_labels)}\n"
+            print(f" Train set range = {ratrain_rangen}, len = {len(train_labels)}\n"
                   f" Test set current = {self.current_test}, len = {len(test_labels)}")
 
         return (train_labels, test_labels, self.current_test)
+    
+    def reset(self):
+        self.iter_range()
+        self.current = -1
+        self.current_test = None
     
 
 class Removal:
@@ -277,7 +302,7 @@ class Removal:
 
 
 class DataOrganizer:
-    def __init__(self, name, data_path, level):
+    def __init__(self, name, data_path, level=None, train=None, test=None):
         self.name = name
         self.data_path = data_path
         # Specify the exact range of envs
@@ -285,6 +310,10 @@ class DataOrganizer:
         self.level = level
         assert level in {'env', 'subject', 'day'}
         print(f'Cross validation plan at {self.level} level')
+        
+        if train and test:
+            self.train = train
+            self.test = test
         
         self.batch_size = 64
         
@@ -334,13 +363,17 @@ class DataOrganizer:
                      
         # self.total_segment_labels['csi_inds'] = self.total_segment_labels['csi_inds'].apply(lambda x: list(map(int, x.strip('[]').split())))
             
-    def regen_plan(self, subset_ratio=1):
-        self.cross_validator = CrossValidator(self.total_segment_labels, self.level, subset_ratio)
+    def regen_plan(self, **kwargs):
+        # reset in crossvalidator
+        if kwargs:
+            for key, value in kwargs.items():
+                setattr(self.cross_validator, key, value)       
+        self.cross_validator.reset()
         print("Data iterator reset!")
     
     def gen_plan(self, subset_ratio=1, save=False, notion=''):
         if not self.cross_validator:
-            self.cross_validator = CrossValidator(self.total_segment_labels, self.level, subset_ratio)   
+            self.cross_validator = CrossValidator(self.total_segment_labels, self.level, self.train, self.test, subset_ratio)   
         
         if save:
             print(f'Saving plan {self.level} @ {subset_ratio}...')
@@ -362,7 +395,7 @@ class DataOrganizer:
     
     def gen_loaders(self, mode='s', train_ratio=0.8, batch_size=64, csi_len=300, single_pd=True, num_workers=14, save_dataset=False, shuffle_test=True):
 
-        print(f'Generating loaders for {mode}: level = {self.level}, current test = {self.current_test}')
+        print(f'\033[32mGenerating loaders for {mode}: level = {self.level}, current test = {self.current_test}\033[0m')
         data = self.data.copy()
         
         if mode == 't':
@@ -411,3 +444,47 @@ class DataOrganizer:
         
         return train_loader, valid_loader, test_loader, self.current_test
     
+
+class DANN_Loader:
+    def __init__(self, source_loader, target_loader):
+        self.source_loader = source_loader
+        self.target_loader = target_loader
+        self.source_iter = iter(source_loader)
+        self.target_iter = iter(target_loader)
+        self.maximum_iter = len(source_loader)
+        self.current = -1
+        
+    def __iter__(self):
+        return self
+        
+    def __next__(self):
+        self.current += 1
+        if self.current > self.maximum_iter:
+            # automatically reloop
+            self.reset()
+            raise StopIteration
+
+            
+        try:
+            source_data = next(self.source_iter)
+        except StopIteration:
+            self.source_iter = iter(self.source_loader)  # Reset the iterator
+            source_data = next(self.source_iter)         # Get the first batch again
+
+        try:
+            target_data = next(self.target_iter)
+        except StopIteration:
+            self.target_iter = iter(self.target_loader)  # Reset the iterator
+            target_data = next(self.target_iter)         # Get the first batch again
+
+        return source_data, target_data
+
+        
+    def __len__(self):
+        return self.maximum_iter
+    
+    def reset(self):
+        self.source_iter = iter(self.source_loader)
+        self.target_iter = iter(self.target_loader)
+        self.maximum_iter = len(self.source_loader)
+        self.current = -1
