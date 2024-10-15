@@ -7,6 +7,7 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 from tqdm.notebook import tqdm
+from IPython.display import clear_output
 
 from Loss import MyLossLog
 from misc import timer
@@ -104,6 +105,8 @@ class BasicTrainer:
                  networks = None,
                  preprocess = None,
                  modality = {'csi', 'rimg', 'tag', 'ind'},
+                 train_module = 'all',
+                 eval_module = 'all',
                  notion = None,
                  *args, **kwargs
                  ):
@@ -141,13 +144,13 @@ class BasicTrainer:
         
         self.preprocess = preprocess
         
-        self.train_module = 'all'
-        self.eval_module = 'all'
+        self.train_module =  train_module
+        self.eval_module = eval_module
 
         self.loss_terms = ('loss1', 'loss2', '...')
         self.pred_terms = ('predict1', 'predict2', '...')
         self.losslog = MyLossLog(self.name, self.loss_terms, self.pred_terms)
-        self.temp_loss = {}
+        self.temp_loss = None
         self.best_val_loss = float("inf")
         self.best_vloss_ep = 0
         
@@ -194,7 +197,7 @@ class BasicTrainer:
 
     def calculate_loss(self, *inputs):
         # --- Return losses in this way ---
-        self.temp_loss = {loss: 0 for loss in self.loss_terms}
+        self.temp_loss = {loss: None for loss in self.loss_terms}
         return {pred: None for pred in self.pred_terms}
     
     def update(self):
@@ -210,24 +213,31 @@ class BasicTrainer:
             self.scaler.update()
 
     @timer
-    def train(self, train_module=None, eval_module=None, early_stop=True, lr_decay=True, subsample_fraction=1, *args, **kwargs):
-        self.early_stopping = EarlyStopping(*args, **kwargs)
+    def train(self, early_stop=True, lr_decay=True, subsample_fraction=1, *args, **kwargs):
         
-        if self.train_module == 'all':
-            self.train_module = list(self.models.keys())
-        if self.eval_module == 'all':
-            self.eval_module = list(self.models.keys())
+        # To be moved elsewhere!
+        # if self.extra_params.updatable:
+        #     for param, value in self.extra_params.params.items():
+        #         trainable_params.append({'params': value})
+
+        # ===============set trainable parts==============
+        self.train_module = list(self.models.keys()) if self.train_module == 'all' else self.train_module
+        self.eval_module = list(self.models.keys()) if self.eval_module == 'all' else self.eval_module
         
-        params = [{'params': self.models[model].parameters()} for model in self.train_module]
-        
-        
-        if self.extra_params.updatable:
-            for param, value in self.extra_params.params.items():
-                params.append({'params': value})
+        for model in self.train_module:
+            for param in self.models[model].parameters():
+                param.requires_grad = True
+            
+        for model in self.eval_module:
+            for param in self.models[model].parameters():
+                param.requires_grad = False
+                
+        trainable_params = [{'params': self.models[model].parameters()} for model in self.train_module]
                 
         for loss, [optimizer, lr] in self.loss_optimizer.items():
-            self.losslog.loss[loss].set_optimizer(optimizer, lr, params)
+            self.losslog.loss[loss].set_optimizer(optimizer, lr, trainable_params)
             
+        # ===============set training-flow related==============
         bar_format = '{desc}{percentage:3.0f}%|{bar}|[{elapsed}<{remaining}{postfix}]'
 
         if subsample_fraction < 1:
@@ -237,59 +247,54 @@ class BasicTrainer:
             self.valid_batches = int(self.valid_batches * subsample_fraction)
             self.valid_sampled_batches = np.random.choice(len(self.dataloader['valid']), self.valid_batches, replace=False)
             
-        print(f"=========={self.notion} {self.name} Training starting==========")
+        self.epochs = 1000 if early_stop else self.epochs
+        self.early_stopping = EarlyStopping(*args, **kwargs)
+        self.temp_loss = {loss: None for loss in self.loss_terms}
+        # ===============train and validate each epoch==============
         start = time.time()
         start_time = datetime.fromtimestamp(start)
-        
-        # ===============train and validate each epoch==============
-        self.epochs = 1000 if early_stop else self.epochs
+        print(f"=========={start_time.strftime('%Y-%m-%d %H:%M:%S')} {self.notion} {self.name} Training starting==========")
         
         for epoch in tqdm(range(self.start_ep, self.epochs)):
+            print('')
             # =====================train============================
-            try:
-                print('')
-                for model in self.train_module:
-                    self.models[model].train()
-                for model in self.eval_module:
-                    self.models[model].eval()
-                    
-                EPOCH_LOSS = {loss: [] for loss in self.loss_terms}
 
-                with tqdm(total=self.train_batches, bar_format=bar_format) as _tqdm:
-                    _tqdm.set_description(f"{self.notion} {self.name} train: ep {epoch}/{self.epochs}")
+            for model in self.train_module:
+                self.models[model].train()
+                
+            # eval modules also need to be on train mode
+            for model in self.eval_module:
+                self.models[model].train()
+                
+            EPOCH_LOSS = {loss: [] for loss in self.loss_terms}
+
+            with tqdm(total=self.train_batches, bar_format=bar_format) as _tqdm:
+                _tqdm.set_description(f"{self.notion} {self.name} train: ep {epoch}/{self.epochs}")
+                
+                for idx, data in enumerate(self.dataloader['train'], 1):
+                    # Randomly select samples
+                    if self.train_sampled_batches is not None and idx not in self.train_sampled_batches:
+                        continue
+                    data_ = self.data_preprocess(data)
                     
-                    for idx, data in enumerate(self.dataloader['train'], 0):
-                        # Randomly select samples
-                        if self.train_sampled_batches is not None and idx not in self.train_sampled_batches:
-                            continue
-                        data_ = self.data_preprocess(data)
+                    # Use autocast for mixed precision training
+                    with autocast():
+                        PREDS = self.calculate_loss(data_)
                         
-                        # Use autocast for mixed precision training
-                        with autocast():
-                            PREDS = self.calculate_loss(data_)
-                            
-                        self.update()
+                    self.update()
 
-                        for key in EPOCH_LOSS.keys():
-                            EPOCH_LOSS[key].append(self.temp_loss[key].item())
+                    for key in EPOCH_LOSS.keys():
+                        EPOCH_LOSS[key].append(self.temp_loss[key].item())
 
-                        _tqdm.set_postfix({'batch': f"{idx}/{self.train_batches}",
-                                           'loss': f"{self.temp_loss['LOSS'].item():.4f}"})
-                        _tqdm.update(1)
-                        # if idx % 10 == 0:
-                        #     print(f"\r{self.name} train: epoch={epoch}/{train_range[-1]}, "
-                        #         f"batch={idx}/{len(self.dataloader['train'])}, "
-                        #         f"loss={self.temp_loss['LOSS'].item():.4f}, "
-                        #         f"current best valid loss={self.best_val_loss:.4f} @ epoch {self.best_vloss_ep}    ", flush=True, end='')
+                    _tqdm.set_postfix({'batch': f"{idx}/{self.train_batches}",
+                                        'loss': f"{self.temp_loss['LOSS'].item():.4f}"})
+                    _tqdm.update(1)
 
-                for key, value in EPOCH_LOSS.items():
-                    EPOCH_LOSS[key] = np.average(value)
-                self.losslog('train', EPOCH_LOSS)
-                self.extra_params.update()
-                    
-            except Exception as e:
-                print(f'Training stopped due to {e}')
-                self.plot_train_loss(autosave=True)
+            for key, value in EPOCH_LOSS.items():
+                EPOCH_LOSS[key] = np.average(value)
+            self.losslog('train', EPOCH_LOSS)
+            self.extra_params.update()
+            # clear_output(wait=True) 
 
             # =====================valid============================
             print('')
@@ -303,7 +308,7 @@ class BasicTrainer:
             with tqdm(total=self.valid_batches, bar_format=bar_format) as _tqdm:
                 _tqdm.set_description(f"{self.notion} {self.name} valid: ep {epoch}/{self.epochs}")
                 
-                for idx, data in enumerate(self.dataloader['valid'], 0):
+                for idx, data in enumerate(self.dataloader['valid'], 1):
                     # Randomly select samples
                     if self.valid_sampled_batches is not None and idx not in self.valid_sampled_batches:
                         continue
@@ -327,12 +332,6 @@ class BasicTrainer:
                                        'loss': f"{self.temp_loss['LOSS'].item():.4f}",
                                        'current best': f"{self.best_val_loss:.4f} @ epoch {self.best_vloss_ep}"})
                     _tqdm.update(1)
-
-                    # if idx % 10 == 0:
-                    #     print(f"\r{self.name} valid: epoch={epoch}/{train_range[-1]}, "
-                    #         f"batch={idx}/{len(self.dataloader['valid'])}, "
-                    #         f"loss={self.temp_loss['LOSS'].item():.4f}, "
-                    #         f"current best valid loss={self.best_val_loss:.4f} @ epoch {self.best_vloss_ep}        ", flush=True, end='')
 
                 with open(f"{self.save_path}{self.name}_trained.txt", 'w') as logfile:
                     logfile.write(f"{self.notion}_{self.name}\n"
@@ -402,13 +401,16 @@ class BasicTrainer:
                 test_sampled_batches = np.random.choice(len(self.dataloader[loader]), test_batches, replace=False)
             else:
                 test_sampled_batches = self.train_sampled_batches
-            
-        print(f"=========={self.notion} {self.name} Test starting==========\n")
+        
+        start = time.time()
+        start_time = datetime.fromtimestamp(start)
+        
+        print(f"=========={start_time.strftime('%Y-%m-%d %H:%M:%S')} {self.notion} {self.name} Test starting==========\n")
 
         with tqdm(total=test_batches, bar_format=bar_format) as _tqdm:
             _tqdm.set_description(f'{self.notion} {self.name} test')
             
-            for idx, data in enumerate(self.dataloader[loader], 0):
+            for idx, data in enumerate(self.dataloader[loader], 1):
                 # Randomly select samples
                 if test_sampled_batches is not None and idx not in test_sampled_batches:
                     continue
@@ -434,10 +436,6 @@ class BasicTrainer:
                 _tqdm.set_postfix({'batch': f"{idx}/{test_batches}",
                                    'loss': f"{self.temp_loss['LOSS'].item():.4f}"})
                 _tqdm.update(1)
-
-            # if idx % 10 == 0:
-            #     print(f"\r{self.name} test: sample={idx}/{len(self.dataloader[loader])}, "
-            #           f"loss={self.temp_loss['LOSS'].item():.4f}    ", end='', flush=True)
 
         self.losslog('test', EPOCH_LOSS)
         for key in EPOCH_LOSS.keys():

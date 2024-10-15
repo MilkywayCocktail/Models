@@ -248,6 +248,7 @@ class DomainClassifier(nn.Module):
 
         self.relu = nn.ReLU()
         self.dropout = nn.Dropout(p=0.5)
+        self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
         x = self.fc1(x)
@@ -258,8 +259,11 @@ class DomainClassifier(nn.Module):
         x = self.relu(x)
         x = self.dropout(x)
 
-        x = self.fc3(x)  # No sigmoid here
-        return x  # Raw logits for softmax
+        x = self.fc3(x)
+        # x = self.sigmoid(x)
+        # sigmoid fo bce
+        # Raw logits for softmax
+        return x 
 
     
     
@@ -386,7 +390,8 @@ class StudentTrainer(BasicTrainer):
         self.lambda_ = 1.
         
         self.with_feature_loss = with_feature_loss
-        self.mse = nn.MSELoss(reduction='sum')
+        self.mse_sum = nn.MSELoss(reduction='sum')
+        self.mse = nn.MSELoss()
         self.bce = nn.BCEWithLogitsLoss(reduction='sum')
         self.adv = nn.CrossEntropyLoss()
 
@@ -417,14 +422,12 @@ class StudentTrainer(BasicTrainer):
                 }
         
         self.latent_weight = 0.1
-        self.rimg_weight = 0.01
+        self.rimg_weight = 0.5e-3
         self.center_weight = 40.
-        self.depth_weight = 40.
+        self.depth_weight = 50.
         self.feature_weight = 0.01
         
     def data_preprocess(self, data2):
-        # data is tuple of source and target
-        source_data, target_data = data2
 
         def to_device(data):
             if self.preprocess:
@@ -434,21 +437,36 @@ class StudentTrainer(BasicTrainer):
                 data['tag'] = data['tag'].to(torch.int32).to(self.device)
             return data
         
+        # data is tuple of source and target
+        source_data, target_data = data2
+        
         source_data = to_device(source_data)
         target_data = to_device(target_data)
             
         return source_data, target_data
         
     def kd_loss(self, mu_s, logvar_s, mu_t, logvar_t):
-        mu_loss = self.recon_lossfunc(mu_s, mu_t) / mu_s.shape[0]
-        logvar_loss = self.recon_lossfunc(logvar_s, logvar_t) / logvar_s.shape[0]
+        mu_loss = self.mse_sum(mu_s, mu_t) / mu_s.shape[0]
+        logvar_loss = self.mse_sum(logvar_s, logvar_t) / logvar_s.shape[0]
         latent_loss = self.alpha * mu_loss + (1 - self.alpha) * logvar_loss
 
         return latent_loss, mu_loss, logvar_loss
     
     def feature_loss(self, feature_s, feature_t):
-        feature_loss = self.mse(feature_s, feature_t) / feature_s.shape[0]
+        feature_loss = self.mse(feature_s, feature_t)
         return feature_loss
+    
+    def dann_loss(self, target_data, s_feature):    
+        target_feature, target_z, target_mu, target_logvar = self.models['csien'](csi=target_data['csi'], pd=target_data['pd'])
+        
+        dann_features = torch.cat((s_feature, target_feature), dim=0)
+        reversed_features = GradientReversalLayer.apply(dann_features, self.lambda_)
+    
+        domain_preds = self.models['dmnde'](reversed_features)
+        domain_labels = torch.cat((torch.zeros(s_feature.shape[0], dtype=int), torch.ones(target_feature.shape[0], dtype=int))).to(self.device)
+        
+        domain_loss = self.adv(domain_preds, domain_labels)
+        return domain_loss
 
     def calculate_loss(self, data2):
         data, target_data = data2
@@ -466,46 +484,35 @@ class StudentTrainer(BasicTrainer):
             t_cimage = self.models['cimgde'](t_z)
             t_rimage = self.models['rimgde'](t_z)
             t_center, t_depth = self.models['ctrde'](t_feature)
-                
-        # for DANN      
-        target_feature, target_z, target_mu, target_logvar = self.models['csien'](csi=target_data['csi'], pd=target_data['pd'])
-        
-        dann_features = torch.cat((s_feature, target_feature), dim=0)
-        
-        reversed_features = GradientReversalLayer.apply(dann_features, self.lambda_)
-        
-        domain_preds = self.models['dmnde'](reversed_features)
-        
-        domain_labels = torch.cat((torch.zeros(s_feature.shape[0]), torch.ones(target_feature.shape[0])))
-        
-        domain_loss = self.adv(domain_preds, domain_labels)
         
         # 3-level loss
-        if self.with_feature_loss:
-            feature_loss = self.feature_loss(s_feature, t_feature)
-        else:
-            feature_loss = 0
+        feature_loss = self.feature_loss(s_feature, t_feature)
        
         latent_loss, mu_loss, logvar_loss = self.kd_loss(s_mu, s_logvar, t_mu, t_logvar)
        
-        center_loss = self.recon_lossfunc(s_center, torch.squeeze(data['center']))
-        depth_loss = self.recon_lossfunc(s_depth, torch.squeeze(data['depth']))
-        image_loss = self.mse(s_rimage, rimg) / s_rimage.shape[0]
+        center_loss = self.mse(s_center, torch.squeeze(data['center']))
+        depth_loss = self.mse(s_depth, torch.squeeze(data['depth']))
+        image_loss = self.mse_sum(s_rimage, rimg) / s_rimage.shape[0]
         
-        loss = feature_loss * self.feature_weight +\
-            latent_loss * self.latent_weight +\
-                image_loss * self.img_weight +\
+        # DANN Loss
+        domain_loss = self.dann_loss(target_data, s_feature)
+        
+        loss = latent_loss * self.latent_weight +\
+                image_loss * self.rimg_weight +\
                 center_loss * self.center_weight +\
                 depth_loss * self.depth_weight +\
                 domain_loss
+                
+        if self.with_feature_loss:
+            loss += feature_loss * self.feature_weight
 
         self.temp_loss = {'LOSS': loss,
-                          'MU': mu_loss,
-                          'LOGVAR': logvar_loss,
-                          'FEATURE': feature_loss,
-                          'IMG': image_loss,
-                          'CTR': center_loss,
-                          'DPT': depth_loss,
+                          'MU': mu_loss * self.latent_weight,
+                          'LOGVAR': logvar_loss * self.latent_weight,
+                          'FEATURE': feature_loss * self.feature_weight,
+                          'IMG': image_loss * self.rimg_weight,
+                          'CTR': center_loss * self.center_weight,
+                          'DPT': depth_loss * self.depth_weight,
                           'DOM': domain_loss
                           }
         
