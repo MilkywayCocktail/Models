@@ -237,7 +237,7 @@ class CSIEncoder(BasicCSIEncoder):
         
         # return out, z, mu, logvar
   
-        return out, fea_csi, z, mu, logvar
+        return out, fea_csi.view(-1, 268800), z, mu, logvar
     
     
 class DomainClassifier(nn.Module):
@@ -276,33 +276,26 @@ class DomainClassifier(nn.Module):
 class DomainClassifier2(nn.Module):
     def __init__(self):
         super(DomainClassifier2, self).__init__()
-        self.fc1 = nn.Linear(512 * 7 * 75, 2048)  # First dense layer
-        self.fc2 = nn.Linear(2048, 512)     # Second dense layer
-        self.fc3 = nn.Linear(512, 64)       # Bottleneck layer
-        self.fc4 = nn.Linear(64, 16)        # Optional smaller layer
-        self.fc5 = nn.Linear(16, 2)         # Output layer
         
         self.fc = nn.Sequential(
-            nn.Linear(512 * 7 * 75, 2048),  # First dense layer
-            batchnorm_layer(2048, 'batch'),
+            nn.Linear(268800, 2048),  # First dense layer
             nn.ReLU(),
+            nn.Dropout(p=0.5),
             nn.Linear(2048, 512),     # Second dense layer
-            batchnorm_layer(512, 'batch'),
             nn.ReLU(),
+            nn.Dropout(p=0.5),
             nn.Linear(512, 64),       # Bottleneck layer
-            batchnorm_layer(64, 'batch'),
             nn.ReLU(),
+            nn.Dropout(p=0.5),
             nn.Linear(64, 16),        # Optional smaller layer
-            batchnorm_layer(16, 'batch'),
             nn.ReLU(),
+            nn.Dropout(p=0.5),
             nn.Linear(16, 2),         # Output layer
 
         )
 
-        self.softmax = nn.Softmax(dim=1)
-
     def forward(self, x):
-        x =self.fc(x)  # Output for classification
+        x = self.fc(x.view(-1, 268800))  # Output for classification
         return x
 
     
@@ -501,7 +494,7 @@ class StudentTrainer(BasicTrainer):
     
     def dann_loss(self, target_data, s_feature):    
         # target_feature, target_z, target_mu, target_logvar = self.models['csien'](csi=target_data['csi'], pd=target_data['pd'])
-        target_feature, csi_f, target_z, target_mu, target_logvar = self.models['csien'](csi=target_data['csi'], pd=target_data['pd'])
+        _, target_feature, target_z, target_mu, target_logvar = self.models['csien'](csi=target_data['csi'], pd=target_data['pd'])
         
         dann_features = torch.cat((s_feature, target_feature), dim=0)
         reversed_features = GradientReversalLayer.apply(dann_features, self.lambda_)
@@ -526,6 +519,7 @@ class StudentTrainer(BasicTrainer):
                 feature, csi_f, z, mu, logvar = self.models['csien'](csi=data['csi'], pd=data['pd'])
             elif mode == 't':
                 z, mu, logvar, feature = self.models['imgen'](rimg)
+                csi_f = None
             center, depth = self.models['ctrde'](feature)
             cimage = self.models['cimgde'](z)
             rimage = self.models['rimgde'](z)
