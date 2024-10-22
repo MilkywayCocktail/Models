@@ -341,7 +341,7 @@ class BasicTrainer:
                                 f"Total epochs = {self.current_ep()}\n"
                                 f"Best : val_loss={self.best_val_loss} @ epoch {self.best_vloss_ep}\n"
                                 f"Final validation losses:\n"
-                                f"{[self.temp_loss[key].item() for key in self.loss_terms]}\n"
+                                f"{[(key, ': ', self.temp_loss[key].item(), ' ') for key in self.loss_terms]}\n" 
                                 )
                     
             # Check output every 10 epochs
@@ -364,7 +364,7 @@ class BasicTrainer:
                     break
                 else:
                     end = time.time()
-                    end_time = datetime.fromtimestamp(start)
+                    end_time = datetime.fromtimestamp(end)
                     print(f"\n\033[32mEarly Stopping triggered. Saving @ epoch {epoch}...\033[0m")
                     for model in self.train_module:
                         torch.save(self.models[model].state_dict(),
