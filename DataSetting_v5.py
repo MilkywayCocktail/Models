@@ -337,30 +337,34 @@ class DataOrganizer:
     def load(self):
         for dpath in self.data_path:
             paths = os.walk(dpath)
-            print(f'Loading {dpath}...\n')
+            print(f"\033[32mLoading {dpath}...\033[0m")
             for path, _, file_lst in paths:
                 for file_name in file_lst:
                     file_name_, ext = os.path.splitext(file_name)
                     
-                    # Load Label <subject>_matched.csv
-                    if ext == '.csv' and 'matched' in file_name_ and 'checkpoint' not in file_name_:
-                        sub = file_name_[8:]
-                        sub_label = pd.read_csv(os.path.join(path, file_name))
-                        self.total_segment_labels = pd.concat([self.total_segment_labels, sub_label], ignore_index=True)
-                        print(f'Loaded {file_name} of len {len(sub_label)}')
-                        
-                    # Load CSI and IMGs <name>-<modality>.npy
-                    elif ext == '.npy':
-                        if 'env' in file_name_ or 'test' in file_name_ or 'checkpoint' in file_name_:
-                            continue
-                        
-                        name, modality = file_name_.split('-')
-                        if modality in self.modalities:     
-                            if modality not in self.data.keys():
-                                self.data[modality]: dict = {}
-                            self.data[modality][name] = np.load(os.path.join(path, file_name), mmap_mode='r')
-                            print(f'Loaded {file_name} of shape {self.data[modality][name].shape}')
-                     
+                    try:
+                        # Load Label <subject>_matched.csv
+                        if ext == '.csv' and 'matched' in file_name_ and 'checkpoint' not in file_name_:
+                            sub = file_name_[8:]
+                            sub_label = pd.read_csv(os.path.join(path, file_name))
+                            self.total_segment_labels = pd.concat([self.total_segment_labels, sub_label], ignore_index=True)
+                            print(f'Loaded {file_name} of len {len(sub_label)}')
+                            
+                        # Load CSI and IMGs <name>-<modality>.npy
+                        elif ext == '.npy':
+                            if 'env' in file_name_ or 'test' in file_name_ or 'checkpoint' in file_name_:
+                                continue
+                            
+                            name, modality = file_name_.split('-')
+                            if modality in self.modalities:     
+                                if modality not in self.data.keys():
+                                    self.data[modality]: dict = {}
+                                self.data[modality][name] = np.load(os.path.join(path, file_name), mmap_mode='r')
+                                print(f'Loaded {file_name} of shape {self.data[modality][name].shape}')
+                    except Exception as e:
+                        print(f"\033[31mError: {e} for {file_name}\033[0m")
+        
+        print(f"\nLoad complete!")         
         # self.total_segment_labels['csi_inds'] = self.total_segment_labels['csi_inds'].apply(lambda x: list(map(int, x.strip('[]').split())))
             
     def regen_plan(self, **kwargs):
@@ -393,7 +397,7 @@ class DataOrganizer:
         self.cross_validator = iter(plan)
         print(f'Loaded plan!')
     
-    def gen_loaders(self, mode='s', train_ratio=0.8, batch_size=64, csi_len=300, single_pd=True, num_workers=14, save_dataset=False, shuffle_test=True):
+    def gen_loaders(self, mode='s', train_ratio=0.8, batch_size=64, csi_len=300, single_pd=True, num_workers=14, save_dataset=False, shuffle_test=True, pin_memory=True):
 
         print(f'\033[32mGenerating loaders for {mode}: level = {self.level}, current test = {self.current_test}\033[0m')
         data = self.data.copy()
@@ -422,21 +426,31 @@ class DataOrganizer:
         train_size = int(train_ratio * len(dataset))
         valid_size = len(dataset) - train_size
         train_set, valid_set = random_split(dataset, [train_size, valid_size])
+        
+        def worker_init_fn(worker_id):
+            np.random.seed(worker_id)
+            
         train_loader = DataLoader(train_set, 
                                   batch_size=batch_size, 
                                   num_workers=num_workers,
                                   drop_last=True, 
-                                  pin_memory=True)
+                                  pin_memory=pin_memory,
+                                  worker_init_fn=worker_init_fn
+                                  )
         valid_loader = DataLoader(valid_set, 
                                     batch_size=batch_size, 
                                     num_workers=num_workers,
                                     drop_last=True, 
-                                    pin_memory=True)
+                                    pin_memory=pin_memory,
+                                    worker_init_fn=worker_init_fn
+                                  )
         test_loader = DataLoader(test_dataset, 
                                     batch_size=batch_size, 
                                     num_workers=num_workers,
-                                    pin_memory=True,
-                                    shuffle=shuffle_test)
+                                    pin_memory=pin_memory,
+                                    shuffle=shuffle_test,
+                                    worker_init_fn=worker_init_fn
+                                  )
         
         print(f" Exported train loader of len {len(train_loader)}, batch size = {batch_size}\n"
               f" Exported valid loader of len {len(valid_loader)}, batch size = {batch_size}\n"
@@ -488,3 +502,59 @@ class DANN_Loader:
         self.target_iter = iter(self.target_loader)
         self.maximum_iter = len(self.source_loader)
         self.current = -1
+        
+    
+class DataOrganizerDANN(DataOrganizer):
+    def __init__(self, *args, **kwargs):
+        super(DataOrganizerDANN, self).__init__(*args, **kwargs)
+        
+    def gen_loaders(self, mode='s', train_ratio=0.8, batch_size=64, csi_len=300, single_pd=True, num_workers=14, save_dataset=False, shuffle_test=True, pin_memory=True):
+
+        print(f'\033[32mGenerating loaders for {mode}: level = {self.level}, current test = {self.current_test}\033[0m')
+        data = self.data.copy()
+        
+        if mode == 't':
+            data.pop('csi')
+            data.pop('pd')
+
+        else:
+            # if mode == 's'
+            self.train_labels = self.removal(self.train_labels)
+            self.test_labels = self.removal(self.test_labels)
+            
+            if mode == 'c':
+                data = self.data.copy()
+                data.pop('pd')
+                data.pop('cimg')
+                
+        dataset = MyDataset(data, self.train_labels, csi_len, single_pd)
+        test_dataset = MyDataset(data, self.test_labels, csi_len, single_pd)
+            
+        print(f' Train dataset length = {len(dataset)}\n'
+              f' Test dataset length = {len(test_dataset)}')
+        
+        # Generate loaders
+        train_size = int(train_ratio * len(dataset))
+        valid_size = len(dataset) - train_size
+        train_set, valid_set = random_split(dataset, [train_size, valid_size])
+        train_loader = DataLoader(train_set, 
+                                  batch_size=batch_size, 
+                                  num_workers=num_workers,
+                                  drop_last=True, 
+                                  pin_memory=pin_memory)
+        valid_loader = DataLoader(valid_set, 
+                                    batch_size=batch_size, 
+                                    num_workers=num_workers,
+                                    drop_last=True, 
+                                    pin_memory=pin_memory)
+        test_loader = DataLoader(test_dataset, 
+                                    batch_size=batch_size, 
+                                    num_workers=num_workers,
+                                    pin_memory=pin_memory,
+                                    shuffle=shuffle_test)
+        
+        print(f" Exported train loader of len {len(train_loader)}, batch size = {batch_size}\n"
+              f" Exported valid loader of len {len(valid_loader)}, batch size = {batch_size}\n"
+              f" Exported test loader of len {len(test_loader)}, batch size = {batch_size}\n")
+        
+        return train_loader, valid_loader, test_loader, self.current_test

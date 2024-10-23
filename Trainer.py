@@ -385,7 +385,7 @@ class BasicTrainer:
         return self.models
 
     @timer
-    def test(self, single_test=False, loader: str = 'test', subsample_fraction=1, *args, **kwargs):
+    def test(self, single_test=False, loader: str = 'test', subsample_fraction=1, control_speed=False, *args, **kwargs):
 
         for model in self.models:
             self.models[model].eval()
@@ -438,6 +438,9 @@ class BasicTrainer:
                 _tqdm.set_postfix({'batch': f"{idx}/{test_batches}",
                                    'loss': f"{self.temp_loss['LOSS'].item():.4f}"})
                 _tqdm.update(1)
+                
+                if control_speed:
+                    time.sleep(1)
 
         self.losslog('test', EPOCH_LOSS)
         for key in EPOCH_LOSS.keys():

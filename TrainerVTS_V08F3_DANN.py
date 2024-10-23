@@ -459,7 +459,7 @@ class StudentTrainer(BasicTrainer):
         self.center_weight = 40.
         self.depth_weight = 50.
         self.feature_weight = 10
-        self.domain_weight = 1
+        self.domain_weight = 0.01
         
         self.dann_mode = 'loss'
         
@@ -513,11 +513,11 @@ class StudentTrainer(BasicTrainer):
 
     def calculate_loss(self, mode, data2):
         
-        def outputs(data, mode='s'):
-            if mode == 's':
+        def outputs(data, mode='student'):
+            if mode == 'student':
                 # feature, z, mu, logvar = self.models['csien'](csi=data['csi'], pd=data['pd'])
                 feature, csi_f, z, mu, logvar = self.models['csien'](csi=data['csi'], pd=data['pd'])
-            elif mode == 't':
+            elif mode == 'teacher':
                 z, mu, logvar, feature = self.models['imgen'](rimg)
                 csi_f = None
             center, depth = self.models['ctrde'](feature)
@@ -571,9 +571,9 @@ class StudentTrainer(BasicTrainer):
             
         cimg = torch.where(source_data['cimg'] > 0, 1., 0.)
         rimg = source_data['rimg']
-        s_out = outputs(source_data, mode='s')
+        s_out = outputs(source_data, mode='student')
         with torch.no_grad():
-            t_out = outputs(source_data, mode='t')
+            t_out = outputs(source_data, mode='teacher')
         s_loss = s_losses(s_out, t_out, source_data)
         domain_loss = self.dann_loss(target_data, s_out['csi_f'])
         
