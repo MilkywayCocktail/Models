@@ -95,8 +95,11 @@ class MyLossLog:
                 # PRED_TERMS
                 lss = losses[key].cpu().detach().numpy().squeeze()
                 # Unpack batches
-                for ls in lss:
-                    self.preds[key].append(ls)
+                try:
+                    for ls in lss:
+                        self.preds[key].append(ls)
+                except Exception:
+                    self.preds[key].append(lss)
                 
     def reset(self, *modes, dataset: str = 'TRAIN'):
         for mode in modes:
