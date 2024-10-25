@@ -158,6 +158,8 @@ class BasicTrainer:
         self.valid_batches = len(self.dataloader['valid'])
         self.train_sampled_batches = None
         self.valid_sampled_batches = None
+        
+        self.on_test = 'train'
 
         self.notion = notion
         self.save_path = f'../saved/{notion}/'
@@ -341,7 +343,8 @@ class BasicTrainer:
                                 f"Total epochs = {self.current_ep()}\n"
                                 f"Best : val_loss={self.best_val_loss} @ epoch {self.best_vloss_ep}\n"
                                 f"Final validation losses:\n"
-                                f"{[(key, ': ', self.temp_loss[key].item(), ' ') for key in self.loss_terms]}\n" 
+                                f"{' '.join([key + ': ' + str(self.temp_loss[key].item()) for key in self.loss_terms])}\n"
+ 
                                 )
                     
             # Check output every 10 epochs
@@ -394,6 +397,7 @@ class BasicTrainer:
         self.losslog.reset('test', 'pred', dataset=loader)
         
         bar_format = '{desc}{percentage:3.0f}%|{bar}|[{elapsed}<{remaining}{postfix}]'
+        self.on_test = loader
         
         test_sampled_batches = None
         test_batches = len(self.dataloader[loader])

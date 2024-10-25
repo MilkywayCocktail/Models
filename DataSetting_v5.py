@@ -221,7 +221,10 @@ class CrossValidator:
     def iter_range(self):
         # Total range including train and test
         if self.train and self.test:
-            self.range = [self.train]
+            if isinstance(self.train, list):
+                self.range = self.train
+            else:
+                self.range = [self.train]
         else:
             self.range = ['A308', 'A308T'] if self.level == 'day' else list(set(self.labels.loc[:, level].values))
         
@@ -240,7 +243,7 @@ class CrossValidator:
             self.current_test = self.test
         else:
             self.current_test = self.range[self.current]
-            train_range.remove(self.current_test)  
+            train_range.remove(self.current_test)
              
         print(f"\033[32mFetched level {self.level}, {self.current + 1} of {len(self.range)}, current test = {self.current_test}\033[0m")
                             
@@ -252,7 +255,7 @@ class CrossValidator:
         else:
             # Select one as leave-1-out test
             if self.train and self.test:
-                train_labels = self.labels[self.labels[self.level]==self.train]
+                train_labels = self.labels[self.labels[self.level].isin(self.range)]
                 test_labels = self.labels[self.labels[self.level]==self.test]
             else:              
                 train_labels = self.labels[self.labels[self.level]!=self.current_test]
@@ -311,9 +314,8 @@ class DataOrganizer:
         assert level in {'env', 'subject', 'day'}
         print(f'Cross validation plan at {self.level} level')
         
-        if train and test:
-            self.train = train
-            self.test = test
+        self.train = train
+        self.test = test
         
         self.batch_size = 64
         
@@ -457,6 +459,13 @@ class DataOrganizer:
               f" Exported test loader of len {len(test_loader)}, batch size = {batch_size}\n")
         
         return train_loader, valid_loader, test_loader, self.current_test
+    
+    def swap_train_test(self):
+        self.train_labels, self.test_labels = self.test_labels, self.train_labels
+        if self.train and self.test:
+            self.train, self.test = self.test, self.train
+        self.current_test = self.test
+        print("Train and Test labels swapped!")
     
 
 class DANN_Loader:
