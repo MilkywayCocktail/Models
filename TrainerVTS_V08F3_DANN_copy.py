@@ -237,7 +237,7 @@ class CSIEncoder(BasicCSIEncoder):
         
         # return out, z, mu, logvar
   
-        return out, fea_csi.view(-1, 268800), z, mu, logvar
+        return out, csi_features.view(-1, 128), z, mu, logvar
     
     
 class DomainClassifier(nn.Module):
@@ -278,24 +278,19 @@ class DomainClassifier2(nn.Module):
         super(DomainClassifier2, self).__init__()
         
         self.fc = nn.Sequential(
-            nn.Linear(268800, 2048),  # First dense layer
+            nn.Linear(128, 64),  # First dense layer
             nn.ReLU(),
             nn.Dropout(p=0.5),
-            nn.Linear(2048, 512),     # Second dense layer
+            nn.Linear(64, 64),     # Second dense layer
             nn.ReLU(),
             nn.Dropout(p=0.5),
-            nn.Linear(512, 64),       # Bottleneck layer
-            nn.ReLU(),
-            nn.Dropout(p=0.5),
-            nn.Linear(64, 16),        # Optional smaller layer
-            nn.ReLU(),
-            nn.Dropout(p=0.5),
-            nn.Linear(16, 2),         # Output layer
+            nn.Linear(64, 2),       # Bottleneck layer
+       # Output layer
 
         )
 
     def forward(self, x):
-        x = self.fc(x.view(-1, 268800))  # Output for classification
+        x = self.fc(x.view(-1, 128))  # Output for classification
         return x
 
     
