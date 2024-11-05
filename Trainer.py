@@ -106,7 +106,7 @@ class BasicTrainer:
                  preprocess = None,
                  modality = {'csi', 'rimg', 'tag', 'ind'},
                  train_module = 'all',
-                 eval_module = 'all',
+                 eval_module = None,
                  notion = None,
                  *args, **kwargs
                  ):
@@ -211,10 +211,14 @@ class BasicTrainer:
             #     self.temp_loss[loss].backward(retain_graph=True)
             # else:
             #     self.temp_loss[loss].backward()
+            
+            if torch.isnan(self.temp_loss[loss]):
+                print(f"NaN encountered in loss {loss}, skipping update.")
+            else:
                 
-            self.scaler.scale(self.temp_loss[loss]).backward()
-            self.scaler.step(self.losslog.loss[loss].optimizer)
-            self.scaler.update()
+                self.scaler.scale(self.temp_loss[loss]).backward()
+                self.scaler.step(self.losslog.loss[loss].optimizer)
+                self.scaler.update()
 
     @timer
     def train(self, early_stop=True, lr_decay=True, subsample_fraction=1, *args, **kwargs):
@@ -231,10 +235,11 @@ class BasicTrainer:
         for model in self.train_module:
             for param in self.models[model].parameters():
                 param.requires_grad = True
-            
-        for model in self.eval_module:
-            for param in self.models[model].parameters():
-                param.requires_grad = False
+        
+        if self.eval_module:
+            for model in self.eval_module:
+                for param in self.models[model].parameters():
+                    param.requires_grad = False
                 
         trainable_params = [{'params': self.models[model].parameters()} for model in self.train_module]
                 
@@ -257,7 +262,7 @@ class BasicTrainer:
         # ===============train and validate each epoch==============
         start = time.time()
         start_time = datetime.fromtimestamp(start)
-        print(f"=========={start_time.strftime('%Y-%m-%d %H:%M:%S')} {self.notion} {self.name} Training starting==========")
+        print(f"\033[32m=========={start_time.strftime('%Y-%m-%d %H:%M:%S')} {self.notion} {self.name} Training starting==========\033[0m")
         
         for epoch in tqdm(range(self.start_ep, self.epochs)):
             print('')
@@ -267,8 +272,9 @@ class BasicTrainer:
                 self.models[model].train()
                 
             # eval modules also need to be on train mode
-            for model in self.eval_module:
-                self.models[model].train()
+            if self.eval_module:
+                for model in self.eval_module:
+                    self.models[model].train()
                 
             EPOCH_LOSS = {loss: [] for loss in self.loss_terms}
 
@@ -304,8 +310,9 @@ class BasicTrainer:
             print('')
             for model in self.train_module:
                 self.models[model].eval()
-            for model in self.eval_module:
-                self.models[model].eval()
+            if self.eval_module:
+                for model in self.eval_module:
+                    self.models[model].eval()
                 
             EPOCH_LOSS = {loss: [] for loss in self.loss_terms}
 
@@ -411,7 +418,7 @@ class BasicTrainer:
         start = time.time()
         start_time = datetime.fromtimestamp(start)
         
-        print(f"=========={start_time.strftime('%Y-%m-%d %H:%M:%S')} {self.notion} {self.name} Test starting==========\n")
+        print(f"\033[32m=========={start_time.strftime('%Y-%m-%d %H:%M:%S')} {self.notion} {self.name} Test starting==========\033[0m")
 
         with tqdm(total=test_batches, bar_format=bar_format) as _tqdm:
             _tqdm.set_description(f'{self.notion} {self.name} test')
@@ -477,7 +484,7 @@ class BasicTrainer:
         print("All saved!")
         
     def load(self, path, name='Student', mode='checkpoint', gpu=None):
-        print(f"=========={self.notion} {self.name} Loading==========")
+        print(f"\033[32m=========={self.notion} {self.name} Loading==========\033[0m")
         paths = os.walk(path)
         for p, _, file_lst in paths:
             for file_name in file_lst:
@@ -506,7 +513,7 @@ class BasicTrainer:
                             else:
                                 model.load_state_dict(checkpoint)
                             
-                            print(f"Loaded model {model}{ep}{lr} from {file_name}!")
+                            print(f"Loaded model {model.name} {ep} {lr} from {file_name}!")
 
 
     def schedule(self, autosave=True, *args, **kwargs):

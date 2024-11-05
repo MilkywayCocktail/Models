@@ -301,6 +301,7 @@ class DomainClassifier2(nn.Module):
     
     
 class GradientReversalLayer(Function):
+    
     @staticmethod
     def forward(ctx, input, lambda_):
         # Save lambda for later use in backward
@@ -414,6 +415,7 @@ class StudentTrainer(BasicTrainer):
                  alpha=0.8,
                  with_feature_loss=True,
                  lstm_steps=75,
+                 device2=0,
                  *args, **kwargs):
         super(StudentTrainer, self).__init__(*args, **kwargs)
 
@@ -421,6 +423,8 @@ class StudentTrainer(BasicTrainer):
 
         self.alpha = alpha
         self.lambda_ = 1.
+        
+        self.device2 = device2
         
         self.with_feature_loss = with_feature_loss
         self.mse_sum = nn.MSELoss(reduction='sum')
@@ -451,7 +455,7 @@ class StudentTrainer(BasicTrainer):
             'rimgde': ImageDecoder(latent_dim=128).to(self.device),
             'csien' : CSIEncoder(latent_dim=128, lstm_steps=lstm_steps).to(self.device),
             'ctrde': CenterDecoder().to(self.device),
-            'dmnde': DomainClassifier2().to(self.device)
+            'dmnde': DomainClassifier2().to(self.device2)
                 }
         
         self.latent_weight = 0.1
@@ -480,6 +484,13 @@ class StudentTrainer(BasicTrainer):
         target_data = to_device(target_data)
             
         return source_data, target_data
+    
+    def calculate_lambda(self, max_iter=300):
+        # Sigmoid schedule for lambda: 2 / (1 + exp(-10 * p)) - 1
+        # where p is the proportion of iterations completed
+        p = self.current_ep() / max_iter
+        lambda_value = 2 / (1 + np.exp(-10 * p)) - 1
+        return min(lambda_value, 1)
         
     def kd_loss(self, mu_s, logvar_s, mu_t, logvar_t):
         mu_loss = self.mse_sum(mu_s, mu_t) / mu_s.shape[0]
@@ -492,24 +503,27 @@ class StudentTrainer(BasicTrainer):
         feature_loss = self.mse(feature_s, feature_t)
         return feature_loss
     
-    def dann_loss(self, target_data, s_feature):    
+    def dann_loss(self, target_data, s_feature):
+        #self.lambda_ = self.calculate_lambda()
+        
         # target_feature, target_z, target_mu, target_logvar = self.models['csien'](csi=target_data['csi'], pd=target_data['pd'])
         _, target_feature, target_z, target_mu, target_logvar = self.models['csien'](csi=target_data['csi'], pd=target_data['pd'])
         
         dann_features = torch.cat((s_feature, target_feature), dim=0)
         reversed_features = GradientReversalLayer.apply(dann_features, self.lambda_)
     
-        domain_preds = self.models['dmnde'](reversed_features)
-        domain_labels = torch.cat((torch.zeros(s_feature.shape[0], dtype=int), torch.ones(target_feature.shape[0], dtype=int))).to(self.device)
+        domain_preds = self.models['dmnde'](reversed_features.to(self.device2))
+        domain_labels = torch.cat((torch.zeros(s_feature.shape[0], dtype=int), torch.ones(target_feature.shape[0], dtype=int))).to(self.device2)
         
         # if self.dann_mode == 'loss':
         domain_loss = self.adv(domain_preds, domain_labels)
         
         # elif self.dann_mode == 'accuracy':
-        domain_acc_preds = torch.argmax(domain_preds, dim=1)
-        domain_acc_loss = torch.sum(domain_acc_preds == domain_labels) / 128
+        with torch.no_grad():
+            domain_acc_preds = torch.argmax(domain_preds, dim=1)
+            domain_acc_loss = torch.sum(domain_acc_preds == domain_labels) / domain_preds.shape[0]
         
-        return domain_loss, domain_acc_loss
+        return domain_loss.to(self.device), domain_acc_loss.to(self.device)
 
     def calculate_loss(self, mode, data2):
         
@@ -563,15 +577,7 @@ class StudentTrainer(BasicTrainer):
                 'DPT'    : depth_loss * self.depth_weight,
                 }
             
-        if mode == 'train' or mode =='valid':
-            source_data, target_data = data2
-        else:
-            if self.on_test == 'train':
-                # Reverse source and target on test
-                target_data, source_data = data2
-            elif self.on_test == 'test':
-                # Reversed in dataloader
-                source_data, target_data = data2
+        source_data, target_data = data2
             
         cimg = torch.where(source_data['cimg'] > 0, 1., 0.)
         rimg = source_data['rimg']
@@ -623,7 +629,7 @@ class StudentTrainer(BasicTrainer):
             with open(f"{self.save_path}{self.name}_dann.txt", 'a') as logfile:
                 logfile.write(f"{self.name}\n"
                     f"Domain accuracy = {np.mean(self.losslog.loss['DOM_ACC'].log['test'])}\n"
-                    f"Domain loss = {np.mean(self.losslog.loss['DOM'].log['test'])}")
+                    f"Domain loss = {np.mean(self.losslog.loss['DOM'].log['test'])}\n")
 
 if __name__ == '__main__':
     cc = ImageEncoder(latent_dim=128).to(torch.device('cuda:7'))

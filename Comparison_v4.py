@@ -185,17 +185,17 @@ class ResultCalculator(Tester):
         
         for i, gt, pred, *_ in tqdm(self.preds.itertuples(), desc="Evaluating", total=len(self.preds)):
             
-            #mse = self.mse_loss(pred, gt)
-            #soft_iou = self.iou_loss(pred, gt)
+            mse = self.mse_loss(pred, gt)
+            soft_iou = self.iou_loss(pred, gt)
             hist_mse = self.histogram_matching_loss(pred, gt)
-            #matched_res = self.matched_loss(pred, gt, scale, cuda)
+            matched_res = self.matched_loss(pred, gt, scale, cuda)
             
-            #for key, res in matched_res.items():
-            #    if key != 'matched':
-            #        self.results.loc[i, key] = res
-            #self.results.loc[i, ['mse', 'soft_iou', 'hist_mse']] = mse, soft_iou, hist_mse
-            self.results.loc[i,'hist_mse'] = hist_mse
-
+            for key, res in matched_res.items():
+                if key != 'matched':
+                    self.results.loc[i, key] = res
+            self.results.loc[i, ['mse', 'soft_iou', 'hist_mse']] = mse, soft_iou, hist_mse
+            
+            # self.results.loc[i,'hist_mse'] = hist_mse
             #self.preds.loc[i, 'matched'] = matched_res['matched']
             
         self.results = self.results.dropna(how='all')

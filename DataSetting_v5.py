@@ -226,7 +226,7 @@ class CrossValidator:
             else:
                 self.range = [self.train]
         else:
-            self.range = ['A308', 'A308T'] if self.level == 'day' else list(set(self.labels.loc[:, level].values))
+            self.range = ['A308', 'A308T'] if self.level == 'day' else list(set(self.labels.loc[:, self.level].values))
         
 
     def __iter__(self):
@@ -243,9 +243,9 @@ class CrossValidator:
             self.current_test = self.test
         else:
             self.current_test = self.range[self.current]
-            train_range.remove(self.current_test)
+            train_range = [x for x in self.range if x != self.current_test]
              
-        print(f"\033[32mFetched level {self.level}, {self.current + 1} of {len(self.range)}, current test = {self.current_test}\033[0m")
+        print(f"\033[32mCross-validator: Fetched level {self.level}, {self.current + 1} of {len(self.range)}, current test = {self.current_test}\033[0m")
                             
     
         if self.level == 'day':
@@ -268,7 +268,7 @@ class CrossValidator:
             test_subset_size = int(len(test_labels) * self.subset_ratio) 
             
             print(f" Train set range = {train_range}, len = {train_subset_size} from {len(train_labels)}\n"
-                  f" Test set current = {self.current_test}, len = {test_subset_size} from {len(test_labels)}"
+                  f" Test set range = {self.current_test}, len = {test_subset_size} from {len(test_labels)}"
                   )
 
             train_subset_indices = torch.randperm(len(train_labels))[:train_subset_size]
@@ -278,10 +278,13 @@ class CrossValidator:
             test_labels = test_labels.iloc[test_subset_indices]
             
         else:
-            print(f" Train set range = {ratrain_rangen}, len = {len(train_labels)}\n"
-                  f" Test set current = {self.current_test}, len = {len(test_labels)}")
+            print(f" Train set range = {train_range}, len = {len(train_labels)}\n"
+                  f" Test set range = {self.current_test}, len = {len(test_labels)}")
 
         return (train_labels, test_labels, self.current_test)
+    
+    def current_train(self):
+        pass
     
     def reset(self):
         self.iter_range()
@@ -339,7 +342,7 @@ class DataOrganizer:
     def load(self):
         for dpath in self.data_path:
             paths = os.walk(dpath)
-            print(f"\033[32mLoading {dpath}...\033[0m")
+            print(f"\033[32mData Organizer: Loading {dpath}...\033[0m")
             for path, _, file_lst in paths:
                 for file_name in file_lst:
                     file_name_, ext = os.path.splitext(file_name)
@@ -375,33 +378,39 @@ class DataOrganizer:
             for key, value in kwargs.items():
                 setattr(self.cross_validator, key, value)       
         self.cross_validator.reset()
-        print("Data iterator reset!")
+        print("\033[32mData Organizer: Data iterator reset!\033[0m")
     
     def gen_plan(self, subset_ratio=1, save=False, notion=''):
         if not self.cross_validator:
-            self.cross_validator = CrossValidator(self.total_segment_labels, self.level, self.train, self.test, subset_ratio)   
+            self.cross_validator = CrossValidator(self.total_segment_labels, self.level, self.train, self.test, subset_ratio)
         
         if save:
-            print(f'Saving plan {self.level} @ {subset_ratio}...')
-            cross_validator = CrossValidator(self.total_segment_labels, self.level, subset_ratio) 
-            with open(f'../dataset/Door_EXP/{self.level}_r{subset_ratio}_{notion}.pkl', 'wb') as f:
+            print(f'\033[32mData Organizer: Saving plan {self.level} @ {subset_ratio}...\033[0m')
+            if notion:
+                notion = '_' + str(notion)
+            cross_validator = CrossValidator(self.total_segment_labels, self.level, self.train, self.test, subset_ratio) 
+            with open(f'../dataset/Door_EXP/{self.level}_r{subset_ratio}_{self.current_test}{notion}.pkl', 'wb') as f:
                 plan = list(cross_validator)
                 pickle.dump(plan, f)
                 
-            print('Plan saved!\n')
+            print('Plan saved!')
             
-        # Divide train and test
-        self.train_labels, self.test_labels, self.current_test = next(self.cross_validator)
+        else:
+            # Divide train and test
+            self.train_labels, self.test_labels, self.current_test = next(self.cross_validator)
+            self.test = self.current_test
+            self.train = ['A208', 'A308T', 'B211', 'C605']
+            self.train.remove(self.current_test)
     
     def load_plan(self, path):
         with open(path, 'rb') as f:
             plan = pickle.load(f)
         self.cross_validator = iter(plan)
-        print(f'Loaded plan!')
+        print(f'\033[32mData Organizer: Loaded plan!\033[0m')
     
     def gen_loaders(self, mode='s', train_ratio=0.8, batch_size=64, csi_len=300, single_pd=True, num_workers=14, save_dataset=False, shuffle_test=True, pin_memory=True):
 
-        print(f'\033[32mGenerating loaders for {mode}: level = {self.level}, current test = {self.current_test}\033[0m')
+        print(f'\033[32mData Organizer: Generating loaders for {mode}: level = {self.level}, current test = {self.current_test}\033[0m')
         data = self.data.copy()
         
         if mode == 't':
@@ -519,7 +528,7 @@ class DataOrganizerDANN(DataOrganizer):
         
     def gen_loaders(self, mode='s', train_ratio=0.8, batch_size=64, csi_len=300, single_pd=True, num_workers=14, save_dataset=False, shuffle_test=True, pin_memory=True):
 
-        print(f'\033[32mGenerating loaders for {mode}: level = {self.level}, current test = {self.current_test}\033[0m')
+        print(f'\033[32mData Organizer DANN: Generating loaders for {mode}: level = {self.level}, current test = {self.current_test}\033[0m')
         data = self.data.copy()
         
         if mode == 't':
@@ -567,3 +576,20 @@ class DataOrganizerDANN(DataOrganizer):
               f" Exported test loader of len {len(test_loader)}, batch size = {batch_size}\n")
         
         return train_loader, valid_loader, test_loader, self.current_test
+    
+    
+def gen_dann_loaders(data_organizer, train=None, test=None, subset_ratio=1, batch_size=64):
+    #if data_organizer.cross_validator and isinstance(data_organizer.cross_validator, CrossValidator):
+    #    data_organizer.regen_plan()
+    data_organizer.train = train
+    data_organizer.test = test
+    data_organizer.gen_plan(subset_ratio=subset_ratio)
+    source_train_loader, source_valid_loader, target_test_loader, current_test = data_organizer.gen_loaders(mode='s', num_workers=2, batch_size=batch_size)
+    data_organizer.swap_train_test()
+    target_train_loader, target_valid_loader, source_test_loader, _ = data_organizer.gen_loaders(mode='s', num_workers=2, batch_size=batch_size)
+    dann_train_loader = DANN_Loader(source_train_loader, target_train_loader)
+    dann_valid_loader = DANN_Loader(source_valid_loader, target_valid_loader)
+    dann_test_loader = DANN_Loader(target_test_loader, source_valid_loader)
+    return dann_train_loader, dann_valid_loader, dann_test_loader, current_test
+    
+    
