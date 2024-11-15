@@ -446,6 +446,7 @@ class StudentTrainer(BasicTrainer):
                            'GT_CTR', 'GT_DPT', 
                            'T_CTR', 'T_DPT',
                            'S_CTR', 'S_DPT',
+                           'DOM_PRED', 'DOM_GT',
                            'TAG', 'IND')
         self.losslog = MyLossCTR(name=self.name,
                               loss_terms=self.loss_terms,
@@ -529,7 +530,7 @@ class StudentTrainer(BasicTrainer):
             domain_acc_preds = torch.argmax(domain_preds, dim=1)
             domain_acc_loss = torch.sum(domain_acc_preds == domain_labels) / domain_preds.shape[0]
         
-        return domain_loss, domain_acc_loss
+        return domain_loss, domain_acc_loss, domain_acc_preds, domain_labels
 
     def calculate_loss(self, mode, data2):
         
@@ -592,7 +593,7 @@ class StudentTrainer(BasicTrainer):
         with torch.no_grad():
             t_out = outputs(source_data, mode='teacher')
         s_loss = s_losses(s_out, t_out, source_data)
-        domain_loss, domain_acc_loss = self.dann_loss(target_data, s_out['csi_f'])
+        domain_loss, domain_acc_loss, domain_preds, domain_labels = self.dann_loss(target_data, s_out['csi_f'])
         
         self.temp_loss = {key: value for key, value in s_loss.items()}
         self.temp_loss['DOM'] = domain_loss * self.domain_weight
@@ -614,6 +615,8 @@ class StudentTrainer(BasicTrainer):
             'GT_DPT'  : source_data['depth'],
             'S_DPT'   : s_out['depth'],
             'T_DPT'   : t_out['depth'],
+            'DOM_PRED': domain_preds,
+            'DOM_GT' : domain_labels,
             'TAG'     : source_data['tag'],
             'IND'     : source_data['ind']
                 }

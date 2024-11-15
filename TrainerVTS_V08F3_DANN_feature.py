@@ -637,7 +637,7 @@ class StudentTrainer(BasicTrainer):
         if autosave:
             for filename, fig in figs.items():
                 fig.savefig(f"{self.save_path}{filename}")
-            with open(f"{self.save_path}{self.name}_dann.txt", 'a') as logfile:
+            with open(f"{self.save_path}{self.name}_dann.txt", 'w') as logfile:
                 logfile.write(f"{self.name}\n"
                     f"Domain accuracy = {np.mean(self.losslog.loss['DOM_ACC'].log['test'])}\n"
                     f"Domain loss = {np.mean(self.losslog.loss['DOM'].log['test'])}\n")

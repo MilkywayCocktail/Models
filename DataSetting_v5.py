@@ -10,6 +10,7 @@ from scipy import signal
 import os
 from PIL import Image
 import pickle
+from misc import file_finder
 
 from tqdm.notebook import tqdm
 
@@ -340,35 +341,30 @@ class DataOrganizer:
         self.removal = Removal(remov)
         
     def load(self):
-        for dpath in self.data_path:
-            paths = os.walk(dpath)
-            print(f"\033[32mData Organizer: Loading {dpath}...\033[0m")
-            for path, _, file_lst in paths:
-                for file_name in file_lst:
-                    file_name_, ext = os.path.splitext(file_name)
+        def load_single(file_path, file_name_, ext):
+            try:
+                # Load Label <subject>_matched.csv
+                if ext == '.csv' and 'matched' in file_name_ and 'checkpoint' not in file_name_:
+                    sub = file_name_[8:]
+                    sub_label = pd.read_csv(file_path)
+                    self.total_segment_labels = pd.concat([self.total_segment_labels, sub_label], ignore_index=True)
+                    print(f'Loaded {file_name_}{ext} of len {len(sub_label)}')
                     
-                    try:
-                        # Load Label <subject>_matched.csv
-                        if ext == '.csv' and 'matched' in file_name_ and 'checkpoint' not in file_name_:
-                            sub = file_name_[8:]
-                            sub_label = pd.read_csv(os.path.join(path, file_name))
-                            self.total_segment_labels = pd.concat([self.total_segment_labels, sub_label], ignore_index=True)
-                            print(f'Loaded {file_name} of len {len(sub_label)}')
-                            
-                        # Load CSI and IMGs <name>-<modality>.npy
-                        elif ext == '.npy':
-                            if 'env' in file_name_ or 'test' in file_name_ or 'checkpoint' in file_name_:
-                                continue
-                            
-                            name, modality = file_name_.split('-')
-                            if modality in self.modalities:     
-                                if modality not in self.data.keys():
-                                    self.data[modality]: dict = {}
-                                self.data[modality][name] = np.load(os.path.join(path, file_name), mmap_mode='r')
-                                print(f'Loaded {file_name} of shape {self.data[modality][name].shape}')
-                    except Exception as e:
-                        print(f"\033[31mError: {e} for {file_name}\033[0m")
+                # Load CSI and IMGs <name>-<modality>.npy
+                elif ext == '.npy':
+                    if not ('env' in file_name_ or 'test' in file_name_ or 'checkpoint' in file_name_):
+                        name, modality = file_name_.split('-')
+                        if modality in self.modalities:     
+                            if modality not in self.data.keys():
+                                self.data[modality]: dict = {}
+                            self.data[modality][name] = np.load(file_path, mmap_mode='r')
+                            print(f'Loaded {file_name_}{ext} of shape {self.data[modality][name].shape}')
+            except Exception as e:
+                print(f"\033[31mError: {e} for {file_name_}{ext}\033[0m")
         
+        for dpath in self.data_path:
+            file_finder(dpath, load_single, process_name='Data Organizer')
+                    
         print(f"\nLoad complete!")         
         # self.total_segment_labels['csi_inds'] = self.total_segment_labels['csi_inds'].apply(lambda x: list(map(int, x.strip('[]').split())))
             
@@ -578,15 +574,15 @@ class DataOrganizerDANN(DataOrganizer):
         return train_loader, valid_loader, test_loader, self.current_test
     
     
-def gen_dann_loaders(data_organizer, train=None, test=None, subset_ratio=1, batch_size=64):
+def gen_dann_loaders(data_organizer, train=None, test=None, subset_ratio=1, batch_size=64, num_workers=2):
     #if data_organizer.cross_validator and isinstance(data_organizer.cross_validator, CrossValidator):
     #    data_organizer.regen_plan()
     data_organizer.train = train
     data_organizer.test = test
     data_organizer.gen_plan(subset_ratio=subset_ratio)
-    source_train_loader, source_valid_loader, target_test_loader, current_test = data_organizer.gen_loaders(mode='s', num_workers=2, batch_size=batch_size)
+    source_train_loader, source_valid_loader, target_test_loader, current_test = data_organizer.gen_loaders(mode='s', num_workers=num_workers, batch_size=batch_size)
     data_organizer.swap_train_test()
-    target_train_loader, target_valid_loader, source_test_loader, _ = data_organizer.gen_loaders(mode='s', num_workers=2, batch_size=batch_size)
+    target_train_loader, target_valid_loader, source_test_loader, _ = data_organizer.gen_loaders(mode='s', num_workers=num_workers, batch_size=batch_size)
     dann_train_loader = DANN_Loader(source_train_loader, target_train_loader)
     dann_valid_loader = DANN_Loader(source_valid_loader, target_valid_loader)
     dann_test_loader = DANN_Loader(target_test_loader, source_valid_loader)

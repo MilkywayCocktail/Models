@@ -10,7 +10,7 @@ from tqdm.notebook import tqdm
 from IPython.display import clear_output
 
 from Loss import MyLossLog
-from misc import timer
+from misc import timer, file_finder
 import time
 from datetime import timedelta, datetime
 
@@ -95,6 +95,125 @@ class EarlyStopping:
             else:
                 self.best_valid_loss = val_loss
                 self.early_stop_counter = 0
+                
+
+class TrainingPhase:
+    def __init__(self,
+                 name = None,
+                 train_module='all',
+                 eval_module=None,
+                 loss='LOSS',
+                 lr=1.e-4,
+                 optimizer=torch.optim.Adam,
+                 scaler=GradScaler(),
+                 freeze_params=None,
+                 tolerance=1,
+                 verbose=False):
+        
+        self.name = name
+        self.loss = loss
+        self.optimizer_def = optimizer
+        self.optimizer = None
+        self.scaler = scaler
+        
+        self.train_module = train_module
+        self.eval_module = eval_module
+        self.trainable_params = None
+        self.freeze_params = freeze_params
+        
+        # IF USE FREEZE_PARAMS:
+        # e.g. freeze_params = {'csien': ['fc_mu', 'fc_logvar']}
+        
+        self.tolerance = tolerance
+        self.current_best = float("inf")
+        self.lr = lr
+        self.lr_decay_rate = 0.5
+        
+        self.verbose = verbose
+        self.PREDS = None
+        self.TMP_LOSS = None
+    
+    def __call__(self, models, data, calculate_loss):
+        
+        def update():
+            with autocast():
+                _PREDS, _TMP_LOSS = calculate_loss(models, data)
+            
+            if torch.isnan(_TMP_LOSS[self.loss]):
+                print(f"Phase {self.name}: NaN encountered in loss {self.loss}, skipping update.")
+            else:
+                self.scaler.scale(_TMP_LOSS[self.loss]).backward()
+                
+                # GRADIENT CLIPPING
+                self.scaler.unscale_(self.optimizer)  # Unscale gradients for clipping if needed
+                for group in self.optimizer.param_groups:
+                    torch.nn.utils.clip_grad_norm_(group['params'], max_norm=1.0)
+                # Another way:
+                # for model in models.values():
+                #    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                
+                self.scaler.step(self.optimizer)
+                self.scaler.update()
+                self.optimizer.zero_grad()
+                
+            return _PREDS, _TMP_LOSS
+            
+        # SET TRAINABLE PARAMS & LEARNING RATE
+        self.set_train_params(models)
+        self.set_eval_params(models)
+        
+        if not self.optimizer:
+            self.optimizer = self.optimizer_def(self.trainable_params, self.lr)
+        
+            
+        if not self.verbose:
+            for i in range(self.tolerance):
+                PREDS, TMP_LOSS = update()
+                
+                if TMP_LOSS[self.loss] < self.current_best:
+                    self.current_best = TMP_LOSS[self.loss]
+                    break
+                
+        else:
+            bar_format = '{desc}{percentage:3.0f}%|{bar}|[{postfix}]'
+            with tqdm(total=self.tolerance, bar_format=bar_format) as _tqdm:
+                for i in range(self.tolerance):
+                    PREDS, TMP_LOSS = update()
+
+                    _tqdm.set_description(f" {self.name} phase: iter {i + 1}/{self.tolerance}")
+                    _tqdm.set_postfix({self.loss: f"{TMP_LOSS[self.loss].item():.4f}"})
+                    _tqdm.update(1)
+                
+                    if TMP_LOSS[self.loss] < self.current_best:
+                        self.current_best = TMP_LOSS[self.loss]
+                        break
+            
+        self.PREDS, self.TMP_LOSS = PREDS, TMP_LOSS
+        return PREDS, TMP_LOSS
+    
+    def set_train_params(self, models):
+        self.train_module = list(models.keys()) if self.train_module == 'all' else self.train_module
+        for model in self.train_module:
+            models[model].train()
+            for name, param in models[model].named_parameters():
+                if self.freeze_params and name in self.freeze_params[model]:
+                    param.requires_grad = False
+                else:
+                    param.requires_grad = True
+                    
+        self.trainable_params = [{'params': models[model].parameters(), 'lr': self.lr} for model in self.train_module]
+            
+    def set_eval_params(self, models):
+        self.eval_module = list(models.keys()) if self.eval_module == 'all' else self.eval_module
+        if self.eval_module:
+            for model in self.eval_module:
+                # EVAL MODULES SHOULD ALSO BE SET AS TRAIN
+                models[model].train()
+                for param in models[model].parameters():
+                    param.requires_grad = False
+                    
+    def lr_decay(self):
+        self.lr *= self.lr_decay_rate
 
 
 class BasicTrainer:
@@ -126,20 +245,9 @@ class BasicTrainer:
                            'valid': valid_loader,
                            'test': test_loader}
 
-        if isinstance(cuda, int):
-            self.device = torch.device(f"cuda:{cuda}" if torch.cuda.is_available() else "cpu")
-            self.extra_params = ExtraParams(self.device)
-            if networks:
-                self.models = {network.name: network.to(self.device) for network in networks
-                            }
-        elif isinstance(cuda, list) or isinstance(cuda, tuple) or isinstance(cuda, set):
-            self.thread = 'multi'
-            self.ddp_setup(cuda=cuda)
-            self.extra_params = ExtraParams(self.device)
-            if networks:
-                self.models = {network.name: DDP(network.cuda()) for network in networks
-                            }
-
+        self.device = torch.device(f"cuda:{cuda}" if torch.cuda.is_available() else "cpu")
+        self.extra_params = ExtraParams(self.device)
+            
         self.modality = modality
         
         self.preprocess = preprocess
@@ -150,7 +258,7 @@ class BasicTrainer:
         self.loss_terms = ('loss1', 'loss2', '...')
         self.pred_terms = ('predict1', 'predict2', '...')
         self.losslog = MyLossLog(self.name, self.loss_terms, self.pred_terms)
-        self.temp_loss = None
+
         self.best_val_loss = float("inf")
         self.best_vloss_ep = 0
         
@@ -159,6 +267,15 @@ class BasicTrainer:
         self.train_sampled_batches = None
         self.valid_sampled_batches = None
         
+        self.training_phases = {TrainingPhase(name = 'main',
+                 train_module='all',
+                 eval_module=None,
+                 loss='LOSS',
+                 lr=1.e-4,
+                 optimizer=torch.optim.Adam,
+                 scaler=GradScaler(),
+                 freeze_params=None)}
+        
         self.on_test = 'train'
 
         self.notion = notion
@@ -166,19 +283,6 @@ class BasicTrainer:
         if not os.path.exists(self.save_path):
             os.makedirs(self.save_path)
         self.early_stopping = None
-
-    @staticmethod
-    def ddp_setup(cuda):
-        os.environ['CUDA_VISIBLE_DEVICES'] = ','.join(map(str, cuda))
-        os.environ['MASTER_ADDR'] = 'localhost'
-        os.environ['MASTER_PORT'] = '5800'
-        dist.init_process_group(backend='nccl', init_method='env://', rank=torch.cuda.device_count(), world_size=1)
-
-    def data_to_device(self, data):
-        if self.thread == 'single':
-            return data.to(torch.float32).to(self.device)
-        elif self.thread == 'multi':
-            return data.cuda(non_blocking=True)
         
     def data_preprocess(self, mode, data):
         # mode in ('train', 'valid', 'test')
@@ -196,57 +300,30 @@ class BasicTrainer:
         return self.losslog.current_epoch
     
     def current_lr(self):
-        return self.losslog.loss['LOSS'].lr
-
-    def calculate_loss(self, mode, *inputs):
+        return {loss: lr for loss, lr in self.losslog.loss.items()}
+    
+    def calculate_loss(self, *inputs):
         # mode in ('train', 'valid', 'test')
         # --- Return losses in this way ---
-        self.temp_loss = {loss: None for loss in self.loss_terms}
-        return {pred: None for pred in self.pred_terms}
-    
-    def update(self):
-        for i, loss in enumerate(self.loss_optimizer.keys(), start=1):
-            self.losslog.loss[loss].optimizer.zero_grad()
-            # if i != len(self.loss_optimizer):
-            #     self.temp_loss[loss].backward(retain_graph=True)
-            # else:
-            #     self.temp_loss[loss].backward()
-            
-            if torch.isnan(self.temp_loss[loss]):
-                print(f"NaN encountered in loss {loss}, skipping update.")
-            else:
+        PREDS = {pred: None for pred in self.pred_terms}
+        TMP_LOSS = {loss: None for loss in self.loss_terms}
+        return PREDS, TMP_LOSS
                 
-                self.scaler.scale(self.temp_loss[loss]).backward()
-                self.scaler.step(self.losslog.loss[loss].optimizer)
-                self.scaler.update()
+    def assign_params(self):
+        pass
 
     @timer
     def train(self, early_stop=True, lr_decay=True, subsample_fraction=1, *args, **kwargs):
         
-        # To be moved elsewhere!
+        # TO BE MOVED ELSEWHERE
         # if self.extra_params.updatable:
         #     for param, value in self.extra_params.params.items():
         #         trainable_params.append({'params': value})
 
-        # ===============set trainable parts==============
-        self.train_module = list(self.models.keys()) if self.train_module == 'all' else self.train_module
-        self.eval_module = list(self.models.keys()) if self.eval_module == 'all' else self.eval_module
-        
-        for model in self.train_module:
-            for param in self.models[model].parameters():
-                param.requires_grad = True
-        
-        if self.eval_module:
-            for model in self.eval_module:
-                for param in self.models[model].parameters():
-                    param.requires_grad = False
-                
-        trainable_params = [{'params': self.models[model].parameters()} for model in self.train_module]
-                
-        for loss, [optimizer, lr] in self.loss_optimizer.items():
-            self.losslog.loss[loss].set_optimizer(optimizer, lr, trainable_params)
-            
-        # ===============set training-flow related==============
+        # ===============MANUALLY SET PARAMS==============
+        self.assign_params()
+
+        # ===============SET TRAINING FLOW==============
         bar_format = '{desc}{percentage:3.0f}%|{bar}|[{elapsed}<{remaining}{postfix}]'
 
         if subsample_fraction < 1:
@@ -259,7 +336,7 @@ class BasicTrainer:
         self.epochs = 1000 if early_stop else self.epochs
         self.early_stopping = EarlyStopping(*args, **kwargs)
         self.temp_loss = {loss: None for loss in self.loss_terms}
-        # ===============train and validate each epoch==============
+        # ===============TRAIN & VALIDATE EACH EPOCH==============
         start = time.time()
         start_time = datetime.fromtimestamp(start)
         print(f"\033[32m=========={start_time.strftime('%Y-%m-%d %H:%M:%S')} {self.notion} {self.name} Training starting==========\033[0m")
@@ -267,14 +344,6 @@ class BasicTrainer:
         for epoch in tqdm(range(self.start_ep, self.epochs)):
             print('')
             # =====================train============================
-
-            for model in self.train_module:
-                self.models[model].train()
-                
-            # eval modules also need to be on train mode
-            if self.eval_module:
-                for model in self.eval_module:
-                    self.models[model].train()
                 
             EPOCH_LOSS = {loss: [] for loss in self.loss_terms}
 
@@ -282,22 +351,23 @@ class BasicTrainer:
                 _tqdm.set_description(f"{self.notion} {self.name} train: ep {epoch}/{self.epochs}")
                 
                 for idx, data in enumerate(self.dataloader['train'], 0):
+                    TMP_LOSS = {loss: [] for loss in self.loss_terms}
+                    
                     # Randomly select samples
                     if self.train_sampled_batches is not None and idx not in self.train_sampled_batches:
                         continue
+                        
                     data_ = self.data_preprocess('train', data)
                     
-                    # Use autocast for mixed precision training
-                    with autocast():
-                        PREDS = self.calculate_loss('train', data_)
-                        
-                    self.update()
+                    for name, phase in self.training_phases.items():
+                        _, TMP_LOSS_ = phase(self.models, data_, self.calculate_loss)
+                        TMP_LOSS.update(TMP_LOSS_)
 
-                    for key in EPOCH_LOSS.keys():
-                        EPOCH_LOSS[key].append(self.temp_loss[key].item())
+                    for key in TMP_LOSS.keys():
+                        EPOCH_LOSS[key].append(TMP_LOSS[key].item())
 
                     _tqdm.set_postfix({'batch': f"{idx}/{self.train_batches}",
-                                        'loss': f"{self.temp_loss['LOSS'].item():.4f}"})
+                                        'loss': f"{TMP_LOSS['LOSS'].item():.4f}"})
                     _tqdm.update(1)
 
             for key, value in EPOCH_LOSS.items():
@@ -308,11 +378,8 @@ class BasicTrainer:
 
             # =====================valid============================
             print('')
-            for model in self.train_module:
+            for model in self.models:
                 self.models[model].eval()
-            if self.eval_module:
-                for model in self.eval_module:
-                    self.models[model].eval()
                 
             EPOCH_LOSS = {loss: [] for loss in self.loss_terms}
 
@@ -327,9 +394,9 @@ class BasicTrainer:
                     data_ = self.data_preprocess('valid', data)
 
                     with torch.no_grad():
-                        PREDS = self.calculate_loss('valid', data_)
+                        PREDS, TMP_LOSS = self.calculate_loss('valid', data_)
                     for key in EPOCH_LOSS.keys():
-                        EPOCH_LOSS[key].append(self.temp_loss[key].item())
+                        EPOCH_LOSS[key].append(TMP_LOSS[key].item())
                         
                     if epoch % 10 == 0:
                         self.losslog('pred', PREDS)
@@ -340,7 +407,7 @@ class BasicTrainer:
                         self.best_vloss_ep = self.current_ep()
                         
                     _tqdm.set_postfix({'batch': f"{idx}/{self.valid_batches}",
-                                       'loss': f"{self.temp_loss['LOSS'].item():.4f}",
+                                       'loss': f"{TMP_LOSS['LOSS'].item():.4f}",
                                        'current best': f"{self.best_val_loss:.4f} @ epoch {self.best_vloss_ep}"})
                     _tqdm.update(1)
 
@@ -350,7 +417,7 @@ class BasicTrainer:
                                 f"Total epochs = {self.current_ep()}\n"
                                 f"Best : val_loss={self.best_val_loss} @ epoch {self.best_vloss_ep}\n"
                                 f"Final validation losses:\n"
-                                f"{' '.join([key + ': ' + str(self.temp_loss[key].item()) for key in self.loss_terms])}\n"
+                                f"{' '.join([key + ': ' + str(TMP_LOSS[key].item()) for key in self.loss_terms])}\n"
  
                                 )
                     
@@ -367,6 +434,8 @@ class BasicTrainer:
             self.early_stopping(self.best_val_loss, early_stop, lr_decay)
             if lr_decay and self.early_stopping.decay_flag:
                 self.losslog.decay(0.5)
+                for phase in self.training_phases.values():
+                    phase.decay()
                     
             if early_stop and self.early_stopping.stop_flag:
                 self.losslog.in_training = False
@@ -389,10 +458,6 @@ class BasicTrainer:
             for key in EPOCH_LOSS.keys():
                 EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
             self.losslog('valid', EPOCH_LOSS)
-
-        if self.thread == 'multi':
-            dist.destroy_process_group()
-        return self.models
 
     @timer
     def test(self, single_test=False, loader: str = 'test', subsample_fraction=1, control_speed=False, *args, **kwargs):
@@ -434,20 +499,20 @@ class BasicTrainer:
                     if single_test:
                         for sample in range(len(list(data_.values())[0])):
                             data_i = {key: data_[key][sample][np.newaxis, ...] for key in data_.keys()}
-                            PREDS = self.calculate_loss(data_i)
+                            PREDS, TMP_LOSS = self.calculate_loss(data_i)
 
                             for key in EPOCH_LOSS.keys():
-                                EPOCH_LOSS[key].append(self.temp_loss[key].item())
+                                EPOCH_LOSS[key].append(TMP_LOSS[key].item())
                     else:
-                        PREDS = self.calculate_loss('test',data_)
+                        PREDS, TMP_LOSS = self.calculate_loss('test',data_)
                         
                         for key in EPOCH_LOSS.keys():
-                            EPOCH_LOSS[key].append(np.average(self.temp_loss[key].item()))
+                            EPOCH_LOSS[key].append(np.average(TMP_LOSS[key].item()))
                             
                     self.losslog('pred', PREDS)
                         
                 _tqdm.set_postfix({'batch': f"{idx}/{test_batches}",
-                                   'loss': f"{self.temp_loss['LOSS'].item():.4f}"})
+                                   'loss': f"{TMP_LOSS['LOSS'].item():.4f}"})
                 _tqdm.update(1)
                 
                 if control_speed:
@@ -478,42 +543,64 @@ class BasicTrainer:
                 'epoch': self.current_ep(),
                 'lr': self.current_lr(),
                 'model_state_dict': model.state_dict(),
-                #'optimizer_state_dict': self.loss_optimizer['LOSS'][0].state_dict(),
-                }, f"{self.save_path}{self.name}_models_{modelname}_checkpoint.pth")
+                }, 
+                       f"{self.save_path}{self.name}_models_{modelname}_checkpoint.pth")
+            
+        for name, phase in self.training_phases.items():
+            print(f"Saving {name} optimizer...")
+            torch.save({
+                'epoch': self.current_ep(),
+                'lr': self.current_lr(),
+                'optimizer_state_dict': phase.optimizer.state_dict()
+                }, 
+                       f"{self.save_path}{self.name}_optimizer_{name}_checkpoint.pth")
         
         print("All saved!")
         
-    def load(self, path, name='Student', mode='checkpoint', gpu=None):
+    def load(self, path, name='Student', mode='checkpoint', load_optimizer=True, gpu=None):
         print(f"\033[32m=========={self.notion} {self.name} Loading==========\033[0m")
-        paths = os.walk(path)
-        for p, _, file_lst in paths:
-            for file_name in file_lst:
-                file_name_, ext = os.path.splitext(file_name)
-                if ext == '.pth' and name in file_name_ and mode in file_name_:
-                    for model_name, model in self.models.items():
-                        if model_name in file_name_:
-                            # Load model .pth
-                            ep, lr = '', ''
-                            if isinstance(gpu, int):
-                                checkpoint = torch.load(os.path.join(p, file_name), map_location=f"cuda:{gpu}")
-                            else:
-                                checkpoint = torch.load(os.path.join(p, file_name))
-                            if 'model_state_dict' in checkpoint.keys():
-                                model.load_state_dict(checkpoint['model_state_dict'])
 
-                                if 'epoch' in checkpoint:
-                                    self.losslog.current_epoch = checkpoint['epoch']
-                                    ep = f" at epoch {checkpoint['epoch']}"
-                                    self.start_ep = ep
-                                if 'optimizer_state_dict' in checkpoint:
-                                    self.loss_optimizer['LOSS'][0].load_state_dict(checkpoint['optimizer_state_dict'])
-                                if 'lr' in  checkpoint:
-                                    self.loss_optimizer['LOSS'][1] = checkpoint['lr']
-                                    lr = f"lr = {checkpoint['lr']}"
-                            else:
-                                model.load_state_dict(checkpoint)
-                            
-                            print(f"Loaded model {model.name} {ep} {lr} from {file_name}!")
+        # Collect all matching file paths for each model
+        model_files = {model_name: None for model_name in self.models.keys()}
+        optimizer_files = {phase_name: None for phase_name in self.training_phases.keys()}
+        
+        def find_path(file_path, file_name_, ext):
+            if ext == '.pth' and name in file_name_ and mode in file_name_:
+                # Match file with model names
+                for model_name in self.models.keys():
+                    if model_name in file_name_:
+                        model_files[model_name] = file_path
+                # Match file with optimizer names
+                for phase_name in self.training_phases.keys():
+                    if phase_name in file_name_:
+                        optimizer_files[phase_name] = file_path
+
+        file_finder(path, find_path)
+
+        # Load each model's checkpoint if available
+        for model_name, model in self.models.items():
+            file_path = model_files.get(model_name)
+            if file_path:
+                checkpoint = torch.load(file_path, map_location=f"cuda:{gpu}" if isinstance(gpu, int) else None)
+                if 'model_state_dict' in checkpoint:
+                    model.load_state_dict(checkpoint['model_state_dict'])
+                else:
+                    model.load_state_dict(checkpoint)
+                ep = f" at epoch {checkpoint.get('epoch')}" if checkpoint.get('epoch') else ''
+                self.start_ep = checkpoint.get('epoch', 0)
+                print(f"Loaded model {model_name}{ep} from {file_path}!")
+
+        # Load each optimizer's checkpoint if available
+        if load_optimizer:
+            for phase_name, phase in self.training_phases.items():
+                file_path = optimizer_files.get(phase_name)
+                if file_path:
+                    checkpoint = torch.load(file_path, map_location=f"cuda:{gpu}" if isinstance(gpu, int) else None)
+                    if 'optimizer_state_dict' in checkpoint:
+                        phase.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+                    ep = f" at epoch {checkpoint.get('epoch')}" if checkpoint.get('epoch') else ''
+                    lr = f" lr {checkpoint.get('lr')}" if checkpoint.get('lr') else ''
+                    print(f"Loaded optimizer {phase_name}{ep}{lr} from {file_path}!")
 
 
     def schedule(self, autosave=True, *args, **kwargs):

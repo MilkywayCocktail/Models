@@ -315,14 +315,12 @@ class GradientReversalLayer(Function):
 class TeacherTrainer(BasicTrainer):
     def __init__(self,
                  beta=0.5,
-                 recon_lossfunc=nn.BCEWithLogitsLoss(reduction='sum'),
                  *args, **kwargs):
         super(TeacherTrainer, self).__init__(*args, **kwargs)
 
         self.modality = {'rimg', 'cimg', 'center', 'depth', 'tag', 'ctr', 'dpt', 'ind'}
 
         self.beta = beta
-        self.recon_lossfunc = recon_lossfunc
         self.initial_beta = 0.0
         self.max_beta = 1.0
         self.annealing_epochs = 100
@@ -333,6 +331,9 @@ class TeacherTrainer(BasicTrainer):
                            'R_PRED', 'C_PRED', 
                            'DPT_PRED', 'CTR_PRED', 
                            'LAT', 'TAG', 'IND')
+        
+        self.bce = nn.BCEWithLogitsLoss(reduction='sum')
+        self.mse = nn.MSELoss(reduction='sum')
         self.depth_loss = nn.MSELoss()
         self.center_loss = nn.MSELoss()
         
@@ -349,6 +350,12 @@ class TeacherTrainer(BasicTrainer):
                        'ctrde': CenterDecoder().to(self.device)
                        }
         
+        self.kl_weight = 1.e-4
+        self.r_recon_weight = 1.e-4
+        self.c_recon_weight = 1.e-4
+        self.center_weight = 50.
+        self.depth_weight = 50.
+        
     def kl_loss(self, mu, logvar):
         kl_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
         return kl_loss
@@ -361,28 +368,32 @@ class TeacherTrainer(BasicTrainer):
     def calculate_loss(self, mode, data):
         cimg = torch.where(data['cimg'] > 0, 1., 0.)
         rimg = data['rimg']
+        rimg_mask =  torch.where(data['rimg'] > 0.1, 1., 0.1)
         
         z, mu, logvar, feature = self.models['imgen'](rimg)
         rimg_re = self.models['rimgde'](z)
         cimg_re = self.models['cimgde'](z)
         kl_loss = self.kl_loss(mu, logvar)
-        r_recon_loss = self.recon_lossfunc(rimg_re, rimg) / rimg_re.shape[0]
-        c_recon_loss = self.recon_lossfunc(cimg_re, cimg) / cimg_re.shape[0]
-        self.update_beta()
-        vae_loss = kl_loss * self.beta + r_recon_loss + c_recon_loss
+        # r_recon_loss = self.bce(rimg_re, rimg) / rimg_re.shape[0]
+        # Region-aware
+        r_recon_loss = ((rimg_re - rimg).pow(2) * rimg_mask).mean()
+        c_recon_loss = self.bce(cimg_re, cimg) / cimg_re.shape[0]
+        # self.update_beta()
+        vae_loss = kl_loss * self.beta * self.kl_weight + r_recon_loss * self.r_recon_weight +\
+        c_recon_loss * self.c_recon_weight
         
         ctr, depth = self.models['ctrde'](feature)
         center_loss = self.center_loss(ctr, torch.squeeze(data['center']))
         depth_loss = self.depth_loss(depth, torch.squeeze(data['depth']))
         
-        loss = vae_loss + center_loss + depth_loss
+        loss = vae_loss + center_loss * self.center_weight + depth_loss * self.depth_weight
 
         self.temp_loss = {'LOSS': loss,
-                          'KL': kl_loss,
-                          'R_RECON': r_recon_loss,
-                          'C_RECON': c_recon_loss,
-                          'CTR': center_loss, 
-                          'DPT': depth_loss
+                          'KL': kl_loss * self.kl_weight * self.beta,
+                          'R_RECON': r_recon_loss * self.r_recon_weight,
+                          'C_RECON': c_recon_loss * self.c_recon_weight,
+                          'CTR': center_loss * self.center_weight, 
+                          'DPT': depth_loss * self.depth_weight
                           }
         
         return {'R_GT': rimg,

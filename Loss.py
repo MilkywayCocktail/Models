@@ -390,7 +390,6 @@ class MyLossBBX(MyLossLog):
         filename = f"{self.name}_BBX_{self.dataset}SET@ep{self.current_epoch}.jpg"
         return {filename: fig}
 
-
 class MyLossCTR(MyLossLog):
     def __init__(self, depth=False, *args, **kwargs):
         super(MyLossCTR, self).__init__(*args, **kwargs)
@@ -435,4 +434,21 @@ class MyLossCTR(MyLossLog):
         axes[0].legend()
         plt.show()
         filename = f"{self.name}_CTR_{self.dataset}SET@ep{self.current_epoch}.jpg"
+        return {filename: fig}
+    
+    def plot_domain(self):
+        title = f"{self.name} Domain Predicts on {self.dataset} @ep{self.current_epoch}"
+        samples = np.array(self.preds['TAG']).astype(int)[self.select_inds]
+        
+        fig = self.__plot_settings__()
+        fig.suptitle(title)
+        ax = plt.gca()
+        
+        for j, ind in enumerate(self.select_inds):
+            ax.scatter(j, self.preds['DOM_GT'][ind], marker=(5, 1), alpha=0.5, linewidths=5, color='b', label='DOM_GT')
+            ax.scatter(j, self.preds['DOM_PRED'][ind], marker=(5, 1), alpha=0.5, linewidths=5, color='orange', label='DOM_PRED')
+        
+        ax.legend()
+        plt.show()
+        filename = f"{self.name}_DOM_{self.dataset}SET@ep{self.current_epoch}.jpg"
         return {filename: fig}
