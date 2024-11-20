@@ -5,6 +5,7 @@ from matplotlib.patches import Rectangle
 from matplotlib import cm
 import os
 from misc import plot_settings
+import torch.nn.functional as F
 # from sklearn.manifold import TSNE
 
 """
@@ -442,6 +443,7 @@ class MyLossCTR(MyLossLog):
         return {filename: fig}
     
     def plot_domain(self):
+        
         title = f"{self.name} Domain Predicts on {self.dataset} @ep{self.current_epoch}"
         samples = np.array(self.preds['TAG']).astype(int)[self.select_inds]
         
@@ -452,17 +454,21 @@ class MyLossCTR(MyLossLog):
         bar_colors = ['skyblue', 'orange', 'green', 'purple']  # Colors for each segment
         
         for j, ind in enumerate(self.select_inds):
+            soft_logits = F.softmax(torch.tensor(self.preds['DOM_PRED'][ind]))
+            
             # Bar Plot
-            ax.bar(0, self.preds['DOM_PRED'][ind][0], color=bar_colors[0])  # Base segment
-            for i in range(1, len(values)):
-                ax.bar(0, self.preds['DOM_PRED'][ind][i], 
-                       bottom=sum(self.preds['DOM_PRED'][ind][:i]),
+            ax.bar(j, soft_logits[0], color=bar_colors[0])  # Base segment
+            for i in range(1, len(soft_logits)):
+                ax.bar(j, soft_logits[i], 
+                       bottom=sum(soft_logits[:i]),
                        color=bar_colors[i])
                 
-            ax.scatter(j, self.preds['DOM_GT'][ind], marker=(5, 1), alpha=0.5, linewidths=5, color='b', label='DOM_GT')
-            # ax.scatter(j, self.preds['DOM_PRED'][ind], marker=(5, 1), alpha=0.5, linewidths=5, color='orange', label='DOM_PRED')
+            ax.scatter(j, 
+                       self.preds['DOM_GT'][ind] / len(soft_logits), 
+                       marker=(5, 1), alpha=0.5, linewidths=5, color='magenta',
+                       label=f"{'-'.join(map(str, map(int, samples[j])))}")
             ax.legend()
-        plt.xticks(list(range(self.select_inds)), self.select_inds)  # Single x-axis label
+        
         plt.show()
         filename = f"{self.name}_DOM_{self.dataset}SET@ep{self.current_epoch}.jpg"
         return {filename: fig}

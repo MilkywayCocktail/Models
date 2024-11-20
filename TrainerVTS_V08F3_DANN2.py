@@ -471,6 +471,8 @@ class StudentTrainer(BasicTrainer):
             'target': ValidationPhase(name='target', loader='valid2')
         }
         
+        self.early_stopping_trigger = 'target'
+        
         # Modify dataloader dict to match the valid phases.
         
         self.latent_weight = 0.1
