@@ -517,6 +517,61 @@ class DANN_Loader:
         self.maximum_iter = len(self.source_loader)
         self.current = -1
         
+
+class DANN_Loader2:
+    """
+    Generates source smaples and target samples by 3:1.
+    """
+    
+    def __init__(self, source_loader, target_loader):
+        self.source_loader = source_loader
+        self.target_loader = target_loader
+        self.source_iter = iter(self.source_loader)
+        self.target_iter = iter(self.target_loader)
+        self.maximum_iter = len(source_loader) // 3
+        self.current = -1
+        
+    def __iter__(self):
+        return self
+        
+    def __next__(self):
+        self.current += 1
+        if self.current > self.maximum_iter:
+            # automatically reloop
+            self.reset()
+            raise StopIteration
+
+            
+        try:
+            # Fetch 3 samples from the source loader
+            source_samples = [next(self.source_iter) for _ in range(3)]
+            source_batch = {key: torch.cat([sample[key] for sample in source_samples], dim=0) 
+                            for key in source_samples[0]}  # Combine into a single batch
+
+        except StopIteration:
+            self.source_iter = iter(self.source_loader)  # Reset the iterator
+            source_samples = [next(self.source_iter) for _ in range(3)]
+            source_batch = {key: torch.cat([sample[key] for sample in source_samples], dim=0) 
+                            for key in source_samples[0]}  # Get the first batch again
+
+        try:
+            target_data = next(self.target_iter)
+        except StopIteration:
+            self.target_iter = iter(self.target_loader)  # Reset the iterator
+            target_data = next(self.target_iter)         # Get the first batch again
+
+        return source_batch, target_data
+
+        
+    def __len__(self):
+        return self.maximum_iter
+    
+    def reset(self):
+        self.source_iter = iter(self.source_loader)
+        self.target_iter = iter(self.target_loader)
+        self.maximum_iter = len(self.source_loader) // 3
+        self.current = -1
+        
     
 class DataOrganizerDANN(DataOrganizer):
     def __init__(self, *args, **kwargs):
@@ -583,9 +638,10 @@ def gen_dann_loaders(data_organizer, train=None, test=None, subset_ratio=1, batc
     source_train_loader, source_valid_loader, target_test_loader, current_test = data_organizer.gen_loaders(mode='s', num_workers=num_workers, batch_size=batch_size)
     data_organizer.swap_train_test()
     target_train_loader, target_valid_loader, source_test_loader, _ = data_organizer.gen_loaders(mode='s', num_workers=num_workers, batch_size=batch_size)
-    dann_train_loader = DANN_Loader(source_train_loader, target_train_loader)
-    dann_valid_loader = DANN_Loader(source_valid_loader, target_valid_loader)
-    dann_test_loader = DANN_Loader(target_test_loader, source_valid_loader)
-    return dann_train_loader, dann_valid_loader, dann_test_loader, current_test
+    dann_train_loader = DANN_Loader2(source_train_loader, target_train_loader)
+    dann_valid1 = DANN_Loader2(source_valid_loader, target_valid_loader)
+    dann_valid2 = DANN_Loader2(target_valid_loader, source_valid_loader)
+    dann_test_loader = DANN_Loader2(target_test_loader, source_valid_loader)
+    return dann_train_loader, dann_valid1, dann_valid2, dann_test_loader, current_test
     
     

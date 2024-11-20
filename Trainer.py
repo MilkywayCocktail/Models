@@ -108,6 +108,7 @@ class TrainingPhase:
                  scaler=GradScaler(),
                  freeze_params=None,
                  tolerance=1,
+                 conditioned_update=False,
                  verbose=False):
         
         self.name = name
@@ -128,6 +129,7 @@ class TrainingPhase:
         self.current_best = float("inf")
         self.lr = lr
         self.lr_decay_rate = 0.5
+        self.conditioned_update = conditioned_update
         
         self.verbose = verbose
         self.PREDS = None
@@ -135,14 +137,11 @@ class TrainingPhase:
     
     def __call__(self, models, data, calculate_loss):
         
-        def update():
-            with autocast():
-                _PREDS, _TMP_LOSS = calculate_loss(models, data)
-            
-            if torch.isnan(_TMP_LOSS[self.loss]):
+        def update(TMP_LOSS):
+            if torch.isnan(TMP_LOSS[self.loss]):
                 print(f"Phase {self.name}: NaN encountered in loss {self.loss}, skipping update.")
             else:
-                self.scaler.scale(_TMP_LOSS[self.loss]).backward()
+                self.scaler.scale(TMP_LOSS[self.loss]).backward()
                 
                 # GRADIENT CLIPPING
                 self.scaler.unscale_(self.optimizer)  # Unscale gradients for clipping if needed
@@ -155,8 +154,6 @@ class TrainingPhase:
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
                 self.optimizer.zero_grad()
-                
-            return _PREDS, _TMP_LOSS
             
         # SET TRAINABLE PARAMS & LEARNING RATE
         self.set_train_params(models)
@@ -168,17 +165,24 @@ class TrainingPhase:
             
         if not self.verbose:
             for i in range(self.tolerance):
-                PREDS, TMP_LOSS = update()
+                with autocast():
+                    PREDS, TMP_LOSS = calculate_loss(models, data)
+                    if not self.conditioned_update:
+                        update(TMP_LOSS)
                 
                 if TMP_LOSS[self.loss] < self.current_best:
                     self.current_best = TMP_LOSS[self.loss]
+                    if self.conditioned_update:
+                        update(TMP_LOSS)
                     break
                 
         else:
             bar_format = '{desc}{percentage:3.0f}%|{bar}|[{postfix}]'
             with tqdm(total=self.tolerance, bar_format=bar_format) as _tqdm:
                 for i in range(self.tolerance):
-                    PREDS, TMP_LOSS = update()
+                    PREDS, TMP_LOSS = calculate_loss(models, data)
+                    if not self.conditioned_update:
+                        update(TMP_LOSS)
 
                     _tqdm.set_description(f" {self.name} phase: iter {i + 1}/{self.tolerance}")
                     _tqdm.set_postfix({self.loss: f"{TMP_LOSS[self.loss].item():.4f}"})
@@ -186,6 +190,8 @@ class TrainingPhase:
                 
                     if TMP_LOSS[self.loss] < self.current_best:
                         self.current_best = TMP_LOSS[self.loss]
+                        if self.conditioned_update:
+                            update(TMP_LOSS)
                         break
             
         self.PREDS, self.TMP_LOSS = PREDS, TMP_LOSS
@@ -214,12 +220,29 @@ class TrainingPhase:
                     
     def lr_decay(self):
         self.lr *= self.lr_decay_rate
+        
+        
+class ValidationPhase:
+    def __init__(self, name, loader='valid', best_loss='LOSS'):
+        self.name = name
+        self.loader = loader
+        self.best_loss = best_loss
+        self.best_val_loss = float("inf")
+        self.best_vloss_ep = 0
+        
+    def __call__(self, models, data, calculate_loss):
+
+        with torch.no_grad():
+            PREDS, TMP_LOSS = calculate_loss(models, data)
+            
+        return PREDS, TMP_LOSS
+    
 
 
 class BasicTrainer:
     def __init__(self, name, 
                  epochs, cuda,
-                 train_loader, valid_loader, test_loader,
+                 dataloaders,
                  loss_optimizer: dict,
                  networks = None,
                  preprocess = None,
@@ -241,9 +264,10 @@ class BasicTrainer:
         #                        'LOSS3': '...'}
         self.thread = 'single'
 
-        self.dataloader = {'train': train_loader,
-                           'valid': valid_loader,
-                           'test': test_loader}
+        self.dataloader = dataloaders
+        # {'train': train_loader,
+        # 'valid': valid_loader,
+        # 'test': test_loader}
 
         self.device = torch.device(f"cuda:{cuda}" if torch.cuda.is_available() else "cpu")
         self.extra_params = ExtraParams(self.device)
@@ -258,16 +282,17 @@ class BasicTrainer:
         self.loss_terms = ('loss1', 'loss2', '...')
         self.pred_terms = ('predict1', 'predict2', '...')
         self.losslog = MyLossLog(self.name, self.loss_terms, self.pred_terms)
-
-        self.best_val_loss = float("inf")
-        self.best_vloss_ep = 0
+        
+        self.current_epoch = 0
+        self.early_stopping_trigger = 'main'
         
         self.train_batches = len(self.dataloader['train'])
         self.valid_batches = len(self.dataloader['valid'])
         self.train_sampled_batches = None
         self.valid_sampled_batches = None
         
-        self.training_phases = {TrainingPhase(name = 'main',
+        self.training_phases = {
+            'main': TrainingPhase(name='main',
                  train_module='all',
                  eval_module=None,
                  loss='LOSS',
@@ -275,6 +300,10 @@ class BasicTrainer:
                  optimizer=torch.optim.Adam,
                  scaler=GradScaler(),
                  freeze_params=None)}
+        
+        self.valid_phases = {
+            'main': ValidationPhase(name='main')
+        }
         
         self.on_test = 'train'
 
@@ -343,6 +372,7 @@ class BasicTrainer:
         
         for epoch in tqdm(range(self.start_ep, self.epochs)):
             print('')
+            self.current_epoch = epoch
             # =====================train============================
                 
             EPOCH_LOSS = {loss: [] for loss in self.loss_terms}
@@ -381,45 +411,49 @@ class BasicTrainer:
             for model in self.models:
                 self.models[model].eval()
                 
-            EPOCH_LOSS = {loss: [] for loss in self.loss_terms}
-
-            with tqdm(total=self.valid_batches, bar_format=bar_format) as _tqdm:
-                _tqdm.set_description(f"{self.notion} {self.name} valid: ep {epoch}/{self.epochs}")
+            for name, phase in self.valid_phases.items():
                 
-                for idx, data in enumerate(self.dataloader['valid'], 0):
-                    # Randomly select samples
-                    if self.valid_sampled_batches is not None and idx not in self.valid_sampled_batches:
-                        continue
+                EPOCH_LOSS = {loss: [] for loss in self.loss_terms}
+
+                with tqdm(total=self.valid_batches, bar_format=bar_format) as _tqdm:
+                    _tqdm.set_description(f"{self.notion} {self.name} {name} valid: ep {epoch}/{self.epochs}")
                     
-                    data_ = self.data_preprocess('valid', data)
-
-                    with torch.no_grad():
-                        PREDS, TMP_LOSS = self.calculate_loss('valid', data_)
-                    for key in EPOCH_LOSS.keys():
-                        EPOCH_LOSS[key].append(TMP_LOSS[key].item())
+                    for idx, data in enumerate(self.dataloader.get(phase.loader, 'valid'), 0):
+                        # Randomly select samples
+                        if self.valid_sampled_batches is not None and idx not in self.valid_sampled_batches:
+                            continue
                         
-                    if epoch % 10 == 0:
-                        self.losslog('pred', PREDS)
+                        data_ = self.data_preprocess('valid', data)
 
-                    val_loss = np.average(EPOCH_LOSS['LOSS'])
-                    if 0 < val_loss < self.best_val_loss:
-                        self.best_val_loss = val_loss
-                        self.best_vloss_ep = self.current_ep()
+                        PREDS, TMP_LOSS = phase(self.models, data_, self.calculate_loss)
                         
-                    _tqdm.set_postfix({'batch': f"{idx}/{self.valid_batches}",
-                                       'loss': f"{TMP_LOSS['LOSS'].item():.4f}",
-                                       'current best': f"{self.best_val_loss:.4f} @ epoch {self.best_vloss_ep}"})
-                    _tqdm.update(1)
+                        for key in EPOCH_LOSS.keys():
+                            EPOCH_LOSS[key].append(TMP_LOSS[key].item())
+                            
+                        if epoch % 10 == 0:
+                            self.losslog('pred', PREDS)
 
-                with open(f"{self.save_path}{self.name}_trained.txt", 'w') as logfile:
-                    logfile.write(f"{self.notion}_{self.name}\n"
-                                  f"Start time = {start_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
-                                f"Total epochs = {self.current_ep()}\n"
-                                f"Best : val_loss={self.best_val_loss} @ epoch {self.best_vloss_ep}\n"
-                                f"Final validation losses:\n"
-                                f"{' '.join([key + ': ' + str(TMP_LOSS[key].item()) for key in self.loss_terms])}\n"
- 
-                                )
+                        val_loss = np.average(EPOCH_LOSS['LOSS'])
+                        if 0 < val_loss < phase.best_val_loss:
+                            phase.best_val_loss = val_loss
+                            phase.best_vloss_ep = self.current_epoch
+                            
+                        _tqdm.set_postfix({'batch': f"{idx}/{self.valid_batches}",
+                                        'loss': f"{TMP_LOSS['LOSS'].item():.4f}",
+                                        'current best': f"{phase.best_val_loss:.4f} @ epoch {phase.best_vloss_ep}"})
+                        _tqdm.update(1)
+
+                    with open(f"{self.save_path}{self.name}_{name}_trained.txt", 'w') as logfile:
+                        logfile.write(f"{self.notion}_{self.name}\n"
+                                    f"Start time = {start_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
+                                    f"Total epochs = {self.current_ep()}\n"
+                                    f"Best val_loss = {phase.best_val_loss} @ epoch {phase.best_vloss_ep}\n"
+                                    f"Final validation losses:\n"
+                                    f"{' '.join([key + ': ' + str(TMP_LOSS[key].item()) for key in self.loss_terms])}\n"
+                                    )
+                for key in EPOCH_LOSS.keys():          
+                    EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
+                self.losslog(name, EPOCH_LOSS)
                     
             # Check output every 10 epochs
             if epoch % 10 == 0:
@@ -431,7 +465,7 @@ class BasicTrainer:
             if epoch % 50 == 0:
                 self.save()
 
-            self.early_stopping(self.best_val_loss, early_stop, lr_decay)
+            self.early_stopping(self.valid_phases.get(self.early_stopping_trigger).best_val_loss, early_stop, lr_decay)
             if lr_decay and self.early_stopping.decay_flag:
                 self.losslog.decay(0.5)
                 for phase in self.training_phases.values():
@@ -454,10 +488,7 @@ class BasicTrainer:
                                       f"Total training time = {str(timedelta(seconds=end-start))}\n"
                                       f"\nModules:\n{list(self.models.values())}\n")
                     break
-                
-            for key in EPOCH_LOSS.keys():
-                EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
-            self.losslog('valid', EPOCH_LOSS)
+
 
     @timer
     def test(self, single_test=False, loader: str = 'test', subsample_fraction=1, control_speed=False, *args, **kwargs):

@@ -5,7 +5,7 @@ from torch.autograd import Function
 import numpy as np
 import matplotlib.pyplot as plt
 import os
-from Trainer import BasicTrainer, TrainingPhase
+from Trainer import BasicTrainer, TrainingPhase, ValidationPhase
 from Model import *
 from Loss import MyLossLog, MyLossCTR
 
@@ -462,9 +462,16 @@ class StudentTrainer(BasicTrainer):
                                                                    train_module = Domain_classifier_train,
                                                                    eval_module = Domain_classifier_eval,
                                                                    loss = 'DOM',
-                                                                   tolerance=10,
+                                                                   tolerance=1,
+                                                                   conditioned_update=True,
                                                                    verbose=True)
                                 }
+        self.valid_phases = {
+            'source': ValidationPhase(name='source', loader='valid'),
+            'target': ValidationPhase(name='target', loader='valid2')
+        }
+        
+        # Modify dataloader dict to match the valid phases.
         
         self.latent_weight = 0.1
         self.rimg_weight = 0.5e-2
@@ -625,6 +632,7 @@ class StudentTrainer(BasicTrainer):
         figs.update(self.losslog.plot_predict(plot_terms=('C_GT', 'TC_PRED', 'SC_PRED'), title='CIMG_PRED'))
         figs.update(self.losslog.plot_latent(plot_terms=('T_LATENT', 'S_LATENT')))
         figs.update(self.losslog.plot_center())
+        figs.update(self.losslog.plot_domain())
         figs.update(self.losslog.plot_test_cdf(plot_terms='all'))
         #figs.update(self.losslog.plot_tsne(plot_terms=('GT', 'T_LATENT', 'S_LATENT')))
         print(f"Domain accuracy = {np.mean(self.losslog.loss['DOM_ACC'].log['test'])}")

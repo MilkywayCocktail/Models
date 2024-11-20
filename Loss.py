@@ -18,6 +18,7 @@ class LossUnit:
         self.lr = []
         self.log = {'train': [],
                     'valid': [],
+                    'valid2': [],
                     'test': []}
         self.tsne = None
         self.optimizer = None
@@ -142,7 +143,7 @@ class MyLossLog:
                 self.select_num = select_num
 
     def plot_train(self, title=None, plot_terms='all', double_y=False):
-        line_color = ['b', 'orange']
+        line_color = ['b', 'orange', 'green']
         if title:
             title = f"{title} @ep{self.current_epoch}"
         else:
@@ -175,6 +176,10 @@ class MyLossLog:
             axes[i].plot(
                          self.loss[loss].log['valid'],
                          line_color[1], label='Valid')
+            axes[i].plot(
+                self.loss[loss].log['valid2'],
+                         line_color[1], label='Valid2'
+            )
             if double_y:
                 ax_r = axes[i].twinx()
             else:
@@ -444,11 +449,20 @@ class MyLossCTR(MyLossLog):
         fig.suptitle(title)
         ax = plt.gca()
         
-        for j, ind in enumerate(self.select_inds):
-            ax.scatter(j, self.preds['DOM_GT'][ind], marker=(5, 1), alpha=0.5, linewidths=5, color='b', label='DOM_GT')
-            ax.scatter(j, self.preds['DOM_PRED'][ind], marker=(5, 1), alpha=0.5, linewidths=5, color='orange', label='DOM_PRED')
+        bar_colors = ['skyblue', 'orange', 'green', 'purple']  # Colors for each segment
         
-        ax.legend()
+        for j, ind in enumerate(self.select_inds):
+            # Bar Plot
+            ax.bar(0, self.preds['DOM_PRED'][ind][0], color=bar_colors[0])  # Base segment
+            for i in range(1, len(values)):
+                ax.bar(0, self.preds['DOM_PRED'][ind][i], 
+                       bottom=sum(self.preds['DOM_PRED'][ind][:i]),
+                       color=bar_colors[i])
+                
+            ax.scatter(j, self.preds['DOM_GT'][ind], marker=(5, 1), alpha=0.5, linewidths=5, color='b', label='DOM_GT')
+            # ax.scatter(j, self.preds['DOM_PRED'][ind], marker=(5, 1), alpha=0.5, linewidths=5, color='orange', label='DOM_PRED')
+            ax.legend()
+        plt.xticks(list(range(self.select_inds)), self.select_inds)  # Single x-axis label
         plt.show()
         filename = f"{self.name}_DOM_{self.dataset}SET@ep{self.current_epoch}.jpg"
         return {filename: fig}
