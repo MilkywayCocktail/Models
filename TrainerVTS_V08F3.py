@@ -275,7 +275,7 @@ class TeacherTrainer(BasicTrainer):
         kl_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
         return kl_loss
 
-    def calculate_loss(self, data, **kwargs):
+    def calculate_loss(self, data, loss_arg):
         cimg = torch.where(data['cimg'] > 0, 1., 0.)
         rimg = data['rimg']
         
@@ -410,7 +410,7 @@ class StudentTrainer(BasicTrainer):
         loss = self.recon_lossfunc(recon_img * weight, rimg * weight)
         return loss
 
-    def calculate_loss(self, data, **kwargs):
+    def calculate_loss(self, data, loss_arg):
         cimg = torch.where(data['cimg'] > 0, 1., 0.)
         rimg = data['rimg']
         s_feature, s_z, s_mu, s_logvar = self.models['csien'](csi=data['csi'], pd=data['pd'])
