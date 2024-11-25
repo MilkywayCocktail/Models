@@ -459,7 +459,7 @@ class StudentTrainer(BasicTrainer):
                                                                    train_module = Feature_extractor_train,
                                                                    eval_module = Feature_extractor_eval,
                                                                    verbose=True,
-                                                                   reverse_feature=True
+                                                                   loss_arg={'reverse_feature': True}
                                                                    ),
                                 'Domain_classifier': TrainingPhase(name = 'Domain_classifier',
                                                                    train_module = Domain_classifier_train,
@@ -468,7 +468,8 @@ class StudentTrainer(BasicTrainer):
                                                                    tolerance=1,
                                                                    conditioned_update=True,
                                                                    verbose=True,
-                                                                   reverse_feature=False)
+                                                                   loss_arg={'reverse_feature': False}
+                                                                   )
                                 }
         self.valid_phases = {
             'source': ValidationPhase(name='source', loader='valid'),
@@ -545,7 +546,7 @@ class StudentTrainer(BasicTrainer):
         
         return domain_loss, domain_acc_loss, domain_preds, domain_labels
 
-    def calculate_loss(self, data2, reverse_feature=True):
+    def calculate_loss(self, data2, reverse_feature):
         
         def outputs(data, mode='student'):
             if mode == 'student':

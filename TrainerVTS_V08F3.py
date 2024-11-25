@@ -5,7 +5,7 @@ import torch.nn.init as init
 import numpy as np
 import matplotlib.pyplot as plt
 import os
-from Trainer import BasicTrainer
+from Trainer import BasicTrainer, TrainingPhase
 from Model import *
 from Loss import MyLossLog, MyLossCTR
 
@@ -370,7 +370,7 @@ class StudentTrainer(BasicTrainer):
                 }
 
         self.training_phases = {'Feature_extractor': TrainingPhase(name = 'main',
-                                                            train_module = ['csien']
+                                                            train_module = ['csien'],
                                                             eval_module = ['imgen', 'rimgde', 'cimgde', 'ctrde'],
                                                             verbose=False
                                                             )}
@@ -410,7 +410,7 @@ class StudentTrainer(BasicTrainer):
         loss = self.recon_lossfunc(recon_img * weight, rimg * weight)
         return loss
 
-    def calculate_loss(self, data):
+    def calculate_loss(self, data, **kwargs):
         cimg = torch.where(data['cimg'] > 0, 1., 0.)
         rimg = data['rimg']
         s_feature, s_z, s_mu, s_logvar = self.models['csien'](csi=data['csi'], pd=data['pd'])
