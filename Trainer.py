@@ -110,7 +110,7 @@ class TrainingPhase:
                  tolerance=1,
                  conditioned_update=False,
                  verbose=False,
-                 **kwargs):
+                 loss_arg=None):
         
         self.name = name
         self.loss = loss
@@ -140,7 +140,7 @@ class TrainingPhase:
         self.PREDS = None
         self.TMP_LOSS = None
         
-        self.kwargs = kwargs
+        self.loss_arg = loss_arg
     
     def __call__(self, models, data, calculate_loss):
         
@@ -188,7 +188,7 @@ class TrainingPhase:
         for i in range(self.tolerance):
             # Perform loss calculation
             with autocast():
-                PREDS, TMP_LOSS = calculate_loss(data, self.kwargs)
+                PREDS, TMP_LOSS = calculate_loss(data, self.loss_arg)
             
             # Optionally update based on the loss
             if not self.conditioned_update:
@@ -248,18 +248,18 @@ class TrainingPhase:
         
         
 class ValidationPhase:
-    def __init__(self, name, loader='valid', best_loss='LOSS', **kwargs):
+    def __init__(self, name, loader='valid', best_loss='LOSS', loss_arg=None):
         self.name = name
         self.loader = loader
         self.best_loss = best_loss
         self.best_val_loss = float("inf")
         self.best_vloss_ep = 0
-        self.kwargs = kwargs
+        self.loss_arg = loss_arg
         
     def __call__(self, models, data, calculate_loss):
 
         with torch.no_grad():
-            PREDS, TMP_LOSS = calculate_loss(data, self.kwargs)
+            PREDS, TMP_LOSS = calculate_loss(data, self.loss_arg)
             
         return PREDS, TMP_LOSS
     
