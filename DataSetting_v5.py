@@ -10,6 +10,7 @@ from scipy import signal
 import os
 from PIL import Image
 import pickle
+from misc import file_finder
 
 from tqdm.notebook import tqdm
 
@@ -226,7 +227,7 @@ class CrossValidator:
             else:
                 self.range = [self.train]
         else:
-            self.range = ['A308', 'A308T'] if self.level == 'day' else list(set(self.labels.loc[:, level].values))
+            self.range = ['A308', 'A308T'] if self.level == 'day' else list(set(self.labels.loc[:, self.level].values))
         
 
     def __iter__(self):
@@ -243,9 +244,9 @@ class CrossValidator:
             self.current_test = self.test
         else:
             self.current_test = self.range[self.current]
-            train_range.remove(self.current_test)
+            train_range = [x for x in self.range if x != self.current_test]
              
-        print(f"\033[32mFetched level {self.level}, {self.current + 1} of {len(self.range)}, current test = {self.current_test}\033[0m")
+        print(f"\033[32mCross-validator: Fetched level {self.level}, {self.current + 1} of {len(self.range)}, current test = {self.current_test}\033[0m")
                             
     
         if self.level == 'day':
@@ -268,7 +269,7 @@ class CrossValidator:
             test_subset_size = int(len(test_labels) * self.subset_ratio) 
             
             print(f" Train set range = {train_range}, len = {train_subset_size} from {len(train_labels)}\n"
-                  f" Test set current = {self.current_test}, len = {test_subset_size} from {len(test_labels)}"
+                  f" Test set range = {self.current_test}, len = {test_subset_size} from {len(test_labels)}"
                   )
 
             train_subset_indices = torch.randperm(len(train_labels))[:train_subset_size]
@@ -278,10 +279,13 @@ class CrossValidator:
             test_labels = test_labels.iloc[test_subset_indices]
             
         else:
-            print(f" Train set range = {ratrain_rangen}, len = {len(train_labels)}\n"
-                  f" Test set current = {self.current_test}, len = {len(test_labels)}")
+            print(f" Train set range = {train_range}, len = {len(train_labels)}\n"
+                  f" Test set range = {self.current_test}, len = {len(test_labels)}")
 
         return (train_labels, test_labels, self.current_test)
+    
+    def current_train(self):
+        pass
     
     def reset(self):
         self.iter_range()
@@ -337,35 +341,30 @@ class DataOrganizer:
         self.removal = Removal(remov)
         
     def load(self):
-        for dpath in self.data_path:
-            paths = os.walk(dpath)
-            print(f"\033[32mLoading {dpath}...\033[0m")
-            for path, _, file_lst in paths:
-                for file_name in file_lst:
-                    file_name_, ext = os.path.splitext(file_name)
+        def load_single(file_path, file_name_, ext):
+            try:
+                # Load Label <subject>_matched.csv
+                if ext == '.csv' and 'matched' in file_name_ and 'checkpoint' not in file_name_:
+                    sub = file_name_[8:]
+                    sub_label = pd.read_csv(file_path)
+                    self.total_segment_labels = pd.concat([self.total_segment_labels, sub_label], ignore_index=True)
+                    print(f'Loaded {file_name_}{ext} of len {len(sub_label)}')
                     
-                    try:
-                        # Load Label <subject>_matched.csv
-                        if ext == '.csv' and 'matched' in file_name_ and 'checkpoint' not in file_name_:
-                            sub = file_name_[8:]
-                            sub_label = pd.read_csv(os.path.join(path, file_name))
-                            self.total_segment_labels = pd.concat([self.total_segment_labels, sub_label], ignore_index=True)
-                            print(f'Loaded {file_name} of len {len(sub_label)}')
-                            
-                        # Load CSI and IMGs <name>-<modality>.npy
-                        elif ext == '.npy':
-                            if 'env' in file_name_ or 'test' in file_name_ or 'checkpoint' in file_name_:
-                                continue
-                            
-                            name, modality = file_name_.split('-')
-                            if modality in self.modalities:     
-                                if modality not in self.data.keys():
-                                    self.data[modality]: dict = {}
-                                self.data[modality][name] = np.load(os.path.join(path, file_name), mmap_mode='r')
-                                print(f'Loaded {file_name} of shape {self.data[modality][name].shape}')
-                    except Exception as e:
-                        print(f"\033[31mError: {e} for {file_name}\033[0m")
+                # Load CSI and IMGs <name>-<modality>.npy
+                elif ext == '.npy':
+                    if not ('env' in file_name_ or 'test' in file_name_ or 'checkpoint' in file_name_):
+                        name, modality = file_name_.split('-')
+                        if modality in self.modalities:     
+                            if modality not in self.data.keys():
+                                self.data[modality]: dict = {}
+                            self.data[modality][name] = np.load(file_path, mmap_mode='r')
+                            print(f'Loaded {file_name_}{ext} of shape {self.data[modality][name].shape}')
+            except Exception as e:
+                print(f"\033[31mError: {e} for {file_name_}{ext}\033[0m")
         
+        for dpath in self.data_path:
+            file_finder(dpath, load_single, process_name='Data Organizer')
+                    
         print(f"\nLoad complete!")         
         # self.total_segment_labels['csi_inds'] = self.total_segment_labels['csi_inds'].apply(lambda x: list(map(int, x.strip('[]').split())))
             
@@ -375,33 +374,39 @@ class DataOrganizer:
             for key, value in kwargs.items():
                 setattr(self.cross_validator, key, value)       
         self.cross_validator.reset()
-        print("Data iterator reset!")
+        print("\033[32mData Organizer: Data iterator reset!\033[0m")
     
     def gen_plan(self, subset_ratio=1, save=False, notion=''):
         if not self.cross_validator:
-            self.cross_validator = CrossValidator(self.total_segment_labels, self.level, self.train, self.test, subset_ratio)   
+            self.cross_validator = CrossValidator(self.total_segment_labels, self.level, self.train, self.test, subset_ratio)
         
         if save:
-            print(f'Saving plan {self.level} @ {subset_ratio}...')
-            cross_validator = CrossValidator(self.total_segment_labels, self.level, subset_ratio) 
-            with open(f'../dataset/Door_EXP/{self.level}_r{subset_ratio}_{notion}.pkl', 'wb') as f:
+            print(f'\033[32mData Organizer: Saving plan {self.level} @ {subset_ratio}...\033[0m')
+            if notion:
+                notion = '_' + str(notion)
+            cross_validator = CrossValidator(self.total_segment_labels, self.level, self.train, self.test, subset_ratio) 
+            with open(f'../dataset/Door_EXP/{self.level}_r{subset_ratio}_{self.current_test}{notion}.pkl', 'wb') as f:
                 plan = list(cross_validator)
                 pickle.dump(plan, f)
                 
-            print('Plan saved!\n')
+            print('Plan saved!')
             
-        # Divide train and test
-        self.train_labels, self.test_labels, self.current_test = next(self.cross_validator)
+        else:
+            # Divide train and test
+            self.train_labels, self.test_labels, self.current_test = next(self.cross_validator)
+            self.test = self.current_test
+            self.train = ['A208', 'A308T', 'B211', 'C605']
+            self.train.remove(self.current_test)
     
     def load_plan(self, path):
         with open(path, 'rb') as f:
             plan = pickle.load(f)
         self.cross_validator = iter(plan)
-        print(f'Loaded plan!')
+        print(f'\033[32mData Organizer: Loaded plan!\033[0m')
     
     def gen_loaders(self, mode='s', train_ratio=0.8, batch_size=64, csi_len=300, single_pd=True, num_workers=14, save_dataset=False, shuffle_test=True, pin_memory=True):
 
-        print(f'\033[32mGenerating loaders for {mode}: level = {self.level}, current test = {self.current_test}\033[0m')
+        print(f'\033[32mData Organizer: Generating loaders for {mode}: level = {self.level}, current test = {self.current_test}\033[0m')
         data = self.data.copy()
         
         if mode == 't':
@@ -512,6 +517,71 @@ class DANN_Loader:
         self.maximum_iter = len(self.source_loader)
         self.current = -1
         
+
+class DANN_Loader2:
+    """
+    Generates source smaples and target samples by 3:1.
+    """
+    
+    def __init__(self, source_loader, target_loader, target_guide=False):
+        self.source_loader = source_loader
+        self.target_loader = target_loader
+        self.source_iter = iter(self.source_loader)
+        self.target_iter = iter(self.target_loader)
+        self.maximum_iter = len(source_loader) // 3
+        self.current = -1
+        
+        self.target_guide_batch = None
+        self.target_guide = target_guide
+        # TRY: FIRST BATCH LEVEL, THEN SAMPLE LEVEL
+        
+    def __iter__(self):
+        return self
+        
+    def __next__(self):
+        self.current += 1
+        if self.current > self.maximum_iter:
+            # automatically reloop
+            self.reset()
+            raise StopIteration
+
+            
+        try:
+            # Fetch 3 samples from the source loader
+            source_samples = [next(self.source_iter) for _ in range(3)]
+            source_batch = {key: torch.cat([sample[key] for sample in source_samples], dim=0) 
+                            for key in source_samples[0]}  # Combine into a single batch
+            
+            if self.target_guide:
+                if self.target_guide_batch is None:
+                    self.target_guide_batch = next(iter(self.target_loader))
+                source_batch = {key: torch.cat([source_batch[key], self.target_guide_batch[key]], dim=0)
+                                for key in source_batch}
+
+        except StopIteration:
+            self.source_iter = iter(self.source_loader)  # Reset the iterator
+            source_samples = [next(self.source_iter) for _ in range(3)]
+            source_batch = {key: torch.cat([sample[key] for sample in source_samples], dim=0) 
+                            for key in source_samples[0]}  # Get the first batch again
+
+        try:
+            target_data = next(self.target_iter)
+        except StopIteration:
+            self.target_iter = iter(self.target_loader)  # Reset the iterator
+            target_data = next(self.target_iter)         # Get the first batch again
+
+        return source_batch, target_data
+
+        
+    def __len__(self):
+        return self.maximum_iter
+    
+    def reset(self):
+        self.source_iter = iter(self.source_loader)
+        self.target_iter = iter(self.target_loader)
+        self.maximum_iter = len(self.source_loader) // 3
+        self.current = -1
+        
     
 class DataOrganizerDANN(DataOrganizer):
     def __init__(self, *args, **kwargs):
@@ -519,7 +589,7 @@ class DataOrganizerDANN(DataOrganizer):
         
     def gen_loaders(self, mode='s', train_ratio=0.8, batch_size=64, csi_len=300, single_pd=True, num_workers=14, save_dataset=False, shuffle_test=True, pin_memory=True):
 
-        print(f'\033[32mGenerating loaders for {mode}: level = {self.level}, current test = {self.current_test}\033[0m')
+        print(f'\033[32mData Organizer DANN: Generating loaders for {mode}: level = {self.level}, current test = {self.current_test}\033[0m')
         data = self.data.copy()
         
         if mode == 't':
@@ -567,3 +637,23 @@ class DataOrganizerDANN(DataOrganizer):
               f" Exported test loader of len {len(test_loader)}, batch size = {batch_size}\n")
         
         return train_loader, valid_loader, test_loader, self.current_test
+    
+    
+def gen_dann_loaders(data_organizer, train=None, test=None, subset_ratio=1, batch_size=64, num_workers=2, target_guide=False):
+    #if data_organizer.cross_validator and isinstance(data_organizer.cross_validator, CrossValidator):
+    #    data_organizer.regen_plan()
+    data_organizer.train = train
+    data_organizer.test = test
+    data_organizer.gen_plan(subset_ratio=subset_ratio)
+    source_train_loader, source_valid_loader, target_test_loader, current_test = data_organizer.gen_loaders(mode='s', num_workers=num_workers, batch_size=batch_size)
+    data_organizer.swap_train_test()
+    target_train_loader, target_valid_loader, source_test_loader, _ = data_organizer.gen_loaders(mode='s', num_workers=num_workers, batch_size=batch_size)
+    dann_train_loader = DANN_Loader2(source_train_loader, target_train_loader, target_guide)
+    dann_valid1 = DANN_Loader2(source_valid_loader, target_valid_loader)
+    dann_valid2 = DANN_Loader2(target_valid_loader, source_valid_loader)
+    dann_test_loader = DANN_Loader2(target_test_loader, source_valid_loader)
+    return dann_train_loader, dann_valid1, dann_valid2, dann_test_loader, current_test
+    
+    
+
+    

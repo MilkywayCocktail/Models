@@ -365,7 +365,9 @@ class StudentTrainer(BasicTrainer):
             'imgen' : ImageEncoder(latent_dim=128).to(self.device),
             'cimgde': ImageDecoder(latent_dim=128).to(self.device),
             'rimgde': ImageDecoder(latent_dim=128).to(self.device),
-            'csien' : CSIEncoder(latent_dim=128, lstm_steps=lstm_steps).to(self.device),
+            'csien' : CSIEncoder(latent_dim=128, 
+                                 lstm_steps=lstm_steps,
+                                 batchnorm='batch').to(self.device),
             'ctrde': CenterDecoder().to(self.device)
                 }
 
@@ -387,7 +389,7 @@ class StudentTrainer(BasicTrainer):
         feature_loss = self.mse(feature_s, feature_t) / feature_s.shape[0]
         return feature_loss
 
-    def calculate_loss(self, data):
+    def calculate_loss(self, mode, data):
         cimg = torch.where(data['cimg'] > 0, 1., 0.)
         rimg = data['rimg']
         s_feature, s_z, s_mu, s_logvar = self.models['csien'](csi=data['csi'], pd=data['pd'])

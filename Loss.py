@@ -5,6 +5,7 @@ from matplotlib.patches import Rectangle
 from matplotlib import cm
 import os
 from misc import plot_settings
+import torch.nn.functional as F
 # from sklearn.manifold import TSNE
 
 """
@@ -18,6 +19,7 @@ class LossUnit:
         self.lr = []
         self.log = {'train': [],
                     'valid': [],
+                    'valid2': [],
                     'test': []}
         self.tsne = None
         self.optimizer = None
@@ -87,7 +89,7 @@ class MyLossLog:
             if not self.in_training:
                 self.epochs.append(self.current_epoch)
                 self.in_training = True
-        if mode in ('train', 'valid', 'test'):
+        if mode in ('train', 'valid', 'valid2', 'test'):
             for key in losses.keys():
                 self.loss[key](mode, np.squeeze(losses[key]))
         elif mode == 'pred':
@@ -142,7 +144,7 @@ class MyLossLog:
                 self.select_num = select_num
 
     def plot_train(self, title=None, plot_terms='all', double_y=False):
-        line_color = ['b', 'orange']
+        line_color = ['b', 'orange', 'green']
         if title:
             title = f"{title} @ep{self.current_epoch}"
         else:
@@ -175,6 +177,10 @@ class MyLossLog:
             axes[i].plot(
                          self.loss[loss].log['valid'],
                          line_color[1], label='Valid')
+            axes[i].plot(
+                self.loss[loss].log['valid2'],
+                         line_color[2], label='Valid2'
+            )
             if double_y:
                 ax_r = axes[i].twinx()
             else:
@@ -390,7 +396,6 @@ class MyLossBBX(MyLossLog):
         filename = f"{self.name}_BBX_{self.dataset}SET@ep{self.current_epoch}.jpg"
         return {filename: fig}
 
-
 class MyLossCTR(MyLossLog):
     def __init__(self, depth=False, *args, **kwargs):
         super(MyLossCTR, self).__init__(*args, **kwargs)
@@ -436,3 +441,49 @@ class MyLossCTR(MyLossLog):
         plt.show()
         filename = f"{self.name}_CTR_{self.dataset}SET@ep{self.current_epoch}.jpg"
         return {filename: fig}
+    
+    def plot_domain(self):
+
+        title = f"{self.name} Domain Predicts on {self.dataset} @ep{self.current_epoch}"
+        samples = np.array(self.preds['TAG']).astype(int)[self.select_inds]
+
+        fig = self.__plot_settings__()
+        fig.suptitle(title)
+        ax = plt.gca()
+
+        bar_colors = ['skyblue', 'orange', 'green', 'pink']  # Colors for each segment
+        dom_pred = []
+        dom_gt = []
+        xtick = []
+
+        for j, ind in enumerate(self.select_inds):
+            soft_logits = F.softmax(torch.tensor(self.preds['DOM_PRED'][ind]))
+            dom_pred.append(torch.argmax(soft_logits) / len(soft_logits) + 0.1)
+            dom_gt.append(self.preds['DOM_GT'][ind] / len(soft_logits) + 0.13)
+            xtick.append(f"{'-'.join(map(str, map(int, samples[j])))}")
+            # Bar Plot
+            ax.bar(j, soft_logits[0], color=bar_colors[0])  # Base segment
+            for i in range(1, len(soft_logits)):
+                ax.bar(j, soft_logits[i], 
+                        bottom=sum(soft_logits[:i]),
+                        color=bar_colors[i])
+                
+        ax.scatter(list(range(self.select_num)), 
+                    dom_pred, 
+                    marker=(5, 1), alpha=0.8, linewidths=5, color='blue',
+                    label="PRED")
+
+        ax.scatter(list(range(self.select_num)),
+                    dom_gt, 
+                    marker=(5, 1), alpha=0.8, linewidths=5, color='purple',
+                    label="GT")     
+            
+        ax.set_xticks(list(range(self.select_num)))  # Positions
+        ax.set_xticklabels(xtick)  # Custom labels
+        ax.legend()
+
+        plt.grid()
+        plt.show()
+        filename = f"{self.name}_DOM_{self.dataset}SET@ep{self.current_epoch}.jpg"
+        return {filename: fig}
+

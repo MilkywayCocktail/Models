@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.init as init
-# from torchvision.ops import complete_box_iou_loss
+from torch.autograd import Function
 import numpy as np
 import matplotlib.pyplot as plt
 import os
@@ -9,7 +9,20 @@ from Trainer import BasicTrainer
 from Model import *
 from Loss import MyLossLog, MyLossCTR
 
-version = 'V08F3'
+version = 'V08F3_DANN'
+DANN_place =  'concat_features'
+dmn_len = 256
+dmn_hid = 64
+
+def set_DANN(DANN_place):
+    if DANN_place == 'LSTM_features':
+        dmn_len = 128
+        dmn_hid = 64
+    elif DANN_place == 'concat_features':
+        dmn_len = 256
+        dmn_hid = 64
+
+    return dmn_len, dmn_hid
 
 ##############################################################################
 # -------------------------------------------------------------------------- #
@@ -225,16 +238,93 @@ class CSIEncoder(BasicCSIEncoder):
     def forward(self, csi, pd):
         fea_csi = self.cnn(csi)
         fea_pd = self.fc_pd(pd)
-        features, (final_hidden_state, final_cell_state) = self.lstm.forward(
+        csi_features, (final_hidden_state, final_cell_state) = self.lstm.forward(
             fea_csi.view(-1, 512 * 7, self.lstm_steps).transpose(1, 2))
         # 256-dim output
-        out = torch.cat((features[:, -1, :].view(-1, self.csi_feature_length), fea_pd.view(-1, self.pd_feature_length)), -1)
-        out = self.fc_feature(out)
+        features = torch.cat((csi_features[:, -1, :].view(-1, self.csi_feature_length), fea_pd.view(-1, self.pd_feature_length)), -1)
+        out = self.fc_feature(features)
         
         mu = self.fc_mu(out)
         logvar = self.fc_logvar(out)
         z = reparameterize(mu, logvar)
-        return out, z, mu, logvar
+        
+        # return out, z, mu, logvar
+  
+        return out, features.reshape(-1, dmn_len), z, mu, logvar
+    
+    
+class DomainClassifier(nn.Module):
+    name = 'DmnDe'
+    
+    def __init__(self, input_dim=1536, hidden_dim=256):
+        super(DomainClassifier, self).__init__()
+        self.fc1 = nn.Linear(input_dim, hidden_dim)
+        self.fc2 = nn.Linear(hidden_dim, hidden_dim)
+        self.fc3 = nn.Linear(hidden_dim, 2)  # Two outputs for softmax
+
+        self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(p=0.5)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        x = self.fc1(x)
+        x = self.relu(x)
+        x = self.dropout(x)
+
+        x = self.fc2(x)
+        x = self.relu(x)
+        x = self.dropout(x)
+
+        x = self.fc3(x)
+        # x = self.sigmoid(x)
+        # Binary Classification (BCE):
+        # If using BCEWithLogitsLoss: No need to apply sigmoid.
+        # If using BCELoss: Apply sigmoid before the loss function.
+        # Multi-class Classification (CE):
+        # If using CrossEntropyLoss: No need to apply softmax.
+        # If using raw cross-entropy calculations, apply softmax first.
+        return x 
+    
+
+class DomainClassifier2(nn.Module):
+    
+    name = 'dmncf2'
+    def __init__(self):
+        super(DomainClassifier2, self).__init__()
+        
+        self.fc = nn.Sequential(
+            nn.Linear(dmn_len, 64),  # First dense layer
+            nn.ReLU(),
+            nn.Dropout(p=0.5),
+            nn.Linear(64, 64),     # Second dense layer
+            nn.ReLU(),
+            nn.Dropout(p=0.5),
+            nn.Linear(64, 2),       # Bottleneck layer
+       # Output layer
+
+        )
+
+    def forward(self, x):
+        x = self.fc(x.view(-1, dmn_len))  # Output for classification
+        return x
+
+    
+    
+class GradientReversalLayer(Function):
+    @staticmethod
+    def forward(ctx, input, lambda_):
+        # Save lambda for later use in backward
+        ctx.lambda_ = lambda_
+        # Forward pass is identity, just return the input
+        return input.view_as(input)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        # In the backward pass, retrieve lambda from ctx
+        lambda_ = ctx.lambda_
+        # Reverse the gradient by multiplying by -lambda
+        grad_input = grad_output.neg() * lambda_
+        return grad_input, None  # Return gradient for input, None for lambda
 
 
 class TeacherTrainer(BasicTrainer):
@@ -275,7 +365,7 @@ class TeacherTrainer(BasicTrainer):
         kl_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
         return kl_loss
 
-    def calculate_loss(self, mode, data):
+    def calculate_loss(self, data):
         cimg = torch.where(data['cimg'] > 0, 1., 0.)
         rimg = data['rimg']
         
@@ -332,19 +422,23 @@ class TeacherTrainer(BasicTrainer):
 class StudentTrainer(BasicTrainer):
     def __init__(self,
                  alpha=0.8,
-                 recon_lossfunc=nn.MSELoss(),
-                 with_cimg_loss=False,
-                 lstm_steps=7,
+                 with_feature_loss=True,
+                 lstm_steps=75,
                  *args, **kwargs):
         super(StudentTrainer, self).__init__(*args, **kwargs)
 
         self.modality = {'cimg', 'rimg', 'csi', 'center', 'depth', 'pd', 'tag', 'ctr', 'dpt', 'ind'}
 
         self.alpha = alpha
-        self.recon_lossfunc = recon_lossfunc
-        self.with_cimg_loss = with_cimg_loss
+        self.lambda_ = 1.
+        
+        self.with_feature_loss = with_feature_loss
+        self.mse_sum = nn.MSELoss(reduction='sum')
+        self.mse = nn.MSELoss()
+        self.bce = nn.BCEWithLogitsLoss(reduction='sum')
+        self.adv = nn.CrossEntropyLoss()
 
-        self.loss_terms = ('LOSS', 'LATENT', 'MU', 'LOGVAR', 'FEATURE', 'IMG', 'CTR', 'DPT')
+        self.loss_terms = ('LOSS', 'MU', 'LOGVAR', 'FEATURE', 'IMG', 'CTR', 'DPT', 'DOM', 'DOM_ACC')
         self.pred_terms = ('C_GT', 'R_GT',
                            'TR_PRED', 'R_PRED',
                            'TC_PRED', 'SC_PRED',
@@ -352,6 +446,7 @@ class StudentTrainer(BasicTrainer):
                            'GT_CTR', 'GT_DPT', 
                            'T_CTR', 'T_DPT',
                            'S_CTR', 'S_DPT',
+                           'DOM_PRED', 'DOM_GT',
                            'TAG', 'IND')
         self.losslog = MyLossCTR(name=self.name,
                               loss_terms=self.loss_terms,
@@ -366,102 +461,165 @@ class StudentTrainer(BasicTrainer):
             'cimgde': ImageDecoder(latent_dim=128).to(self.device),
             'rimgde': ImageDecoder(latent_dim=128).to(self.device),
             'csien' : CSIEncoder(latent_dim=128, lstm_steps=lstm_steps).to(self.device),
-            'ctrde': CenterDecoder().to(self.device)
+            'ctrde': CenterDecoder().to(self.device),
+            'dmnde': DomainClassifier2().to(self.device)
                 }
-
+        
         self.latent_weight = 0.1
-        self.img_weight = 1.
-        self.center_weight = 1.
-        self.depth_weight = 1.
-        self.feature_weight = 1.
+        self.rimg_weight = 0.5e-2
+        self.center_weight = 40.
+        self.depth_weight = 50.
+        self.feature_weight = 10
+        self.domain_weight = 0.01
+        
+        self.dann_mode = 'loss'
+        
+    def data_preprocess(self, mode, data2):
 
+        def to_device(data):
+            if self.preprocess:
+                data = self.preprocess(data, self.modality)
+            data = {key: data[key].to(torch.float32).to(self.device) for key in self.modality if key in data}
+            if 'tag' in data:
+                data['tag'] = data['tag'].to(torch.int32).to(self.device)
+            return data
+    
+        # data is tuple of source and target
+        source_data, target_data = data2
+        
+        source_data = to_device(source_data)
+        target_data = to_device(target_data)
+            
+        return source_data, target_data
+    
+    def calculate_lambda(self, max_iter=300):
+        # Sigmoid schedule for lambda: 2 / (1 + exp(-10 * p)) - 1
+        # where p is the proportion of iterations completed
+        p = self.current_ep() / max_iter
+        lambda_value = 2 / (1 + np.exp(-10 * p)) - 1
+        return min(lambda_value, 1)
+        
     def kd_loss(self, mu_s, logvar_s, mu_t, logvar_t):
-        mu_loss = self.recon_lossfunc(mu_s, mu_t) / mu_s.shape[0]
-        logvar_loss = self.recon_lossfunc(logvar_s, logvar_t) / logvar_s.shape[0]
+        mu_loss = self.mse_sum(mu_s, mu_t) / mu_s.shape[0]
+        logvar_loss = self.mse_sum(logvar_s, logvar_t) / logvar_s.shape[0]
         latent_loss = self.alpha * mu_loss + (1 - self.alpha) * logvar_loss
 
         return latent_loss, mu_loss, logvar_loss
     
     def feature_loss(self, feature_s, feature_t):
-        feature_loss = self.recon_lossfunc(feature_s, feature_t)
+        feature_loss = self.mse(feature_s, feature_t)
         return feature_loss
     
-    def img_loss(self, cimg, center, depth, rimg):
-        #recon_img = torch.zeros_like(rimg).to(self.device)
-        x = center[..., 0]
-        y = center[..., 1]
-        x = (x * 226).to(torch.int) - 113
-        y = (y * 128).to(torch.int) - 64
-        recon_img = nn.functional.pad(cimg, (49, 49, 0, 0), 'constant', 0)
-        recon_img *= depth.view(-1, 1, 1, 1)
-        # Not in GPU?
-        weight = torch.zeros_like(depth, dtype=float)
-        for i in range(recon_img.shape[0]):
-            recon_img[i] = torch.roll(recon_img[i], (y[i].item(), x[i].item()), dims=(-2, -1))
-            weight[i] = 1. / torch.nonzero(recon_img[i]).shape[0]
-        weight = torch.sqrt(weight).view(-1, 1, 1, 1)
-        # Apply weight before MSE (non-feasible after MSE)
-        loss = self.recon_lossfunc(recon_img * weight, rimg * weight)
-        return loss
-
-    def calculate_loss(self, mode, data):
-        cimg = torch.where(data['cimg'] > 0, 1., 0.)
-        rimg = data['rimg']
-        s_feature, s_z, s_mu, s_logvar = self.models['csien'](csi=data['csi'], pd=data['pd'])
-        s_center, s_depth = self.models['ctrde'](s_feature)
-        s_cimage = self.models['cimgde'](s_z)
-        s_rimage = self.models['rimgde'](s_z)
-
-        # Enable / Disable grad from img_loss
+    def dann_loss(self, target_data, s_feature):
+        self.lambda_ = self.calculate_lambda()
+        
+        # target_feature, target_z, target_mu, target_logvar = self.models['csien'](csi=target_data['csi'], pd=target_data['pd'])
+        _, target_feature, target_z, target_mu, target_logvar = self.models['csien'](csi=target_data['csi'], pd=target_data['pd'])
+        
+        dann_features = torch.cat((s_feature, target_feature), dim=0)
+        reversed_features = GradientReversalLayer.apply(dann_features, self.lambda_)
+    
+        domain_preds = self.models['dmnde'](reversed_features)
+        domain_labels = torch.cat((torch.zeros(s_feature.shape[0], dtype=int), torch.ones(target_feature.shape[0], dtype=int))).to(self.device)
+        
+        # if self.dann_mode == 'loss':
+        domain_loss = self.adv(domain_preds, domain_labels)
+        
+        # elif self.dann_mode == 'accuracy':
         with torch.no_grad():
-            t_z, t_mu, t_logvar, t_feature = self.models['imgen'](rimg)
-            t_cimage = self.models['cimgde'](t_z)
-            t_rimage = self.models['rimgde'](t_z)
-            t_center, t_depth = self.models['ctrde'](t_feature)
+            domain_acc_preds = torch.argmax(domain_preds, dim=1)
+            domain_acc_loss = torch.sum(domain_acc_preds == domain_labels) / domain_preds.shape[0]
         
-        # 3-level loss
-        feature_loss = self.feature_loss(s_feature, t_feature)
-       
-        latent_loss, mu_loss, logvar_loss = self.kd_loss(s_mu, s_logvar, t_mu, t_logvar)
-       
-        center_loss = self.recon_lossfunc(s_center, torch.squeeze(data['center']))
-        depth_loss = self.recon_lossfunc(s_depth, torch.squeeze(data['depth']))
-        image_loss = self.recon_lossfunc(s_rimage, rimg)
-        if self.with_cimg_loss:
-            image_loss += self.recon_lossfunc(s_cimage, cimg)
+        return domain_loss, domain_acc_loss, domain_acc_preds, domain_labels
+
+    def calculate_loss(self, mode, data2):
         
-        loss = feature_loss * self.feature_weight +\
-            latent_loss * self.latent_weight +\
-            image_loss * self.img_weight +\
-            center_loss * self.center_weight +\
-            depth_loss * self.depth_weight
-
-
-        self.temp_loss = {'LOSS': loss,
-                          'LATENT': latent_loss,
-                          'MU': mu_loss,
-                          'LOGVAR': logvar_loss,
-                          'FEATURE': feature_loss,
-                          'IMG': image_loss,
-                          'CTR': center_loss,
-                          'DPT': depth_loss
-                          }
-        return {'R_GT': rimg,
-                'C_GT': cimg,
-                'T_LATENT': torch.cat((t_mu, t_logvar), -1),
-                'S_LATENT': torch.cat((s_mu, s_logvar), -1),
-                'TR_PRED': t_rimage,
-                'R_PRED': s_rimage,
-                'TC_PRED': t_cimage,
-                'SC_PRED': s_cimage,
-                'GT_CTR': data['center'],
-                'S_CTR': s_center,
-                'T_CTR': t_center,
-                'GT_DPT': data['depth'],
-                'S_DPT': s_depth,
-                'T_DPT': t_depth,
-                'TAG': data['tag'],
-                'IND': data['ind']}
+        def outputs(data, mode='student'):
+            if mode == 'student':
+                # feature, z, mu, logvar = self.models['csien'](csi=data['csi'], pd=data['pd'])
+                feature, csi_f, z, mu, logvar = self.models['csien'](csi=data['csi'], pd=data['pd'])
+            elif mode == 'teacher':
+                z, mu, logvar, feature = self.models['imgen'](rimg)
+                csi_f = None
+            center, depth = self.models['ctrde'](feature)
+            cimage = self.models['cimgde'](z)
+            rimage = self.models['rimgde'](z)
+            return {
+                'feature': feature,
+                'csi_f'  : csi_f,
+                'z'      : z,
+                'mu'     : mu,
+                'logvar' : logvar,
+                'center' : center,
+                'depth'  : depth,
+                'cimage' : cimage,
+                'rimage' : rimage
+                }
+                
+        def s_losses(s_out, t_out, data):
+            # 3-level loss
+            feature_loss = self.feature_loss(s_out['feature'], t_out['feature'])
+        
+            latent_loss, mu_loss, logvar_loss = self.kd_loss(s_out['mu'], s_out['logvar'], t_out['mu'], t_out['logvar'])
+        
+            center_loss = self.mse(s_out['center'], torch.squeeze(data['center']))
+            depth_loss = self.mse(s_out['depth'], torch.squeeze(data['depth']))
+            image_loss = self.mse_sum(s_out['rimage'], rimg) / s_out['rimage'].shape[0]
+            
+            loss = latent_loss * self.latent_weight +\
+                    image_loss * self.rimg_weight +\
+                    center_loss * self.center_weight +\
+                    depth_loss * self.depth_weight
+                    
+            if self.with_feature_loss:
+                loss += feature_loss * self.feature_weight
+                
+            return {
+                'LOSS'   : loss,
+                'MU'     : mu_loss * self.latent_weight,
+                'LOGVAR' : logvar_loss * self.latent_weight,
+                'FEATURE': feature_loss * self.feature_weight,
+                'IMG'    : image_loss * self.rimg_weight,
+                'CTR'    : center_loss * self.center_weight,
+                'DPT'    : depth_loss * self.depth_weight,
+                }
+            
+        
+        source_data, target_data = data2
+            
+        cimg = torch.where(source_data['cimg'] > 0, 1., 0.)
+        rimg = source_data['rimg']
+        s_out = outputs(source_data, mode='student')
+        with torch.no_grad():
+            t_out = outputs(source_data, mode='teacher')
+        s_loss = s_losses(s_out, t_out, source_data)
+        domain_loss, domain_acc_loss, domain_preds, domain_labels = self.dann_loss(target_data, s_out['csi_f'])
+        
+        self.temp_loss = {key: value for key, value in s_loss.items()}
+        self.temp_loss['DOM'] = domain_loss * self.domain_weight
+        self.temp_loss['DOM_ACC'] = domain_acc_loss
+        self.temp_loss['LOSS'] += domain_loss * self.domain_weight
+        
+        return {
+            'R_GT'    : rimg,
+            'C_GT'    : cimg,
+            'T_LATENT': torch.cat((t_out['mu'], t_out['logvar']), -1),
+            'S_LATENT': torch.cat((s_out['mu'], s_out['logvar']), -1),
+            'TR_PRED' : t_out['rimage'],
+            'R_PRED'  : s_out['rimage'],
+            'TC_PRED' : t_out['cimage'],
+            'SC_PRED' : s_out['cimage'],
+            'GT_CTR'  : source_data['center'],
+            'S_CTR'   : s_out['center'],
+            'T_CTR'   : t_out['center'],
+            'GT_DPT'  : source_data['depth'],
+            'S_DPT'   : s_out['depth'],
+            'T_DPT'   : t_out['depth'],
+            'DOM_PRED': domain_preds,
+            'DOM_GT' : domain_labels,
+            'TAG'     : source_data['tag'],
+            'IND'     : source_data['ind']
+                }
 
     def plot_test(self, select_ind=None, select_num=8, autosave=False, **kwargs):
         figs: dict = {}
@@ -473,11 +631,15 @@ class StudentTrainer(BasicTrainer):
         figs.update(self.losslog.plot_center())
         figs.update(self.losslog.plot_test_cdf(plot_terms='all'))
         #figs.update(self.losslog.plot_tsne(plot_terms=('GT', 'T_LATENT', 'S_LATENT')))
-
+        print(f"Domain accuracy = {np.mean(self.losslog.loss['DOM_ACC'].log['test'])}")
+        print(f"Domain loss = {np.mean(self.losslog.loss['DOM'].log['test'])}")
         if autosave:
             for filename, fig in figs.items():
                 fig.savefig(f"{self.save_path}{filename}")
-
+            with open(f"{self.save_path}{self.name}_dann.txt", 'a') as logfile:
+                logfile.write(f"{self.name}\n"
+                    f"Domain accuracy = {np.mean(self.losslog.loss['DOM_ACC'].log['test'])}\n"
+                    f"Domain loss = {np.mean(self.losslog.loss['DOM'].log['test'])}")
 
 if __name__ == '__main__':
     cc = ImageEncoder(latent_dim=128).to(torch.device('cuda:7'))

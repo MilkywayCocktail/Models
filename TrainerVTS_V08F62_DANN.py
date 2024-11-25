@@ -9,11 +9,23 @@ from Trainer import BasicTrainer
 from Model import *
 from Loss import MyLossLog, MyLossCTR
 
-version = 'V08F3_DANN'
+version = 'V08F62'
+
+DANN_place =  'concat_features'
+
+if DANN_place == 'LSTM_features':
+    dmn_len = 128
+    dmn_hid = 64
+elif DANN_place == 'concat_features':
+    dmn_len = 256
+    dmn_hid = 64
+elif DANN_place == 'features':
+    dmn_len = 1536
+    dmn_hid = 256
 
 ##############################################################################
 # -------------------------------------------------------------------------- #
-# Version V08F3
+# Version V08F6
 # Teacher learns and estimates cropped images
 # Student learns (6, 30, m) CSIs and (62) filtered PhaseDiffs
 # A new branch for learning median-filtered PhaseDiff
@@ -148,7 +160,7 @@ class CenterDecoder(nn.Module):
 
     def __init__(self):
         super(CenterDecoder, self).__init__()
-        self.feature_length = 1536
+        self.feature_length = 128
 
         self.fc = nn.Sequential(
             nn.Linear(self.feature_length, 64),
@@ -228,22 +240,25 @@ class CSIEncoder(BasicCSIEncoder):
         csi_features, (final_hidden_state, final_cell_state) = self.lstm.forward(
             fea_csi.view(-1, 512 * 7, self.lstm_steps).transpose(1, 2))
         # 256-dim output
-        out = torch.cat((csi_features[:, -1, :].view(-1, self.csi_feature_length), fea_pd.view(-1, self.pd_feature_length)), -1)
-        out = self.fc_feature(out)
+        features = torch.cat((csi_features[:, -1, :].view(-1, self.csi_feature_length), fea_pd.view(-1, self.pd_feature_length)), -1)
+        out = self.fc_feature(features)
         
         mu = self.fc_mu(out)
         logvar = self.fc_logvar(out)
         z = reparameterize(mu, logvar)
         
-        # return out, z, mu, logvar
-  
-        return out, csi_features.view(-1, 128), z, mu, logvar
-    
-    
+        if DANN_place == 'features':
+            return out, out.reshape(-1, dmn_len), z, mu, logvar
+        elif DANN_place == 'LSTM_features':
+            return out, csi_features.reshape(-1, dmn_len), z, mu, logvar
+        elif DANN_place == 'concat_features':
+            return out, features.reshape(-1, dmn_len), z, mu, logvar
+        
+
 class DomainClassifier(nn.Module):
     name = 'DmnDe'
     
-    def __init__(self, input_dim=1536, hidden_dim=256):
+    def __init__(self, input_dim=dmn_len, hidden_dim=dmn_hid):
         super(DomainClassifier, self).__init__()
         self.fc1 = nn.Linear(input_dim, hidden_dim)
         self.fc2 = nn.Linear(hidden_dim, hidden_dim)
@@ -273,29 +288,8 @@ class DomainClassifier(nn.Module):
         return x 
     
 
-class DomainClassifier2(nn.Module):
-    def __init__(self):
-        super(DomainClassifier2, self).__init__()
-        
-        self.fc = nn.Sequential(
-            nn.Linear(128, 64),  # First dense layer
-            nn.ReLU(),
-            nn.Dropout(p=0.5),
-            nn.Linear(64, 64),     # Second dense layer
-            nn.ReLU(),
-            nn.Dropout(p=0.5),
-            nn.Linear(64, 2),       # Bottleneck layer
-       # Output layer
-
-        )
-
-    def forward(self, x):
-        x = self.fc(x.view(-1, 128))  # Output for classification
-        return x
-
-    
-    
 class GradientReversalLayer(Function):
+    
     @staticmethod
     def forward(ctx, input, lambda_):
         # Save lambda for later use in backward
@@ -315,14 +309,12 @@ class GradientReversalLayer(Function):
 class TeacherTrainer(BasicTrainer):
     def __init__(self,
                  beta=0.5,
-                 recon_lossfunc=nn.BCELoss(reduction='sum'),
                  *args, **kwargs):
         super(TeacherTrainer, self).__init__(*args, **kwargs)
 
         self.modality = {'rimg', 'cimg', 'center', 'depth', 'tag', 'ctr', 'dpt', 'ind'}
 
         self.beta = beta
-        self.recon_lossfunc = recon_lossfunc
 
         self.loss_terms = ('LOSS', 'KL', 'R_RECON', 'C_RECON', 'CTR', 'DPT')
         self.pred_terms = ('R_GT', 'C_GT', 
@@ -332,6 +324,8 @@ class TeacherTrainer(BasicTrainer):
                            'LAT', 'TAG', 'IND')
         self.depth_loss = nn.MSELoss()
         self.center_loss = nn.MSELoss()
+        self.bce = nn.BCEWithLogitsLoss(reduction='sum')
+        self.mse = nn.MSELoss(reduction='sum')
         
         self.losslog = MyLossCTR(name=self.name,
                            loss_terms=self.loss_terms,
@@ -345,24 +339,29 @@ class TeacherTrainer(BasicTrainer):
                        'rimgde': ImageDecoder(latent_dim=128).to(self.device),
                        'ctrde': CenterDecoder().to(self.device)
                        }
-        
+        self.kl_weight = 5.e-3
+        self.r_recon_weight = 1.e-4
+        self.c_recon_weight = 1.e-4
+                
     def kl_loss(self, mu, logvar):
         kl_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
         return kl_loss
 
-    def calculate_loss(self, data):
+    def calculate_loss(self, mode, data):
         cimg = torch.where(data['cimg'] > 0, 1., 0.)
         rimg = data['rimg']
         
         z, mu, logvar, feature = self.models['imgen'](rimg)
         rimg_re = self.models['rimgde'](z)
         cimg_re = self.models['cimgde'](z)
+        ctr, depth = self.models['ctrde'](z)
+                
         kl_loss = self.kl_loss(mu, logvar)
-        r_recon_loss = self.recon_lossfunc(rimg_re, rimg) / rimg_re.shape[0]
-        c_recon_loss = self.recon_lossfunc(cimg_re, cimg) / cimg_re.shape[0]
-        vae_loss = kl_loss * self.beta + r_recon_loss + c_recon_loss
+        r_recon_loss = self.bce(rimg_re, rimg) / rimg_re.shape[0]
+        c_recon_loss = self.bce(cimg_re, cimg) / cimg_re.shape[0]
+        vae_loss = kl_loss * self.beta * self.kl_weight + r_recon_loss * self.r_recon_weight +\
+        c_recon_loss * self.c_recon_weight
         
-        ctr, depth = self.models['ctrde'](feature)
         center_loss = self.center_loss(ctr, torch.squeeze(data['center']))
         depth_loss = self.depth_loss(depth, torch.squeeze(data['depth']))
         
@@ -387,7 +386,7 @@ class TeacherTrainer(BasicTrainer):
                 'LAT': torch.cat((mu, logvar), -1),
                 'TAG': data['tag'],
                 'IND': data['ind']
-                }
+        }
 
     def plot_test(self, select_ind=None, select_num=8, autosave=False, **kwargs):
         figs: dict = {}
@@ -407,8 +406,7 @@ class TeacherTrainer(BasicTrainer):
 class StudentTrainer(BasicTrainer):
     def __init__(self,
                  alpha=0.8,
-                 with_feature_loss=True,
-                 lstm_steps=75,
+                 lstm_steps=7,
                  *args, **kwargs):
         super(StudentTrainer, self).__init__(*args, **kwargs)
 
@@ -417,13 +415,12 @@ class StudentTrainer(BasicTrainer):
         self.alpha = alpha
         self.lambda_ = 1.
         
-        self.with_feature_loss = with_feature_loss
         self.mse_sum = nn.MSELoss(reduction='sum')
         self.mse = nn.MSELoss()
         self.bce = nn.BCEWithLogitsLoss(reduction='sum')
         self.adv = nn.CrossEntropyLoss()
 
-        self.loss_terms = ('LOSS', 'MU', 'LOGVAR', 'FEATURE', 'IMG', 'CTR', 'DPT', 'DOM', 'DOM_ACC')
+        self.loss_terms = ('LOSS', 'MU', 'LOGVAR', 'FEATURE', 'RIMG', 'CIMG', 'CTR', 'DPT', 'DOM', 'DOM_ACC')
         self.pred_terms = ('C_GT', 'R_GT',
                            'TR_PRED', 'R_PRED',
                            'TC_PRED', 'SC_PRED',
@@ -444,19 +441,17 @@ class StudentTrainer(BasicTrainer):
             'imgen' : ImageEncoder(latent_dim=128).to(self.device),
             'cimgde': ImageDecoder(latent_dim=128).to(self.device),
             'rimgde': ImageDecoder(latent_dim=128).to(self.device),
-            'csien' : CSIEncoder(latent_dim=128, lstm_steps=lstm_steps).to(self.device),
+            'csien' : CSIEncoder(latent_dim=128, lstm_steps=lstm_steps, batchnorm='batch').to(self.device),
             'ctrde': CenterDecoder().to(self.device),
-            'dmnde': DomainClassifier2().to(self.device)
+            'dmnde': DomainClassifier().to(self.device)
                 }
-        
-        self.latent_weight = 0.1
-        self.rimg_weight = 0.5e-2
+
+        self.latent_weight = 10.
+        self.rimg_weight = 0.01
+        self.cimg_weight = 1.e-4
         self.center_weight = 40.
-        self.depth_weight = 50.
-        self.feature_weight = 10
-        self.domain_weight = 0.01
-        
-        self.dann_mode = 'loss'
+        self.depth_weight = 40.
+        self.feature_weight = 0.01 * 1.e5
         
     def data_preprocess(self, mode, data2):
 
@@ -475,52 +470,59 @@ class StudentTrainer(BasicTrainer):
         target_data = to_device(target_data)
             
         return source_data, target_data
-        
+    
+    def calculate_lambda(self, max_iter=300):
+        # Sigmoid schedule for lambda: 2 / (1 + exp(-10 * p)) - 1
+        # where p is the proportion of iterations completed
+        p = self.current_ep() / max_iter
+        lambda_value = 2 / (1 + np.exp(-10 * p)) - 1
+        return min(lambda_value, 1)
+
     def kd_loss(self, mu_s, logvar_s, mu_t, logvar_t):
-        mu_loss = self.mse_sum(mu_s, mu_t) / mu_s.shape[0]
-        logvar_loss = self.mse_sum(logvar_s, logvar_t) / logvar_s.shape[0]
+        mu_loss = self.mse(mu_s, mu_t) / mu_s.shape[0]
+        logvar_loss = self.mse(logvar_s, logvar_t) / logvar_s.shape[0]
         latent_loss = self.alpha * mu_loss + (1 - self.alpha) * logvar_loss
 
         return latent_loss, mu_loss, logvar_loss
     
     def feature_loss(self, feature_s, feature_t):
-        feature_loss = self.mse(feature_s, feature_t)
+        feature_loss = self.mse(feature_s, feature_t) / feature_s.shape[0]
         return feature_loss
     
-    def dann_loss(self, target_data, s_feature):    
-        # target_feature, target_z, target_mu, target_logvar = self.models['csien'](csi=target_data['csi'], pd=target_data['pd'])
+    def dann_loss(self, target_data, s_feature):
+        self.lambda_ = self.calculate_lambda()
+        
         _, target_feature, target_z, target_mu, target_logvar = self.models['csien'](csi=target_data['csi'], pd=target_data['pd'])
         
         dann_features = torch.cat((s_feature, target_feature), dim=0)
         reversed_features = GradientReversalLayer.apply(dann_features, self.lambda_)
     
-        domain_preds = self.models['dmnde'](reversed_features)
+        domain_preds = self.models['dmnde'](reversed_features.to(self.device))
         domain_labels = torch.cat((torch.zeros(s_feature.shape[0], dtype=int), torch.ones(target_feature.shape[0], dtype=int))).to(self.device)
         
         # if self.dann_mode == 'loss':
         domain_loss = self.adv(domain_preds, domain_labels)
         
         # elif self.dann_mode == 'accuracy':
-        domain_acc_preds = torch.argmax(domain_preds, dim=1)
-        domain_acc_loss = torch.sum(domain_acc_preds == domain_labels) / 128
+        with torch.no_grad():
+            domain_acc_preds = torch.argmax(domain_preds, dim=1)
+            domain_acc_loss = torch.sum(domain_acc_preds == domain_labels) / domain_preds.shape[0]
         
         return domain_loss, domain_acc_loss
 
     def calculate_loss(self, mode, data2):
-        
         def outputs(data, mode='student'):
             if mode == 'student':
-                # feature, z, mu, logvar = self.models['csien'](csi=data['csi'], pd=data['pd'])
-                feature, csi_f, z, mu, logvar = self.models['csien'](csi=data['csi'], pd=data['pd'])
+                feature, dann_feature, z, mu, logvar = self.models['csien'](csi=data['csi'], pd=data['pd'])
             elif mode == 'teacher':
                 z, mu, logvar, feature = self.models['imgen'](rimg)
-                csi_f = None
-            center, depth = self.models['ctrde'](feature)
+                dann_feature = None
+            center, depth = self.models['ctrde'](z)
             cimage = self.models['cimgde'](z)
             rimage = self.models['rimgde'](z)
             return {
                 'feature': feature,
-                'csi_f'  : csi_f,
+                'dann_feature': dann_feature,
                 'z'      : z,
                 'mu'     : mu,
                 'logvar' : logvar,
@@ -538,35 +540,28 @@ class StudentTrainer(BasicTrainer):
         
             center_loss = self.mse(s_out['center'], torch.squeeze(data['center']))
             depth_loss = self.mse(s_out['depth'], torch.squeeze(data['depth']))
-            image_loss = self.mse_sum(s_out['rimage'], rimg) / s_out['rimage'].shape[0]
+            rimage_loss = self.mse_sum(s_out['rimage'], rimg) / s_out['rimage'].shape[0]
+            cimage_loss = self.bce(s_out['cimage'], cimg) / s_out['cimage'].shape[0]
             
             loss = latent_loss * self.latent_weight +\
-                    image_loss * self.rimg_weight +\
+                    rimage_loss * self.rimg_weight +\
+                    cimage_loss * self.cimg_weight +\
                     center_loss * self.center_weight +\
-                    depth_loss * self.depth_weight
-                    
-            if self.with_feature_loss:
-                loss += feature_loss * self.feature_weight
+                    depth_loss * self.depth_weight +\
+                    feature_loss * self.feature_weight
                 
             return {
                 'LOSS'   : loss,
-                'MU'     : mu_loss * self.latent_weight,
-                'LOGVAR' : logvar_loss * self.latent_weight,
+                'MU'     : mu_loss * self.alpha * self.latent_weight,
+                'LOGVAR' : logvar_loss * (1 - self.alpha) * self.latent_weight,
                 'FEATURE': feature_loss * self.feature_weight,
-                'IMG'    : image_loss * self.rimg_weight,
+                'RIMG'   : rimage_loss * self.rimg_weight,
+                'CIMG'   : cimage_loss * self.cimg_weight,
                 'CTR'    : center_loss * self.center_weight,
                 'DPT'    : depth_loss * self.depth_weight,
                 }
             
-        if mode == 'train' or mode =='valid':
-            source_data, target_data = data2
-        else:
-            if self.on_test == 'train':
-                # Reverse source and target on test
-                target_data, source_data = data2
-            elif self.on_test == 'test':
-                # Reversed in dataloader
-                source_data, target_data = data2
+        source_data, target_data = data2
             
         cimg = torch.where(source_data['cimg'] > 0, 1., 0.)
         rimg = source_data['rimg']
@@ -574,7 +569,7 @@ class StudentTrainer(BasicTrainer):
         with torch.no_grad():
             t_out = outputs(source_data, mode='teacher')
         s_loss = s_losses(s_out, t_out, source_data)
-        domain_loss, domain_acc_loss = self.dann_loss(target_data, s_out['csi_f'])
+        domain_loss, domain_acc_loss = self.dann_loss(target_data, s_out['dann_feature'])
         
         self.temp_loss = {key: value for key, value in s_loss.items()}
         self.temp_loss['DOM'] = domain_loss * self.domain_weight
@@ -619,6 +614,7 @@ class StudentTrainer(BasicTrainer):
                 logfile.write(f"{self.name}\n"
                     f"Domain accuracy = {np.mean(self.losslog.loss['DOM_ACC'].log['test'])}\n"
                     f"Domain loss = {np.mean(self.losslog.loss['DOM'].log['test'])}")
+
 
 if __name__ == '__main__':
     cc = ImageEncoder(latent_dim=128).to(torch.device('cuda:7'))
