@@ -511,6 +511,7 @@ class StudentTrainer(BasicTrainer):
         # where p is the proportion of iterations completed
         p = self.current_ep() / max_iter
         lambda_value = 2 / (1 + np.exp(-10 * p)) - 1
+        self.lambda_ = min(lambda_value, 1)
         return min(lambda_value, 1)
         
     def kd_loss(self, mu_s, logvar_s, mu_t, logvar_t):
@@ -525,14 +526,13 @@ class StudentTrainer(BasicTrainer):
         return feature_loss
     
     def dann_loss(self, source_data, target_data, s_feature, reverse_feature):
-        self.lambda_ = self.calculate_lambda()
+        lambda_ = self.calculate_lambda() if reverse_feature else -1.
         
         _, target_feature, target_z, target_mu, target_logvar = self.models['csien'](csi=target_data['csi'], pd=target_data['pd'])
         
         dann_features = torch.cat((s_feature, target_feature), dim=0)
         
-        if reverse_feature:
-            dann_features = GradientReversalLayer.apply(dann_features, self.lambda_)
+        dann_features = GradientReversalLayer.apply(dann_features, lambda_)
     
         domain_preds = self.models['dmnde'](dann_features.to(self.device))
         domain_labels = torch.cat((source_data['tag'][..., 0], target_data['tag'][..., 0])).to(torch.int64).to(self.device)
