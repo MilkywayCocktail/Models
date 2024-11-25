@@ -369,6 +369,12 @@ class StudentTrainer(BasicTrainer):
             'ctrde': CenterDecoder().to(self.device)
                 }
 
+        self.training_phases = {'Feature_extractor': TrainingPhase(name = 'main',
+                                                            train_module = ['csien']
+                                                            eval_module = ['imgen', 'rimgde', 'cimgde', 'ctrde'],
+                                                            verbose=False
+                                                            )}
+        
         self.latent_weight = 0.1
         self.img_weight = 1.
         self.center_weight = 1.
@@ -404,7 +410,7 @@ class StudentTrainer(BasicTrainer):
         loss = self.recon_lossfunc(recon_img * weight, rimg * weight)
         return loss
 
-    def calculate_loss(self, mode, data):
+    def calculate_loss(self, data):
         cimg = torch.where(data['cimg'] > 0, 1., 0.)
         rimg = data['rimg']
         s_feature, s_z, s_mu, s_logvar = self.models['csien'](csi=data['csi'], pd=data['pd'])
