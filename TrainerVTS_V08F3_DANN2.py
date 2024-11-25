@@ -444,10 +444,12 @@ class StudentTrainer(BasicTrainer):
         self.losslog.ctr = ['GT_CTR', 'T_CTR', 'S_CTR']
         self.losslog.dpt = ['GT_DPT', 'T_DPT', 'S_DPT']
         
+        self.device2 = kwargs.get('device2', self.device)
+        
         self.models = {
             'imgen' : ImageEncoder(latent_dim=128).to(self.device),
             'cimgde': ImageDecoder(latent_dim=128).to(self.device),
-            'rimgde': ImageDecoder(latent_dim=128).to(self.device),
+            'rimgde': ImageDecoder(latent_dim=128).to(self.device2),
             'csien' : CSIEncoder(latent_dim=128, lstm_steps=lstm_steps).to(self.device),
             'ctrde': CenterDecoder().to(self.device),
             'dmnde': DomainClassifier().to(self.device)
@@ -456,7 +458,8 @@ class StudentTrainer(BasicTrainer):
         self.training_phases = {'Feature_extractor': TrainingPhase(name = 'Feature_extractor',
                                                                    train_module = Feature_extractor_train,
                                                                    eval_module = Feature_extractor_eval,
-                                                                   verbose=False
+                                                                   verbose=True,
+                                                                   reverse_feature=True
                                                                    ),
                                 'Domain_classifier': TrainingPhase(name = 'Domain_classifier',
                                                                    train_module = Domain_classifier_train,
@@ -464,7 +467,8 @@ class StudentTrainer(BasicTrainer):
                                                                    loss = 'DOM',
                                                                    tolerance=1,
                                                                    conditioned_update=True,
-                                                                   verbose=True)
+                                                                   verbose=True,
+                                                                   reverse_feature=False)
                                 }
         self.valid_phases = {
             'source': ValidationPhase(name='source', loader='valid'),
@@ -472,6 +476,7 @@ class StudentTrainer(BasicTrainer):
         }
         
         self.early_stopping_trigger = 'target'
+       
         
         # Modify dataloader dict to match the valid phases.
         
@@ -519,15 +524,17 @@ class StudentTrainer(BasicTrainer):
         feature_loss = self.mse(feature_s, feature_t)
         return feature_loss
     
-    def dann_loss(self, source_data, target_data, s_feature):
+    def dann_loss(self, source_data, target_data, s_feature, reverse_feature):
         self.lambda_ = self.calculate_lambda()
         
         _, target_feature, target_z, target_mu, target_logvar = self.models['csien'](csi=target_data['csi'], pd=target_data['pd'])
         
         dann_features = torch.cat((s_feature, target_feature), dim=0)
-        reversed_features = GradientReversalLayer.apply(dann_features, self.lambda_)
+        
+        if reverse_feature:
+            dann_features = GradientReversalLayer.apply(dann_features, self.lambda_)
     
-        domain_preds = self.models['dmnde'](reversed_features.to(self.device))
+        domain_preds = self.models['dmnde'](dann_features.to(self.device))
         domain_labels = torch.cat((source_data['tag'][..., 0], target_data['tag'][..., 0])).to(torch.int64).to(self.device)
         
         domain_loss = self.adv(domain_preds, domain_labels)
@@ -538,16 +545,18 @@ class StudentTrainer(BasicTrainer):
         
         return domain_loss, domain_acc_loss, domain_preds, domain_labels
 
-    def calculate_loss(self, mode, data2):
+    def calculate_loss(self, data2, reverse_feature=True):
+        
         def outputs(data, mode='student'):
             if mode == 'student':
                 feature, dann_feature, z, mu, logvar = self.models['csien'](csi=data['csi'], pd=data['pd'])
             elif mode == 'teacher':
-                z, mu, logvar, feature = self.models['imgen'](rimg)
-                dann_feature = None
+                with torch.no_grad():
+                    z, mu, logvar, feature = self.models['imgen'](rimg)
+                    dann_feature = None
             center, depth = self.models['ctrde'](feature)
             cimage = self.models['cimgde'](z)
-            rimage = self.models['rimgde'](z)
+            rimage = self.models['rimgde'](z.to(self.device2))
             return {
                 'feature': feature,
                 'dann_feature': dann_feature,
@@ -568,7 +577,7 @@ class StudentTrainer(BasicTrainer):
         
             center_loss = self.mse(s_out['center'], torch.squeeze(data['center']))
             depth_loss = self.mse(s_out['depth'], torch.squeeze(data['depth']))
-            image_loss = self.mse_sum(s_out['rimage'], rimg) / s_out['rimage'].shape[0]
+            image_loss = self.mse_sum(s_out['rimage'].to(self.device), rimg) / s_out['rimage'].shape[0]
             
             loss = latent_loss * self.latent_weight +\
                     image_loss * self.rimg_weight +\
@@ -596,7 +605,10 @@ class StudentTrainer(BasicTrainer):
         with torch.no_grad():
             t_out = outputs(source_data, mode='teacher')
         s_loss = s_losses(s_out, t_out, source_data)
-        domain_loss, domain_acc_loss, domain_preds, domain_labels = self.dann_loss(source_data, target_data, s_out['dann_feature'])
+        domain_loss, domain_acc_loss, domain_preds, domain_labels = self.dann_loss(source_data, 
+                                                                                   target_data, 
+                                                                                   s_out['dann_feature'], 
+                                                                                   reverse_feature)
         
         TMP_LOSS = {key: value for key, value in s_loss.items()}
         TMP_LOSS['DOM'] = domain_loss * self.domain_weight

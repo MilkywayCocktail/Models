@@ -51,7 +51,7 @@ class ExtraParams:
 
 class EarlyStopping:
 
-    def __init__(self, min_epoch=200, early_stop_max=20, lr_decay_max=5, verbose=True, delta=0, *args, **kwargs):
+    def __init__(self, min_epoch=200, early_stop_max=10, lr_decay_max=5, verbose=True, delta=0, *args, **kwargs):
 
         self.min_epoch = min_epoch
 
@@ -101,7 +101,7 @@ class TrainingPhase:
     def __init__(self,
                  name = None,
                  train_module='all',
-                 eval_module=None,
+                 eval_module=[],
                  loss='LOSS',
                  lr=1.e-4,
                  optimizer=torch.optim.Adam,
@@ -109,7 +109,8 @@ class TrainingPhase:
                  freeze_params=None,
                  tolerance=1,
                  conditioned_update=False,
-                 verbose=False):
+                 verbose=False,
+                 **kwargs):
         
         self.name = name
         self.loss = loss
@@ -122,6 +123,9 @@ class TrainingPhase:
         self.trainable_params = None
         self.freeze_params = freeze_params
         
+        if self.eval_module is None:
+            self.eval_module = []
+        
         # IF USE FREEZE_PARAMS:
         # e.g. freeze_params = {'csien': ['fc_mu', 'fc_logvar']}
         
@@ -132,21 +136,27 @@ class TrainingPhase:
         self.conditioned_update = conditioned_update
         
         self.verbose = verbose
+        self.show_trainable_params = False
         self.PREDS = None
         self.TMP_LOSS = None
+        
+        self.kwargs = kwargs
     
     def __call__(self, models, data, calculate_loss):
         
         def update(TMP_LOSS):
             if torch.isnan(TMP_LOSS[self.loss]):
-                print(f"Phase {self.name}: NaN encountered in loss {self.loss}, skipping update.")
+                print(f"Phase {self.name}: NaN value in loss {self.loss}, skipping update.")
+            elif not torch.isfinite(TMP_LOSS[self.loss]):
+                print(f"Phase {self.name}: Infinite value in loss {self.loss}, skipping update.")
+                
             else:
                 self.scaler.scale(TMP_LOSS[self.loss]).backward()
-                
+
                 # GRADIENT CLIPPING
-                self.scaler.unscale_(self.optimizer)  # Unscale gradients for clipping if needed
-                for group in self.optimizer.param_groups:
-                    torch.nn.utils.clip_grad_norm_(group['params'], max_norm=1.0)
+                # self.scaler.unscale_(self.optimizer)  # Unscale gradients for clipping if needed
+                # for group in self.optimizer.param_groups:
+                #     torch.nn.utils.clip_grad_norm_(group['params'], max_norm=1.0)
                 # Another way:
                 # for model in models.values():
                 #    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
@@ -156,84 +166,100 @@ class TrainingPhase:
                 self.optimizer.zero_grad()
             
         # SET TRAINABLE PARAMS & LEARNING RATE
-        self.set_train_params(models)
-        self.set_eval_params(models)
-        
         if not self.optimizer:
-            self.optimizer = self.optimizer_def(self.trainable_params, self.lr)
-        
-            
-        if not self.verbose:
-            for i in range(self.tolerance):
-                with autocast():
-                    PREDS, TMP_LOSS = calculate_loss(models, data)
-                    if not self.conditioned_update:
-                        update(TMP_LOSS)
-                
-                if TMP_LOSS[self.loss] < self.current_best:
-                    self.current_best = TMP_LOSS[self.loss]
-                    if self.conditioned_update:
-                        update(TMP_LOSS)
-                    break
-                
+            self.optimizer = self.optimizer_def(self.set_params(models), self.lr)
         else:
+            _ = self.set_params(models)
+        
+        self.train_mode(models)
+        
+        progress_bar = None
+        if self.verbose:
             bar_format = '{desc}{percentage:3.0f}%|{bar}|[{postfix}]'
-            with tqdm(total=self.tolerance, bar_format=bar_format) as _tqdm:
-                for i in range(self.tolerance):
-                    PREDS, TMP_LOSS = calculate_loss(models, data)
-                    if not self.conditioned_update:
-                        update(TMP_LOSS)
-
-                    _tqdm.set_description(f" {self.name} phase: iter {i + 1}/{self.tolerance}")
-                    _tqdm.set_postfix({self.loss: f"{TMP_LOSS[self.loss].item():.4f}"})
-                    _tqdm.update(1)
+            progress_bar = tqdm(total=self.tolerance, bar_format=bar_format)
                 
-                    if TMP_LOSS[self.loss] < self.current_best:
-                        self.current_best = TMP_LOSS[self.loss]
-                        if self.conditioned_update:
-                            update(TMP_LOSS)
-                        break
+        if not self.show_trainable_params:
+            for key, model in models.items():
+                for name, param in model.named_parameters():
+                    if param.requires_grad:
+                        print(f"{key} {name}: requires_grad={param.requires_grad}")
+            self.show_trainable_params = True
+        
+        for i in range(self.tolerance):
+            # Perform loss calculation
+            with autocast():
+                PREDS, TMP_LOSS = calculate_loss(data, self.kwargs)
+            
+            # Optionally update based on the loss
+            if not self.conditioned_update:
+                update(TMP_LOSS)
+
+            # Handle progress bar updates
+            if self.verbose:
+                progress_bar.set_description(f" {self.name} phase: iter {i + 1}/{self.tolerance}")
+                progress_bar.set_postfix({self.loss: f"{TMP_LOSS[self.loss].item():.4f}"})
+                progress_bar.update(1)
+
+            # Check for improvement in the loss
+            if TMP_LOSS[self.loss] < self.current_best:
+                self.current_best = TMP_LOSS[self.loss]
+                # CONDITIONED UPDATE
+                if self.conditioned_update:
+                    update(TMP_LOSS)
+                break
+
+        # Close progress bar if used
+        if self.verbose and progress_bar is not None:
+            progress_bar.close()
             
         self.PREDS, self.TMP_LOSS = PREDS, TMP_LOSS
         return PREDS, TMP_LOSS
     
-    def set_train_params(self, models):
+    def set_params(self, models):
         self.train_module = list(models.keys()) if self.train_module == 'all' else self.train_module
+        trainable_params = []
         for model in self.train_module:
-            models[model].train()
             for name, param in models[model].named_parameters():
                 if self.freeze_params and name in self.freeze_params[model]:
                     param.requires_grad = False
                 else:
                     param.requires_grad = True
-                    
-        self.trainable_params = [{'params': models[model].parameters(), 'lr': self.lr} for model in self.train_module]
-            
-    def set_eval_params(self, models):
+                    trainable_params.append({'params': param, 'lr': self.lr})
+        
         self.eval_module = list(models.keys()) if self.eval_module == 'all' else self.eval_module
         if self.eval_module:
             for model in self.eval_module:
-                # EVAL MODULES SHOULD ALSO BE SET AS TRAIN
-                models[model].train()
                 for param in models[model].parameters():
                     param.requires_grad = False
+        
+        if self.trainable_params is None:
+            self.trainable_params = trainable_params
+            return trainable_params
+    
+    def train_mode(self, models):
+        for model in self.train_module + self.eval_module:
+            models[model].train()
+            # EVAL MODULES SHOULD ALSO BE SET AS TRAIN
                     
     def lr_decay(self):
         self.lr *= self.lr_decay_rate
+        for param_group in self.optimizer.param_groups:
+            param_group['lr'] = self.lr
         
         
 class ValidationPhase:
-    def __init__(self, name, loader='valid', best_loss='LOSS'):
+    def __init__(self, name, loader='valid', best_loss='LOSS', **kwargs):
         self.name = name
         self.loader = loader
         self.best_loss = best_loss
         self.best_val_loss = float("inf")
         self.best_vloss_ep = 0
+        self.kwargs = kwargs
         
     def __call__(self, models, data, calculate_loss):
 
         with torch.no_grad():
-            PREDS, TMP_LOSS = calculate_loss(models, data)
+            PREDS, TMP_LOSS = calculate_loss(data, self.kwargs)
             
         return PREDS, TMP_LOSS
     
@@ -430,8 +456,10 @@ class BasicTrainer:
                         for key in EPOCH_LOSS.keys():
                             EPOCH_LOSS[key].append(TMP_LOSS[key].item())
                             
-                        if epoch % 10 == 0:
+                        if epoch % 10 == 0 and idx == 0:
+                            self.losslog.reset('pred', dataset='VALID')
                             self.losslog('pred', PREDS)
+                            self.plot_test(autosave=False)
 
                         val_loss = np.average(EPOCH_LOSS['LOSS'])
                         if 0 < val_loss < phase.best_val_loss:
@@ -453,13 +481,12 @@ class BasicTrainer:
                                     )
                 for key in EPOCH_LOSS.keys():          
                     EPOCH_LOSS[key] = np.average(EPOCH_LOSS[key])
-                self.losslog(name, EPOCH_LOSS)
+                self.losslog(phase.loader, EPOCH_LOSS)
                     
             # Check output every 10 epochs
             if epoch % 10 == 0:
                 self.plot_train_loss(autosave=False)
-                self.plot_test(autosave=False)
-                self.losslog.reset('pred', dataset='VALID')
+                
                     
             # Save checkpoint every 50 epochs
             if epoch % 50 == 0:
@@ -469,7 +496,7 @@ class BasicTrainer:
             if lr_decay and self.early_stopping.decay_flag:
                 self.losslog.decay(0.5)
                 for phase in self.training_phases.values():
-                    phase.decay()
+                    phase.lr_decay()
                     
             if early_stop and self.early_stopping.stop_flag:
                 self.losslog.in_training = False
@@ -612,11 +639,16 @@ class BasicTrainer:
         for model_name, model in self.models.items():
             file_path = model_files.get(model_name)
             if file_path:
-                checkpoint = torch.load(file_path, map_location=f"cuda:{gpu}" if isinstance(gpu, int) else None)
+                checkpoint = torch.load(file_path, map_location='cpu')
                 if 'model_state_dict' in checkpoint:
                     model.load_state_dict(checkpoint['model_state_dict'])
                 else:
                     model.load_state_dict(checkpoint)
+                
+                if model_name == 'rimgde':
+                    model.to(self.device2)
+                else:
+                    model.to(self.device)
                 ep = f" at epoch {checkpoint.get('epoch')}" if checkpoint.get('epoch') else ''
                 self.start_ep = checkpoint.get('epoch', 0)
                 print(f"Loaded model {model_name}{ep} from {file_path}!")
