@@ -417,6 +417,7 @@ class DataOrganizer:
     def file_condition(self, fname, fext):
         ret = False
         typ = None
+        modality = None
         name = None
         
         if fext == '.csv':
