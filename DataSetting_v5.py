@@ -10,7 +10,9 @@ from scipy import signal
 import os
 from PIL import Image
 import pickle
-from misc import file_finder
+from misc import timer, file_finder, file_finder_multi
+from joblib import Parallel, delayed
+import time
 
 from tqdm.notebook import tqdm
 
@@ -18,6 +20,40 @@ remov = [('0709A10', 1, 8),
          ('0709A10', 1, 9),
          ('0709A53', 6, 6),
          ('0709A53', 6, 7)]
+
+subject_code = {
+    'higashinaka': 0,
+    'zhang'      : 1,
+    'chen'       : 2,
+    'wang'       : 3,
+    'jiao'       : 4,
+    'qiao'       : 5,
+    'zhang2'     : 6
+    }
+
+env_code = {
+    'A208' : 0,
+    'A308T': 1,
+    'B211' : 2,
+    'C605' : 3,
+    'A308' : 4
+    }
+
+MASK_CSI = False
+
+class Removal:
+    """
+    Remove unpaired segments from dataset.
+    """
+    def __init__(self, conditions):
+        self.conditions = conditions
+        # (csi, group, segment) tuples
+        
+    def __call__(self, labels):
+        for (csi, group, segment) in self.conditions:
+            removal = (labels['csi']==csi) & (labels['group']==group) & (labels['segment']==segment)
+            labels = labels.loc[~removal]
+        return labels
 
 
 class Raw:
@@ -82,6 +118,8 @@ class MyDataset(Dataset):
                  label,
                  csi_len=300,
                  single_pd=True,
+                 mask_csi=MASK_CSI,
+                 simple_mode=False,
                  *args, **kwargs):
 
         self.data = data
@@ -89,20 +127,48 @@ class MyDataset(Dataset):
         self.alignment = 'tail'
         self.csi_len = csi_len
         self.single_pd = single_pd
-        self.subject_code = {'higashinaka': 0,
-                             'zhang': 1,
-                             'chen': 2,
-                             'wang': 3,
-                             'jiao': 4,
-                             'qiao': 5,
-                             'zhang2': 6}
-        self.env_code = {'A208': 0,
-                         'A308T': 1,
-                         'B211': 2,
-                         'C605': 3,
-                         'A308': 4}
+        
+        self.mask_csi = mask_csi
+        self.csi_temporal_mask_prob = 0.1
+        self.csi_spatial_mask_prob = 0.2
+        
+        self.subject_code = subject_code
+        self.env_code = env_code
+                
+        self.simple_mode = simple_mode
+        self.__getitem__ = self.get_item_simple if simple_mode else self.get_item
+        
+    def get_item_simple(self, index):
+        ret: dict = {}
+        tag =  self.label.iloc[index][['env', 'subject', 'img_inds']]
+        tag['env'] = self.env_code[tag['env']]
+        tag['subject'] = self.subject_code[tag['subject']]
+        ret['tag'] = tag.to_numpy().astype(int)
+        
+        for modality, value in self.data.items():
+            if modality in ('rimg', 'cimg', 'bbx', 'ctr', 'dpt'):
+                ret[modality] = np.copy(value[img_ind])
 
-    def __getitem__(self, index):
+            elif modality == 'csi':
+                ret['csi'] = np.copy(value[csi_ind])
+                    
+                if self.mask_csi:
+                    ret['csi'] = self.random_mask_csi(ret['csi'])
+                    
+            elif modality == 'csitime':
+                ret['csitime'] = np.copy(value[csi_ind])
+                
+            elif modality == 'pd':
+                if not self.single_pd and self.alignment == 'head':
+                    pd_ind = np.arange(pd_ind, pd_ind + self.csi_len, dtype=int) 
+                elif not self.single_pd and self.alignment == 'tail':
+                    pd_ind = np.arange(pd_ind - self.csi_len, pd_ind, dtype=int)
+                        
+                ret['pd'] = np.copy(value[pd_ind])
+                
+        return ret
+
+    def get_item(self, index):
         """
         On-the-fly: select windowed CSI (and pd)
         """
@@ -115,6 +181,9 @@ class MyDataset(Dataset):
         
         # return the absolute index of sample
         ret['ind'] = self.label.index[index]
+        
+        # Label = ['env', 'subject', 'bag', 'csi', 
+        # 'group', 'segment', 'timestamp', 'img_inds', 'csi_inds']
 
         bag = self.label.iloc[index]['bag']
         img_ind = int(self.label.iloc[index]['img_inds'])
@@ -125,9 +194,10 @@ class MyDataset(Dataset):
 
         for modality, value in self.data.items():
             if modality in ('rimg', 'cimg', 'bbx', 'ctr', 'dpt'):
-                ret[modality] = np.copy(value[bag][img_ind])
+                ret[modality] = np.copy(value[img_ind])
                 if modality == 'rimg':
                     ret[modality] = ret[modality][np.newaxis, ...] # Did not make spare axis
+
 
             elif modality == 'csi':
 
@@ -135,22 +205,41 @@ class MyDataset(Dataset):
                     csi_ind = np.arange(csi_ind, csi_ind + self.csi_len, dtype=int) 
                 elif self.alignment == 'tail':
                     csi_ind = np.arange(csi_ind - self.csi_len, csi_ind, dtype=int)
+                elif self.alignment == 'single':
+                    pass
 
-                ret[modality] = np.copy(value[csi][csi_ind]) # Assume csi is n * 30 * 3
+                ret['csi'] = np.copy(value[csi][csi_ind]) # Assume csi is n * 30 * 3
+                    
+                if self.mask_csi:
+                    ret['csi'] = self.random_mask_csi(ret['csi'])
                 
             elif modality == 'pd':
-                if not self.single_pd:
-                    if self.alignment == 'head':
-                        pd_ind = np.arange(pd_ind, pd_ind + self.csi_len, dtype=int) 
-                    elif self.alignment == 'tail':
-                        pd_ind = np.arange(pd_ind - self.csi_len, pd_ind, dtype=int)
-                        
-                ret[modality] = np.copy(value[csi][pd_ind])
+                if not self.single_pd and self.alignment == 'head':
+                    pd_ind = np.arange(pd_ind, pd_ind + self.csi_len, dtype=int) 
+                elif not self.single_pd and self.alignment == 'tail':
+                    pd_ind = np.arange(pd_ind - self.csi_len, pd_ind, dtype=int)
+                    
+                ret['pd'] = np.copy(value[csi][pd_ind])
+
                 
         return ret
 
     def __len__(self):
         return len(self.label)
+    
+    def random_mask_csi(self, csi_data):
+        T, S, R = csi_data.shape
+
+        # Temporal mask: mask entire packets
+        temporal_mask = torch.rand(T) < self.csi_temporal_mask_prob
+        csi_data[temporal_mask, :, :] = 0  # Mask the entire packet
+
+        # Spatial mask: mask specific subcarrier-receiver pairs
+        spatial_mask = torch.rand(S, R) < self.csi_spatial_mask_prob
+        csi_data[:, spatial_mask] = 0  # Mask the affected subcarrier-receiver pairs
+
+        return csi_data
+    
     
 class Preprocess:
     def __init__(self, new_size=(128, 128), filter_pd=False):
@@ -163,7 +252,7 @@ class Preprocess:
     
     def __call__(self, data, modalities):
         """
-        Manually perform lazy preprocess
+        Preprocess after retrieving data
         """
         
         # Adjust key name
@@ -291,21 +380,6 @@ class CrossValidator:
         self.iter_range()
         self.current = -1
         self.current_test = None
-    
-
-class Removal:
-    """
-    Remove unpaired segments from dataset.
-    """
-    def __init__(self, conditions):
-        self.conditions = conditions
-        # (csi, group, segment) tuples
-        
-    def __call__(self, labels):
-        for (csi, group, segment) in self.conditions:
-            removal = (labels['csi']==csi) & (labels['group']==group) & (labels['segment']==segment)
-            labels = labels.loc[~removal]
-        return labels
 
 
 class DataOrganizer:
@@ -325,7 +399,7 @@ class DataOrganizer:
         
         # Data-Modality-Name
         self.data: dict = {}
-        self.modalities = ['csi', 'rimg', 'cimg', 'bbx', 'ctr', 'dpt', 'pd']
+        self.modalities = ['csi', 'rimg', 'cimg', 'ctr', 'dpt', 'pd']
         
         # Put all labels into one DataFrame
         self.total_segment_labels = pd.DataFrame(columns=['env', 'subject', 'bag', 'csi', 'group', 'segment', 'timestamp', 'img_inds', 'csi_inds'])
@@ -340,32 +414,140 @@ class DataOrganizer:
         
         self.removal = Removal(remov)
         
-    def load(self):
-        def load_single(file_path, file_name_, ext):
-            try:
-                # Load Label <subject>_matched.csv
-                if ext == '.csv' and 'matched' in file_name_ and 'checkpoint' not in file_name_:
-                    sub = file_name_[8:]
-                    sub_label = pd.read_csv(file_path)
-                    self.total_segment_labels = pd.concat([self.total_segment_labels, sub_label], ignore_index=True)
-                    print(f'Loaded {file_name_}{ext} of len {len(sub_label)}')
-                    
+    def file_condition(self, fname, fext):
+        ret = False
+        typ = None
+        name = None
+        
+        if fext == '.csv':
+            if 'matched' in fname and 'checkpoint' not in fname:
+                ret = True
+                typ = 'label'
+
+        elif fext == '.npy':
+            if not ('env' in fname or 'test' in fname or 'checkpoint' in fname):
+                name, modality = fname.split('-')
+                if modality in self.modalities:
+                    ret = True
+                    typ = 'data'
+                
+        return ret, typ, (modality, name)
+                
+    @timer
+    def load(self, multi=False):
+        
+        def load_single(fname, fext, fpath, atm, start, etc):
+            data = None
+            label = None
+            loaded = False
+
+            if typ == 'data':
                 # Load CSI and IMGs <name>-<modality>.npy
-                elif ext == '.npy':
-                    if not ('env' in file_name_ or 'test' in file_name_ or 'checkpoint' in file_name_):
-                        name, modality = file_name_.split('-')
-                        if modality in self.modalities:     
-                            if modality not in self.data.keys():
-                                self.data[modality]: dict = {}
-                            self.data[modality][name] = np.load(file_path, mmap_mode='r')
-                            print(f'Loaded {file_name_}{ext} of shape {self.data[modality][name].shape}')
-            except Exception as e:
-                print(f"\033[31mError: {e} for {file_name_}{ext}\033[0m")
+                d = np.load(fpath, mmap_mode='r')
+                data = (*etc, d) # modality, name, data
+                
+                end = time.time()
+                print(f"Loaded {fname}{fext} of {d.shape}{atm}, elapsed {(end - start):.4f} sec")
+                loaded = True
+                
+            elif typ == 'label':
+                # Load Label <subject>_matched.csv
+                label = pd.read_csv(fpath)
+                
+                end = time.time()
+                print(f"Loaded {fname}{fext} of len {len(label)}{atm}, elapsed {(end - start):.4f} sec")
+                loaded = True
+ 
+            return label, data, loaded
+        
+        def load_attempt(file_path, file_name_, ext):
+            label = None
+            data = None
+            att_max = 6
+            loaded = False
+            start = time.time()
+            for attempt in range(1, att_max):
+                if loaded:
+                    break
+                
+                atm = '' if attempt == 1 else f" at attempt {attempt}"
+                loadable, typ, etc = self.file_condition(file_name_, ext)
+                
+                if not loadable:
+                    end = time.time()
+                    print(f"\033[33mSkipping {file_name_}{ext}, elapsed {(end - start):.4f} sec\033[0m")
+                    loaded = True
+                    
+                else:
+                    try:
+                        label, data, loaded = load_single(file_name_, ext, file_path, atm, start, etc)
+
+                    except Exception as e:
+                        print(f"\033[31mError: {e} for {file_name_}{ext} (Attempt {attempt})\033[0m")
+                        if attempt == att_max:
+                            print(f"\033[31mFailed to load {file_name_}{ext} after {att_max} attempts.\033[0m")
+                            return -1, f"{file_name_}{ext}"
+
+            return label, data
+        
+        def unpack_results(label, data, fail):
+            if label is not None:
+                if isinstance(label, int) and label == -1:
+                    # Collect failure
+                    fail.append(data)
+                else:
+                    self.total_segment_labels = pd.concat((self.total_segment_labels, label), ignore_index=True)
+                    
+            if data is not None:
+                modality, name, d = data
+                if modality not in self.data.keys():
+                    self.data[modality] = {}
+                    
+                if modality in ('rimg', 'rgbimg', 'cimg'):
+                    if d.dtype == np.uint8:
+                        max_value = 255
+                    elif d.dtype == np.uint16:
+                        max_value = 65535
+                    else:
+                        raise ValueError(f"Only support uint8 or uint16, got {d.dtype}")
+                    d = d.astype(np.float32) / max_value
+                    
+                self.data[modality][name] = d
+                
+        # Main loop
+        
+        fail = []
         
         for dpath in self.data_path:
-            file_finder(dpath, load_single, process_name='Data Organizer')
+            if multi:
+                print('Multi-process loading...')
+                files = file_finder_multi(dpath, process_name="Data Organizer")
+                results = Parallel(n_jobs=8)(
+                    delayed(load_attempt)(f, file_name_, ext) for f, file_name_, ext in files
+                )
+                
+                for label, data in results:
+                    unpack_results(label, data)
+                        
+            else:
+                print('Single-process loading...')
+                # results = file_finder(dpath, load_single, process_name="Data Organizer")
+                for p, _, file_lst in os.walk(dpath):
+                    for file_name in file_lst:
+                        file_name_, ext = os.path.splitext(file_name)
+                        loadable, typ, etc = self.file_condition(file_name_, ext)
+                
+                        if not loadable:
+                            print(f"\033[33mSkipping {file_name_}{ext}\033[0m")
+                            
+                        else:
+                            start = time.time()
+                            label, data, _ = load_single(file_name_, ext, os.path.join(p, file_name), '', start, etc)
+                            unpack_results(label, data, fail)
                     
-        print(f"\nLoad complete!")         
+        print(f"\nLoad complete!")
+        if fail is not None:
+            print(f"Failed to load: {fail}")
         # self.total_segment_labels['csi_inds'] = self.total_segment_labels['csi_inds'].apply(lambda x: list(map(int, x.strip('[]').split())))
             
     def regen_plan(self, **kwargs):
@@ -393,20 +575,40 @@ class DataOrganizer:
             
         else:
             # Divide train and test
-            if self.train is None and self.test is None:
-                self.train_labels, self.test_labels, self.current_test = next(self.cross_validator)
-                self.test = self.current_test
-                self.train = ['A208', 'A308T', 'B211', 'C605']
-                self.train.remove(self.current_test)
-            else:
-                while True:
-                    train_labels, test_labels, current_test = next(self.cross_validator)
-                    if current_test == self.test:
-                        self.train_labels, self.test_labels, self.current_test = train_labels, test_labels, current_test
+                if self.train is None and self.test is None:
+                    self.train_labels, self.test_labels, self.current_test = next(self.cross_validator)
+                    if self.level == 'env':
                         self.test = self.current_test
                         self.train = ['A208', 'A308T', 'B211', 'C605']
                         self.train.remove(self.current_test)
-                        break
+                    elif self.level == 'subject':
+                        self.test = self.current_test
+                        self.train = ['higashinaka', 'zhang', 'wang', 'chen', 'jiao', 'qiao']
+                        self.train.remove(self.current_test)
+                else:
+                    while True:
+                        train_labels, test_labels, current_test = next(self.cross_validator)
+                        if current_test == self.test:
+                            self.train_labels, self.test_labels, self.current_test = train_labels, test_labels, current_test
+                            if self.level == 'env':
+                                self.train = ['A208', 'A308T', 'B211', 'C605']
+                                self.train.remove(self.current_test)
+                            elif self.level == 'subject':
+                                self.train = ['higashinaka', 'zhang', 'wang', 'chen', 'jiao', 'qiao']
+                                self.train.remove(self.current_test)
+                            break
+                        
+    def save_planned_data(self, save_path):
+        # Re-organize data from plan, reindex, and save
+        train_labels, test_labels, current_test = next(self.cross_validator)
+        re_labels = pd.DataFrame(columns=['env', 'subject', 'bag', 'csi', 'group', 'segment', 'timestamp', 'img_inds', 'csi_inds'])
+        re_data = {mod: [] for mod in self.modalities}
+        for _, row in df.iterrows():
+            csi = row['csi']
+            bag = row['bag']
+            
+            pass
+        
                     
     def gen_same_amount_plan(self, path, subset_ratio=0.1561):
         with open(path, 'rb') as f:
