@@ -509,8 +509,8 @@ class DataOrganizer:
                         max_value = 255
                     elif d.dtype == np.uint16:
                         max_value = 65535
-                    else:
-                        raise ValueError(f"Only support uint8 or uint16, got {d.dtype}")
+                    # else:
+                    #     raise ValueError(f"Only support uint8 or uint16, got {d.dtype}")
                     d = d.astype(np.float32) / max_value
                     
                 self.data[modality][name] = d
