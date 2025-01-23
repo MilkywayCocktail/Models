@@ -328,6 +328,7 @@ class BasicTrainer:
         
         self.train_batches = len(self.dataloader.get('train', []))
         self.valid_batches = len(self.dataloader.get('valid', []))
+        self.train_sampled_batches = None
         self.valid_sampled_batches = None
         
         self.training_phases = {

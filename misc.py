@@ -56,7 +56,7 @@ def file_finder(path, func, process_name=None, *args, **kwargs):
     for p, _, file_lst in os.walk(path):
         for file_name in file_lst:
             file_name_, ext = os.path.splitext(file_name)
-            print(f"Processing {file_name}...")
+            # print(f"Processing {file_name}...")
             res.append(func(os.path.join(p, file_name), file_name_, ext, *args, **kwargs))
     return res
             
