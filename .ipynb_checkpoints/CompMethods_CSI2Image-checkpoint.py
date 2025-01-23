@@ -40,14 +40,14 @@ class Preprocess:
     @staticmethod
     def calc_svd(csi):
         first_columns_of_V = []
-        
-            csi = csi.reshape(-1, 3, 3)
+            # 32 * 30 * 3 into 32 * 3 * 30
+            csi = csi.permute(0, 2, 1).reshape(-1, 30)
             for i in range(csi.shape[0]):
                 U, S, Vh = torch.linalg.svd(csi, full_matrices=False)
                 first_column_of_V = Vh.conj().T[:, 0]  # First column of V
                 first_columns_of_V.append(first_column_of_V)
 
-            first_columns_of_V = torch.angle(torch.tensor(first_columns_of_V))
+            first_columns_of_V = torch.tensor(first_columns_of_V)
             # still 32 * 3 * 30
         return first_columns_of_V
     
