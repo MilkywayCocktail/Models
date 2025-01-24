@@ -6,6 +6,8 @@ import os
 from Trainer import BasicTrainer, TrainingPhase, ValidationPhase
 from Loss import MyLossGAN
 from Model import *
+import torch.nn.functional as F
+
 
 ##############################################################################
 # -------------------------------------------------------------------------- #
@@ -30,9 +32,25 @@ version = 'CSI2Image'
 class Preprocess:
     def __init__(self, new_size=(128, 128), filter_pd=False):
         self.new_size = new_size
+        self.batch_size = 32
 
     def transform(self, tensor):
         return F.interpolate(tensor, size=self.new_size, mode='bilinear', align_corners=False)
+
+    @staticmethod
+    def calc_svd(csi):
+        first_columns_of_V = []
+        # 32 * 52 * 3 * 2 -> 32 * 52 * 3
+        csi = csi.reshape(-1, 3, 3)
+        for i in range(csi.shape[0]):
+            U, S, Vh = torch.linalg.svd(csi, full_matrices=False)
+            first_column_of_V = Vh.conj().T[:, 0]  # First column of V
+            first_columns_of_V.append(first_column_of_V)
+
+            first_columns_of_V = torch.tensor(first_columns_of_V)
+            # still 32 * 3 * 30
+        first_columns_of_V = torch.abs(torch.tensor(first_columns_of_V))
+        return first_columns_of_V
     
     def __call__(self, data, modalities):
         """
@@ -44,16 +62,7 @@ class Preprocess:
             data['rimg'] = self.transform(data['rimg'])
 
         if 'csi' in modalities:
-            first_columns_of_V = []
-            for i in range(32):
-                U, S, Vh = np.linalg.svd(A_batch[i], full_matrices=False)
-                first_column_of_V = Vh.conj().T[:, 0]  # First column of V
-                first_columns_of_V.append(first_column_of_V)
-
-            # Convert to a NumPy array for convenience
-            first_columns_of_V = np.array(first_columns_of_V)
-            
-            data['csi'] = first_column_of_V
+            data['csi'] = self.calc_svd(data['csi'])
 
         return data
 
@@ -84,7 +93,7 @@ class Generator(nn.Module):
             nn.Tanh()
         ])
         
-        self.cnn = nn.Sequential(cnn)
+        self.cnn = nn.Sequential(*cnn)
         
     def forward(self, x):
         x = self.fc(x)
@@ -114,12 +123,12 @@ class Discriminator(nn.Module):
                 nn.Dropout2d(0.25)
             ])
             
-        self.cnn = nn.Sqeuential(cnn)
+        self.cnn = nn.Sequential(*cnn)
         
-        self.fc = nn.Sequential([
+        self.fc = nn.Sequential(
             nn.Linear(8 * 8 * 256, 1),
             nn.Sigmoid()
-        ])
+        )
         
     def forward(self, x):
         x = self.cnn(x)
@@ -190,7 +199,6 @@ class CSI2ImageTrainer(BasicTrainer):
     
         self.modality = {'rimg', 'csi', 'timestmap', 'tag', 'ind'}
 
-        self.beta = beta
         self.dis_loss = nn.BCEWithLogitsLoss()
         self.gen_loss = nn.MSELoss(reduction='sum')
         
