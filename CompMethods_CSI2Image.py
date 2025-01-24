@@ -37,19 +37,16 @@ class Preprocess:
     def transform(self, tensor):
         return F.interpolate(tensor, size=self.new_size, mode='bilinear', align_corners=False)
 
-    @staticmethod
-    def calc_svd(csi):
+    def calc_svd(self, csi):
         first_columns_of_V = []
-        # 32 * 52 * 3 * 2 -> 32 * 52 * 3
+        # 32 * 30 * 3 * 3 -> (32 * 30) * 3 * 3
         csi = csi.reshape(-1, 3, 3)
         for i in range(csi.shape[0]):
             U, S, Vh = torch.linalg.svd(csi, full_matrices=False)
             first_column_of_V = Vh.conj().T[:, 0]  # First column of V
-            first_columns_of_V.append(first_column_of_V)
+            first_columns_of_V.append(torch.abs(first_column_of_V))
 
-            first_columns_of_V = torch.tensor(first_columns_of_V)
-            # still 32 * 3 * 30
-        first_columns_of_V = torch.abs(torch.tensor(first_columns_of_V))
+        first_columns_of_V = torch.stack(first_columns_of_V).reshape(self.batch_size, 150)
         return first_columns_of_V
     
     def __call__(self, data, modalities):
@@ -158,7 +155,7 @@ class Model(nn.Module):
         if self._mode == 'gen':
             re_img = self.gen(data['csi'])
             ret = {
-                're_img': img
+                're_img': re_img
             }
         
         elif self._mode == 'dis':
@@ -317,5 +314,4 @@ class CSI2ImageTrainer(BasicTrainer):
 
 if __name__ == "__main__":
 
-    m = ThroughWallTrainer()
-    print(ThroughWallTrainer.preprocess(ThroughWallTrainer, 1))
+    pass
