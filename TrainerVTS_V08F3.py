@@ -375,12 +375,12 @@ class StudentTrainer(BasicTrainer):
                                                             verbose=False
                                                             )}
         
-        self.valid_phases = {
-            'source': ValidationPhase(name='source', loader='valid'),
-            'target': ValidationPhase(name='target', loader='valid2')
-        }
+        # self.valid_phases = {
+        #     'source': ValidationPhase(name='source', loader='valid'),
+        #     'target': ValidationPhase(name='target', loader='valid2')
+        # }
         
-        self.early_stopping_trigger = 'target'
+        # self.early_stopping_trigger = 'target'
         
         self.latent_weight = 0.1
         self.img_weight = 1.
