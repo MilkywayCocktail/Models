@@ -10,6 +10,7 @@ from scipy import signal
 import os
 from PIL import Image
 import pickle
+from pandas.compat import pickle_compat
 from misc import timer, file_finder, file_finder_multi
 from joblib import Parallel, delayed
 import time
@@ -300,20 +301,22 @@ class DataOrganizer:
         else:
             # Divide train and test
             current_test = None
-            train_labels, test_labels, train_range, current_test = next(self.cross_validator)
-            
+            train_labels, test_labels, current_test = next(self.cross_validator)
+            if not isinstance(current_test, str):
+                train_range, current_test = current_test
             while True:
                 if specify_test is not None and current_test != specify_test:
-                    train_labels, test_labels, train_range, current_test = next(self.cross_validator)
-                    
+                    train_labels, test_labels, current_test = next(self.cross_validator)
+                    if not isinstance(current_test, str):
+                        train_range, current_test = current_test
                 else:
                     break
             
-            self.train_labels, self.test_labels = train_labels, test_labels
+            self.train_labels, self.test_labels, self.current_test = train_labels, test_labels, current_test
     
     def load_plan(self, path):
         with open(path, 'rb') as f:
-            plan = pickle.load(f)
+            plan = pickle_compat.load(f)
         self.cross_validator = iter(plan)
         print(f'\033[32mData Organizer: Loaded plan!\033[0m')
     
@@ -328,7 +331,7 @@ class DataOrganizer:
                     pin_memory=True):
 
         print(f'\033[32mData Organizer: Generating loaders for {mode}: '
-              f'level = {self.cross_validator.level}, current test = {self.cross_validator.current_test}\033[0m')
+              f'current test = {self.current_test}\033[0m')
         
         data = self.data.copy()
         
@@ -385,6 +388,7 @@ class DataOrganizer:
                                         batch_size=batch_size, 
                                         num_workers=num_workers,
                                         pin_memory=pin_memory,
+                                        drop_last=True,
                                         shuffle=shuffle_test,
                                         worker_init_fn=worker_init_fn
                                     )
@@ -393,7 +397,7 @@ class DataOrganizer:
         else:
             test_loader = None
         
-        return train_loader, valid_loader, test_loader, self.cross_validator.current_test
+        return train_loader, valid_loader, test_loader, self.current_test
         
         
 class DataOrganizerEXT(DataOrganizer):
