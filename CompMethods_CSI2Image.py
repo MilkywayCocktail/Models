@@ -199,7 +199,7 @@ class CSI2ImageTrainer(BasicTrainer):
         self.preprocess = Preprocess()
 
         self.dis_loss = nn.BCEWithLogitsLoss()
-        self.gen_loss = nn.MSELoss(reduction='sum')
+        self.gen_loss = nn.MSELoss()
         
         self.loss_terms = ('LOSS', 'GEN', 'DIS', 'HYB', 'HYB_GEN', 'HYB_DIS')
         self.pred_terms = ('GT', 'PRED', 'FAKE', 'DOM_GT', 'DOM_PRED', 'TAG', 'IND')
@@ -253,7 +253,7 @@ class CSI2ImageTrainer(BasicTrainer):
         
         if mode == 'gen':
             
-            loss = self.gen_loss(ret['re_img'], data['rimg']) / ret['re_img'].shape[0]
+            loss = self.gen_loss(ret['re_img'], data['rimg'])
 
             TEMP_LOSS = {
                 'LOSS': loss,

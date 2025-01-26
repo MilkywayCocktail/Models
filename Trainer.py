@@ -1,7 +1,7 @@
 import torch
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
-from torch.cuda.amp import autocast, GradScaler
+from torch.amp import autocast, GradScaler
 
 import numpy as np
 import os
@@ -195,7 +195,7 @@ class TrainingPhase:
             
             for i in range(self.tolerance):
                 # Perform loss calculation
-                with autocast():
+                with autocast(device_type='cuda'):
                     if self.loss_arg is not None:   
                         PREDS, TMP_LOSS = calculate_loss(data, self.loss_arg)
                     else:
@@ -282,7 +282,6 @@ class BasicTrainer:
     def __init__(self, name='Model', 
                  epochs=300, cuda=0,
                  dataloaders: dict = {},
-                 loss_optimizer: dict = {},
                  models = None,
                  preprocess = None,
                  modality = {'csi', 'rimg', 'tag', 'ind'},
@@ -294,8 +293,6 @@ class BasicTrainer:
         self.name = name
         self.start_ep = 1
         self.epochs = epochs
-        self.loss_optimizer = loss_optimizer
-        self.scaler = GradScaler()
 
         # Please define optimizers in this way
         # self.optimizer: dict = {'LOSS1': ['optimizer1', lr1],
@@ -460,7 +457,7 @@ class BasicTrainer:
                         logfile.write(f"{self.notion}_{self.name}\n"
                         f"Start time = {self.start_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
                         f"Total epochs = {self.current_epoch}\n"
-                        f"Best val_loss = {phase.best_val_loss} @ epoch {phase.best_vloss_ep}\n"
+                        f"Best val_loss {phase.best_loss} = {phase.best_val_loss} @ epoch {phase.best_vloss_ep}\n"
                         f"Final validation losses:\n"
                         f"{' '.join([key + ': ' + str(TMP_LOSS[key].item()) for key in TMP_LOSS.keys()])}\n"
                         )
