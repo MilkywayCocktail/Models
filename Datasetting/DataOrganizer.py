@@ -301,14 +301,18 @@ class DataOrganizer:
         else:
             # Divide train and test
             current_test = None
-            train_labels, test_labels, current_test = next(self.cross_validator)
-            if not isinstance(current_test, str):
-                train_range, current_test = current_test
+            plan = next(self.cross_validator)
+            if len(plan) == 3:
+                train_labels, test_labels, current_test = plan
+            elif len(plan) == 4:
+                train_labels, test_labels, train_range, current_test = plan
             while True:
                 if specify_test is not None and current_test != specify_test:
-                    train_labels, test_labels, current_test = next(self.cross_validator)
-                    if not isinstance(current_test, str):
-                        train_range, current_test = current_test
+                    plan = next(self.cross_validator)
+                    if len(plan) == 3:
+                        train_labels, test_labels, current_test = plan
+                    elif len(plan) == 4:
+                        train_labels, test_labels, train_range, current_test = plan
                 else:
                     break
             
