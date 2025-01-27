@@ -333,7 +333,6 @@ class BasicTrainer:
         
         self.train_batches = len(self.dataloader.get('train', []))
         self.train_sampled_batches = None
-        self.valid_sampled_batches = None
         
         self.training_phases = {
             'main': TrainingPhase(name='main',
@@ -452,10 +451,10 @@ class BasicTrainer:
                     phase.best_vloss_ep = self.current_epoch
                 
                 if phase.name == 'test':
-                    progress_bar.set_postfix({'batch': f"{idx}/{len(self.dataloaders[phase.loader])}",
+                    progress_bar.set_postfix({'batch': f"{idx}/{len(self.dataloader[phase.loader])}",
                                 'loss': f"{TMP_LOSS[phase.best_loss].item():.4f}"})
                 else:
-                    progress_bar.set_postfix({'batch': f"{idx}/{len(self.dataloaders[phase.loader])}",
+                    progress_bar.set_postfix({'batch': f"{idx}/{len(self.dataloader[phase.loader])}",
                                 'loss': f"{TMP_LOSS[phase.best_loss].item():.4f}",
                                 'current best': f"{phase.best_val_loss:.4f} @ epoch {phase.best_vloss_ep}"})
                 
@@ -560,6 +559,8 @@ class BasicTrainer:
                 
                 if name == 'default_test':
                     continue
+
+                VALID_LOSS = {loss: [] for loss in self.loss_terms}
                 
                 self.valid_epoch(VALID_LOSS, phase)
                 
