@@ -591,7 +591,7 @@ class BasicTrainer:
     @timer
     def test(self, single_test=False, loader: str = 'test', subsample_fraction=1, *args, **kwargs):
         if 'default_test' not in self.valid_phases.keys():
-            self.valid_phases['default_test'] = ValidationPhase(name='test', loader='test'),
+            self.valid_phases['default_test'] = ValidationPhase(name='test', loader='test')
         
         # Change data loader if needed
         self.valid_phases['default_test'].loader = loader
