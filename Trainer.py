@@ -1,10 +1,12 @@
 import torch
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
-# try:
-#     from torch.amp import autocast, GradScaler
-# except ImportError:
-from torch.cuda.amp import autocast, GradScaler
+try:
+    from torch.amp import autocast, GradScaler
+    _autocast_arg = {'device_type': 'cuda'}
+except ImportError:
+    from torch.cuda.amp import autocast, GradScaler
+    _autocast_arg = {}
 
 import numpy as np
 import os
@@ -198,7 +200,7 @@ class TrainingPhase:
             
             for i in range(self.tolerance):
                 # Perform loss calculation
-                with autocast(device_type='cuda'):
+                with autocast(_autocast_arg):
                     if self.loss_arg is not None:   
                         PREDS, TMP_LOSS = calculate_loss(data, self.loss_arg)
                     else:
