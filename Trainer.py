@@ -1,4 +1,4 @@
-import torch
+import torchdevice_type
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 try:
@@ -200,7 +200,7 @@ class TrainingPhase:
             
             for i in range(self.tolerance):
                 # Perform loss calculation
-                with autocast(_autocast_arg):
+                with autocast(**_autocast_arg):
                     if self.loss_arg is not None:   
                         PREDS, TMP_LOSS = calculate_loss(data, self.loss_arg)
                     else:
