@@ -9,11 +9,15 @@ from tqdm.notebook import tqdm
 from joblib import Parallel, delayed
 cp_flag = False
 if torch.cuda.is_available():
-    import cupy as cp
-    import cupyx.scipy.ndimage as cnd
-    import cupyx.scipy.signal as cps
-    from cupy.cuda import Device
     cp_flag = True
+    try:
+        import cupy as cp
+        import cupyx.scipy.ndimage as cnd
+        import cupyx.scipy.signal as cps
+        from cupy.cuda import Device
+    except ImportError:
+        cp_flag = False
+        from scipy import signal
 else:
     from scipy import signal
     
@@ -43,10 +47,10 @@ def print_result(attribute_name='result'):
 
 
 class Tester:
-    
     # Notice: set shuffle=False for test loader!
     # Test on all test samples
-    def __init__(self, name, trainer, save_path=None):
+    
+    def __init__(self, name, trainer=None, save_path=None):
         self.name = name
         self.trainer = trainer
         self.preds = None
@@ -59,6 +63,10 @@ class Tester:
         r_preds = self.trainer.losslog.preds[pred]
         tags = self.trainer.losslog.preds['TAG']
         abs_ind = self.trainer.losslog.preds['IND']
+        print(f'Loaded GT of {gt.shape}, {pred} of {r_preds.shape}, TAG of {tags.shape}, IND of {abs_ind.shape}')
+        
+        self.total_length = len(gt)
+        self.preds = pd.DataFrame(index=list(range(self.total_length)), columns=['gt', 'pred', 'tag', 'matched', 'center'])
         
         self.total_length = len(gt)
         self.preds = pd.DataFrame(index=list(range(self.total_length)), columns=['gt', 'pred', 'tag', 'matched', 'center'])
@@ -66,7 +74,25 @@ class Tester:
         # Store results by absolute indicies
         for i, ind in enumerate(abs_ind):
             self.preds.loc[int(ind), ['gt', 'pred', 'tag']] = [gt[i], r_preds[i], tags[i]]
+        
+        # Important: remove nan rows
+        self.preds = self.preds.dropna(how='all')
+        
+    def fetch_preds_from_saved(self, path):
+        gt = np.load(f'{path}_R_GT.npy')
+        r_preds = np.load(f'{path}_R_PRED.npy')
+        tags = np.load(f'{path}_TAG.npy')
+        abs_ind = np.load(f'{path}_IND.npy')
+        self.total_length = len(gt)
 
+        print(f'Loaded GT of {gt.shape}, PRED of {r_preds.shape}, TAG of {tags.shape}, IND of {abs_ind.shape}')
+        
+        self.preds = pd.DataFrame(index=list(range(self.total_length)), columns=['gt', 'pred', 'tag', 'matched', 'center'])
+        
+        # Store results by absolute indicies
+        for i, ind in enumerate(abs_ind):
+            self.preds.loc[int(ind), ['gt', 'pred', 'tag']] = [gt[i], r_preds[i], tags[i]]
+        
         # Important: remove nan rows
         self.preds = self.preds.dropna(how='all')
         
@@ -121,11 +147,12 @@ class ResultCalculator(Tester):
         
         return 1 - iou
     
-    @staticmethods
+    @staticmethod
     def snr_gt(reconstructed, ground_truth):
         signal_power = np.sum(ground_truth**2)
         noise_power = np.sum((ground_truth - reconstructed)**2)
-        snr = 10 * np.log10(signal_power / noise_power)
+        snr = 10 * np.log10((signal_power + 1e-10) / (noise_power + 1e-10))
+
         return snr
     
     @staticmethod
@@ -216,7 +243,7 @@ class ResultCalculator(Tester):
             mse = self.mse_loss(pred, gt)
             soft_iou = self.iou_loss(pred, gt)
             snr = self.snr_gt(pred, gt)
-            mssm = ssim(pred, gt)
+            mssm = ssim(pred, gt, data_range=pred.max() - pred.min())
             hist_mse = self.histogram_matching_loss(pred, gt)
             matched_res = self.matched_loss(pred, gt, scale, cuda)
 
@@ -225,7 +252,7 @@ class ResultCalculator(Tester):
                 'index'   : i,
                 'mse'     : mse,
                 'snr'     : snr,
-                'ssim'    : ssim,
+                'ssim'    : mssm,
                 'soft_iou': soft_iou,
                 'hist_mse': hist_mse
                       }

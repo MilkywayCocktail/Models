@@ -397,7 +397,7 @@ class DataOrganizer:
                                         batch_size=batch_size, 
                                         num_workers=num_workers,
                                         pin_memory=pin_memory,
-                                        drop_last=True,
+                                        drop_last=False,
                                         shuffle=shuffle_test,
                                         worker_init_fn=worker_init_fn
                                     )
