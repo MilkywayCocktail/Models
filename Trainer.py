@@ -431,18 +431,14 @@ class BasicTrainer:
                 data_ = self.data_preprocess('valid', data)
 
                 PREDS, TMP_LOSS = phase(self.models, data_, self.calculate_loss)
+                self.losslog('pred', PREDS)
+                
+                if phase.name != 'test' and self.current_epoch % 10 == 0 and idx == 1:
+                    self.plot_test(autosave=False)
                 
                 for key in VALID_LOSS.keys():
                     tmp_loss = TMP_LOSS[key].item() if key in TMP_LOSS.keys() else 0
                     VALID_LOSS[key].append(tmp_loss)
-                    
-                if phase.name == 'test':
-                    self.losslog.reset('pred', dataset=phase.loader)
-                    self.losslog('pred', PREDS)
-                elif self.current_epoch % 10 == 0 and idx == 1:
-                    self.losslog.reset('pred', dataset='VALID')
-                    self.losslog('pred', PREDS)
-                    self.plot_test(autosave=False)
 
                 val_loss = np.average(VALID_LOSS['LOSS'])
                 if 0 < val_loss < phase.best_val_loss:
@@ -555,6 +551,8 @@ class BasicTrainer:
             print('')
             for model in self.models:
                 self.models[model].eval()
+                
+            self.losslog.reset('pred', dataset='VALID')
             
             # Validate per phase
             for name, phase in self.valid_phases.items():
@@ -608,20 +606,17 @@ class BasicTrainer:
         self.valid_epoch(TEST_LOSS, self.valid_phases['default_test'])
 
         self.on_test = loader
-                   
-        for key, value in TEST_LOSS.items():          
-            TEST_LOSS[key] = np.average(value)
             
         self.losslog('test', TEST_LOSS)
     
-        for key in TEST_LOSS.keys():
-            TEST_LOSS[key] = np.average(TEST_LOSS[key])
+        for key, value in TEST_LOSS.items():          
+            TEST_LOSS[key] = np.average(value)
 
         print(f"\nTest finished. Average loss={TEST_LOSS}")
         
         with open(f"{self.save_path}{self.name}_{self.valid_phases['default_test'].name}_test.txt", 'w') as logfile:
             logfile.write(f"{self.notion}_{self.name}\n"
-            f"Start time = {self.start_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
+            f"Start time = {start_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
             f"Final test losses:\n"
             f"{' '.join([key + ': ' + str(np.average(value.item())) for key, value in TEST_LOSS.items()])}\n"
             )
