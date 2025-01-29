@@ -327,7 +327,7 @@ class BasicTrainer:
         self.current_epoch = 0
         self.early_stopping_trigger = 'main'
         
-        self.train_batches = len(self.dataloader.get('train', []))
+        self.train_batches = 0
         self.train_sampled_batches = None
         
         self.training_phases = {
@@ -521,6 +521,8 @@ class BasicTrainer:
         if subsample_fraction < 1:
             self.train_batches = int(self.train_batches * subsample_fraction)
             self.train_sampled_batches = np.random.choice(len(self.dataloader['train']), self.train_batches, replace=False)
+        else:
+            self.train_batches = len(self.dataloader['train'])
             
         self.epochs = 1000 if early_stop else self.epochs
         self.early_stopping = EarlyStopping(start_ep=self.start_ep,*args, **kwargs)
@@ -546,6 +548,7 @@ class BasicTrainer:
                 EPOCH_LOSS[key] = np.average(value)
             self.losslog('train', EPOCH_LOSS)
             self.extra_params.update()
+            self.start_ep += 1
             # clear_output(wait=True) 
 
             # =====================valid============================
