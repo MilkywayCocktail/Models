@@ -58,15 +58,11 @@ class Tester:
         self.save_path = save_path
         
     def fetch_preds(self, pred='R_PRED'):
-        
         gt = self.trainer.losslog.preds['R_GT']
         r_preds = self.trainer.losslog.preds[pred]
         tags = self.trainer.losslog.preds['TAG']
         abs_ind = self.trainer.losslog.preds['IND']
         print(f'Loaded GT of {gt.shape}, {pred} of {r_preds.shape}, TAG of {tags.shape}, IND of {abs_ind.shape}')
-        
-        self.total_length = len(gt)
-        self.preds = pd.DataFrame(index=list(range(self.total_length)), columns=['gt', 'pred', 'tag', 'matched', 'center'])
         
         self.total_length = len(gt)
         self.preds = pd.DataFrame(index=list(range(self.total_length)), columns=['gt', 'pred', 'tag', 'matched', 'center'])
@@ -95,24 +91,7 @@ class Tester:
         
         # Important: remove nan rows
         self.preds = self.preds.dropna(how='all')
-        
-    def fetch_preds_from_saved(self, path):
-        
-        gt = np.load(f'{path}_R_GT.npy')
-        r_preds = np.load(f'{path}_R_PRED.npy')
-        tags = np.load(f'{path}_TAGS.npy')
-        abs_ind = np.load(f'{path}_INDS.npy')
-        
-        self.total_length = len(gt)
-        self.preds = pd.DataFrame(index=list(range(self.total_length)), columns=['gt', 'pred', 'tag', 'matched', 'center'])
-        
-        # Store results by absolute indicies
-        for i, ind in enumerate(abs_ind):
-            self.preds.loc[int(ind), ['gt', 'pred', 'tag']] = [gt[i], r_preds[i], tags[i]]
 
-        # Important: remove nan rows
-        self.preds = self.preds.dropna(how='all')
-        
 class ResultCalculator(Tester):
     def __init__(self, *args, **kwargs):
         super(ResultCalculator, self).__init__(*args, **kwargs)
